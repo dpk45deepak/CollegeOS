@@ -31,14 +31,14 @@ export function MobileNav() {
   const basePath = getBasePath();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 border-t border-border bg-card/90 backdrop-blur-lg z-40 px-2 flex items-center justify-around">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 border-t-3 border-[var(--text)] bg-white z-40 px-2 flex items-center justify-around select-none">
       <Link
         href={`${basePath}/dashboard`}
         className={cn(
-          "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-medium transition-colors",
+          "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display transition-colors rounded-xl",
           pathname.includes("dashboard")
-            ? "text-brand-600 dark:text-brand-400 font-semibold"
-            : "text-muted-foreground hover:text-foreground"
+            ? "text-[var(--text)] bg-[var(--secondary)] border-2 border-[var(--text)] shadow-[1px_1px_0_var(--text)]"
+            : "text-[var(--text-muted)] hover:text-[var(--text)]"
         )}
       >
         <LayoutDashboard className="h-5 w-5 mb-0.5" />
@@ -48,10 +48,10 @@ export function MobileNav() {
       <Link
         href={role === "STUDENT" ? "/student/attendance" : "/teacher/attendance"}
         className={cn(
-          "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-medium transition-colors",
+          "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display transition-colors rounded-xl",
           pathname.includes("attendance")
-            ? "text-brand-600 dark:text-brand-400 font-semibold"
-            : "text-muted-foreground hover:text-foreground"
+            ? "text-[var(--text)] bg-[var(--primary)] border-2 border-[var(--text)] shadow-[1px_1px_0_var(--text)]"
+            : "text-[var(--text-muted)] hover:text-[var(--text)]"
         )}
       >
         <CalendarCheck2 className="h-5 w-5 mb-0.5" />
@@ -61,7 +61,7 @@ export function MobileNav() {
       {/* Floating Center AI Copilot Action */}
       <button
         onClick={toggleCopilot}
-        className="-mt-5 flex flex-col items-center justify-center h-12 w-12 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 text-white shadow-lg shadow-brand-500/30 active:scale-95 transition-transform"
+        className="-mt-6 flex items-center justify-center h-12 w-12 rounded-2xl bg-[var(--cta)] border-3 border-[var(--text)] text-white shadow-[3px_3px_0_var(--text)] active:scale-95 transition-transform"
         aria-label="Open AI Copilot"
       >
         <Sparkles className="h-6 w-6 animate-pulse" />
@@ -70,10 +70,10 @@ export function MobileNav() {
       <Link
         href={role === "STUDENT" ? "/student/timetable" : "/teacher/assignments"}
         className={cn(
-          "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-medium transition-colors",
+          "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display transition-colors rounded-xl",
           pathname.includes("timetable") || pathname.includes("assignments")
-            ? "text-brand-600 dark:text-brand-400 font-semibold"
-            : "text-muted-foreground hover:text-foreground"
+            ? "text-[var(--text)] bg-[var(--accent-mint)] border-2 border-[var(--text)] shadow-[1px_1px_0_var(--text)]"
+            : "text-[var(--text-muted)] hover:text-[var(--text)]"
         )}
       >
         <CalendarDays className="h-5 w-5 mb-0.5" />
@@ -82,7 +82,7 @@ export function MobileNav() {
 
       <button
         onClick={toggleSidebar}
-        className="flex flex-col items-center justify-center w-14 py-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+        className="flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
       >
         <Menu className="h-5 w-5 mb-0.5" />
         <span>More</span>

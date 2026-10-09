@@ -40,12 +40,12 @@ export function Topbar() {
   };
 
   return (
-    <header className="h-14 border-b border-border bg-card/70 backdrop-blur-md sticky top-0 z-30 px-3 sm:px-6 flex items-center justify-between gap-2">
+    <header className="h-16 border-b-3 border-[var(--text)] bg-white sticky top-0 z-30 px-3 sm:px-6 flex items-center justify-between gap-2 select-none">
       {/* Left: Mobile hamburger & Search trigger */}
       <div className="flex items-center gap-3">
         <button
           onClick={toggleSidebar}
-          className="md:hidden p-1.5 rounded-lg text-muted-foreground hover:bg-muted"
+          className="md:hidden w-9 h-9 rounded-xl border-2 border-[var(--text)] bg-white text-[var(--text)] hover:bg-[var(--secondary)] flex items-center justify-center shadow-[2px_2px_0_var(--text)] transition-colors"
           aria-label="Open navigation menu"
         >
           <Menu className="h-5 w-5" />
@@ -54,24 +54,24 @@ export function Topbar() {
         {/* Global Search Button (⌘K) */}
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/40 hover:bg-muted text-xs text-muted-foreground transition-all w-44 sm:w-64 justify-between"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border-2 border-[var(--text)] bg-[var(--bg-cream)] hover:bg-white text-xs font-bold text-[var(--text)] shadow-[2px_2px_0_var(--text)] transition-all w-48 sm:w-72 justify-between cursor-pointer"
         >
           <div className="flex items-center gap-2 truncate">
-            <Search className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">Search records, files, exams...</span>
+            <Search className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+            <span className="truncate">Search courses, records, exams...</span>
           </div>
-          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded border border-border bg-background text-[10px] font-mono font-medium text-muted-foreground shadow-2xs">
+          <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-lg border-2 border-[var(--text)] bg-white text-[10px] font-mono font-bold text-[var(--text)] shadow-[1px_1px_0_var(--text)]">
             ⌘K
           </kbd>
         </button>
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         {/* Ask AI Copilot Button */}
         <button
           onClick={toggleCopilot}
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-xs transition-all active:scale-95"
+          className="hidden sm:inline-flex btn-primary text-xs py-2 px-4 gap-1.5"
         >
           <Sparkles className="h-3.5 w-3.5 animate-pulse" />
           <span>Ask AI Copilot</span>
@@ -83,24 +83,23 @@ export function Topbar() {
         {/* Dark Mode Toggle */}
         <button
           onClick={toggleDarkMode}
-          className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="w-9 h-9 rounded-xl border-2 border-[var(--text)] bg-white text-[var(--text)] hover:bg-[var(--secondary)] flex items-center justify-center transition-colors shadow-[2px_2px_0_var(--text)] cursor-pointer"
           title={isDark ? "Switch to Light mode" : "Switch to Dark mode"}
         >
-          {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
+          {isDark ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4" />}
         </button>
 
         {/* Notifications Popover */}
         <div className="relative">
           <button
             onClick={() => setIsNotifOpen(!isNotifOpen)}
-            className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors relative"
+            className="w-9 h-9 rounded-xl border-2 border-[var(--text)] bg-white text-[var(--text)] hover:bg-[var(--secondary)] flex items-center justify-center transition-colors shadow-[2px_2px_0_var(--text)] relative cursor-pointer"
             aria-label="Open notifications"
           >
             <Bell className="h-4 w-4" />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white border border-[var(--text)]">
+                {unreadCount}
               </span>
             )}
           </button>
@@ -111,14 +110,14 @@ export function Topbar() {
                 className="fixed inset-0 z-40"
                 onClick={() => setIsNotifOpen(false)}
               />
-              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-xl border border-border bg-card p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95">
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-border">
+              <div className="absolute right-0 top-full mt-3 w-80 sm:w-96 rounded-3xl border-3 border-[var(--text)] bg-white p-4 shadow-[6px_6px_0_var(--text)] z-50 animate-in fade-in zoom-in-95">
+                <div className="flex items-center justify-between pb-3 mb-2 border-b-2 border-[var(--border)]">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-foreground">
+                    <span className="text-sm font-bold font-display text-[var(--text)]">
                       Notifications
                     </span>
                     {unreadCount > 0 && (
-                      <span className="text-[10px] bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 px-1.5 py-0.2 rounded-full font-bold">
+                      <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold border border-rose-300">
                         {unreadCount} unread
                       </span>
                     )}
@@ -126,16 +125,16 @@ export function Topbar() {
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className="text-[11px] text-brand-600 hover:underline flex items-center gap-1"
+                      className="text-xs font-bold text-[var(--cta-dark)] hover:underline flex items-center gap-1 cursor-pointer"
                     >
-                      <CheckCheck className="h-3 w-3" /> Mark all read
+                      <CheckCheck className="h-3.5 w-3.5" /> Mark all read
                     </button>
                   )}
                 </div>
 
                 <div className="max-h-80 overflow-y-auto space-y-2">
                   {notifications.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-6">
+                    <p className="text-xs font-semibold text-[var(--text-muted)] text-center py-6">
                       No notifications yet
                     </p>
                   ) : (
@@ -143,28 +142,28 @@ export function Topbar() {
                       <div
                         key={item.id}
                         onClick={() => markAsRead(item.id)}
-                        className={`p-2.5 rounded-lg text-xs cursor-pointer transition-colors ${
+                        className={`p-3 rounded-2xl text-xs cursor-pointer transition-colors border-2 ${
                           item.isRead
-                            ? "bg-transparent hover:bg-muted/50"
-                            : "bg-brand-50/50 dark:bg-brand-950/20 border border-brand-200/50 dark:border-brand-800/50"
+                            ? "bg-white border-transparent hover:bg-[var(--bg-cream)] hover:border-[var(--text)]"
+                            : "bg-[var(--accent-mint)]/30 border-[var(--text)] shadow-[2px_2px_0_var(--text)]"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <p className="font-semibold text-foreground">{item.title}</p>
-                          <span className="text-[10px] text-muted-foreground shrink-0">
+                          <p className="font-bold text-[var(--text)]">{item.title}</p>
+                          <span className="text-[10px] font-bold text-[var(--text-muted)] shrink-0">
                             {item.timestamp}
                           </span>
                         </div>
-                        <p className="text-muted-foreground mt-1 text-[11px] leading-relaxed">
+                        <p className="text-[var(--text-muted)] mt-1 text-[11px] font-semibold leading-relaxed">
                           {item.message}
                         </p>
                         {item.actionUrl && (
                           <Link
                             href={item.actionUrl}
                             onClick={() => setIsNotifOpen(false)}
-                            className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-600 hover:underline mt-1.5"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--cta-dark)] hover:underline mt-1.5"
                           >
-                            View details <ExternalLink className="h-2.5 w-2.5" />
+                            View details <ExternalLink className="h-3 w-3" />
                           </Link>
                         )}
                       </div>
@@ -180,11 +179,9 @@ export function Topbar() {
         <div className="relative">
           <button
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="flex items-center gap-2 p-1 rounded-lg hover:bg-muted transition-colors"
+            className="w-9 h-9 rounded-xl border-2 border-[var(--text)] bg-[var(--accent-mint)] text-[var(--text)] flex items-center justify-center font-bold font-display text-sm uppercase shadow-[2px_2px_0_var(--text)] hover:scale-105 transition-all cursor-pointer"
           >
-            <div className="h-7 w-7 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
-              {user?.name?.charAt(0) || "U"}
-            </div>
+            {user?.name?.charAt(0) || "U"}
           </button>
 
           {isUserMenuOpen && (
@@ -193,36 +190,36 @@ export function Topbar() {
                 className="fixed inset-0 z-40"
                 onClick={() => setIsUserMenuOpen(false)}
               />
-              <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-border bg-card p-1.5 shadow-xl z-50 animate-in fade-in zoom-in-95">
-                <div className="p-2 border-b border-border mb-1">
-                  <p className="text-xs font-semibold text-foreground truncate">{user?.name}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
+              <div className="absolute right-0 top-full mt-3 w-56 rounded-3xl border-3 border-[var(--text)] bg-white p-2 shadow-[6px_6px_0_var(--text)] z-50 animate-in fade-in zoom-in-95">
+                <div className="p-3 border-b-2 border-[var(--border)] mb-1">
+                  <p className="text-xs font-bold font-display text-[var(--text)] truncate">{user?.name}</p>
+                  <p className="text-[10px] font-bold text-[var(--text-muted)] truncate">{user?.email}</p>
                 </div>
                 <Link
                   href="/profile"
                   onClick={() => setIsUserMenuOpen(false)}
-                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs hover:bg-muted text-foreground transition-colors"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-[var(--text)] hover:bg-[var(--secondary)]/30 transition-colors"
                 >
-                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                  <User className="h-4 w-4 text-[var(--text-muted)]" />
                   My Profile
                 </Link>
                 <Link
                   href="/settings"
                   onClick={() => setIsUserMenuOpen(false)}
-                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs hover:bg-muted text-foreground transition-colors"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-[var(--text)] hover:bg-[var(--secondary)]/30 transition-colors"
                 >
-                  <Moon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Moon className="h-4 w-4 text-[var(--text-muted)]" />
                   Settings & Theme
                 </Link>
-                <div className="border-t border-border my-1" />
+                <div className="border-t-2 border-[var(--border)] my-1" />
                 <button
                   onClick={() => {
                     setIsUserMenuOpen(false);
                     logout();
                   }}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors text-left"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
                 >
-                  <LogOut className="h-3.5 w-3.5" />
+                  <LogOut className="h-4 w-4" />
                   Sign Out
                 </button>
               </div>

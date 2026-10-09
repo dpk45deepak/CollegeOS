@@ -3,27 +3,35 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none cursor-pointer",
+  "inline-flex items-center justify-center whitespace-nowrap text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cta)] disabled:pointer-events-none disabled:opacity-50 select-none cursor-pointer font-display",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow hover:bg-primary/90 active:scale-[0.98] transition-all",
+          "bg-[var(--cta)] text-white border-3 border-[var(--text)] shadow-[4px_4px_0_var(--text)] hover:shadow-[2px_2px_0_var(--text)] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none active:translate-x-[4px] active:translate-y-[4px]",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+          "bg-rose-500 text-white border-3 border-[var(--text)] shadow-[4px_4px_0_var(--text)] hover:shadow-[2px_2px_0_var(--text)] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none",
         outline:
-          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
+          "bg-white text-[var(--text)] border-3 border-[var(--text)] shadow-[3px_3px_0_var(--text)] hover:shadow-[1px_1px_0_var(--text)] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-        subtle: "bg-brand-50 text-brand-700 hover:bg-brand-100 dark:bg-brand-950/40 dark:text-brand-300",
+          "bg-[var(--secondary)] text-[var(--text)] border-3 border-[var(--text)] shadow-[4px_4px_0_var(--text)] hover:shadow-[2px_2px_0_var(--text)] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none",
+        peach:
+          "bg-[var(--primary)] text-[var(--text)] border-3 border-[var(--text)] shadow-[4px_4px_0_var(--text)] hover:shadow-[2px_2px_0_var(--text)] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none",
+        purple:
+          "bg-[var(--accent-purple)] text-[var(--text)] border-3 border-[var(--text)] shadow-[4px_4px_0_var(--text)] hover:shadow-[2px_2px_0_var(--text)] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none",
+        mint:
+          "bg-[var(--accent-mint)] text-[var(--text)] border-3 border-[var(--text)] shadow-[4px_4px_0_var(--text)] hover:shadow-[2px_2px_0_var(--text)] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none",
+        ghost:
+          "text-[var(--text)] hover:bg-[var(--secondary)]/30 hover:text-[var(--text)] rounded-xl border-2 border-transparent hover:border-[var(--text)]",
+        link: "text-[var(--cta-dark)] underline-offset-4 hover:underline",
+        subtle:
+          "bg-white/70 text-[var(--text)] hover:bg-white rounded-xl border-2 border-[var(--text)]",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-11 rounded-xl px-6 text-base font-semibold",
-        icon: "h-9 w-9",
+        default: "h-10 px-5 py-2 rounded-2xl",
+        sm: "h-8 rounded-xl px-3 text-xs",
+        lg: "h-12 rounded-2xl px-7 text-base font-bold",
+        icon: "h-10 w-10 rounded-xl",
       },
     },
     defaultVariants: {

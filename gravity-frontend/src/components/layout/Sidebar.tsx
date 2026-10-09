@@ -93,38 +93,38 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "hidden md:flex flex-col border-r border-border bg-card/60 backdrop-blur-md transition-all duration-300 relative select-none",
-        isSidebarCollapsed ? "w-16" : "w-64"
+        "hidden md:flex flex-col border-r-3 border-[var(--text)] bg-white transition-all duration-300 relative select-none z-30",
+        isSidebarCollapsed ? "w-20" : "w-64"
       )}
     >
       {/* Brand Header */}
-      <div className="flex items-center justify-between h-14 px-4 border-b border-border">
+      <div className="flex items-center justify-between h-16 px-4 border-b-3 border-[var(--text)] bg-[var(--bg-cream)]">
         {!isSidebarCollapsed && (
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-500 text-white font-black text-sm shadow-md shadow-brand-500/20">
-              A
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)] border-3 border-[var(--text)] text-[var(--text)] font-bold font-display text-base shadow-[2px_2px_0_var(--text)]">
+              <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold text-sm tracking-tight text-foreground block leading-tight">
-                College OS
+              <span className="font-bold font-display text-base tracking-tight text-[var(--text)] block leading-tight">
+                LearnHub
               </span>
-              <span className="text-[10px] text-muted-foreground block font-medium">
-                Apex Institute of Tech
+              <span className="text-[10px] font-bold text-[var(--text-muted)] block">
+                College OS
               </span>
             </div>
           </Link>
         )}
         {isSidebarCollapsed && (
           <Link href="/" className="mx-auto">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-500 text-white font-black text-sm">
-              A
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)] border-3 border-[var(--text)] text-[var(--text)] font-bold font-display text-base shadow-[2px_2px_0_var(--text)]">
+              <BookOpen className="w-5 h-5" />
             </div>
           </Link>
         )}
         <button
           onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
           className={cn(
-            "p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors",
+            "w-7 h-7 rounded-lg border-2 border-[var(--text)] bg-white text-[var(--text)] hover:bg-[var(--secondary)] flex items-center justify-center transition-colors shadow-[1px_1px_0_var(--text)]",
             isSidebarCollapsed && "hidden"
           )}
           title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -134,7 +134,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav List */}
-      <div className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+      <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1.5">
         {navLinks.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
@@ -143,10 +143,10 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-2.5 py-2 rounded-lg text-xs font-medium transition-all group relative",
+                "flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all group relative font-display",
                 isActive
-                  ? "bg-brand-50 text-brand-700 font-semibold shadow-sm dark:bg-brand-950/40 dark:text-brand-300"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ? "bg-[var(--secondary)] text-[var(--text)] border-2 border-[var(--text)] shadow-[2px_2px_0_var(--text)] translate-x-[1px] translate-y-[1px]"
+                  : "text-[var(--text-muted)] hover:bg-[var(--bg-cream)] hover:text-[var(--text)] border-2 border-transparent hover:border-[var(--text)]",
                 isSidebarCollapsed && "justify-center px-0 py-2.5"
               )}
               title={isSidebarCollapsed ? item.label : undefined}
@@ -155,15 +155,15 @@ export function Sidebar() {
                 className={cn(
                   "h-4 w-4 shrink-0 transition-colors",
                   isActive
-                    ? "text-brand-600 dark:text-brand-400"
-                    : "text-muted-foreground group-hover:text-foreground"
+                    ? "text-[var(--text)]"
+                    : "text-[var(--text-muted)] group-hover:text-[var(--text)]"
                 )}
               />
               {!isSidebarCollapsed && (
                 <span className="truncate flex-1">{item.label}</span>
               )}
               {!isSidebarCollapsed && item.badge && (
-                <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[var(--accent-purple)] text-[var(--text)] border border-[var(--text)] shadow-[1px_1px_0_var(--text)]">
                   {item.badge}
                 </span>
               )}
@@ -174,10 +174,10 @@ export function Sidebar() {
 
       {/* Footer Toggle button when collapsed */}
       {isSidebarCollapsed && (
-        <div className="p-2 border-t border-border flex justify-center">
+        <div className="p-2 border-t-3 border-[var(--text)] flex justify-center bg-[var(--bg-cream)]">
           <button
             onClick={() => setSidebarCollapsed(false)}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="w-8 h-8 rounded-xl border-2 border-[var(--text)] bg-white text-[var(--text)] hover:bg-[var(--secondary)] flex items-center justify-center transition-colors shadow-[2px_2px_0_var(--text)]"
             title="Expand sidebar"
           >
             <ChevronRight className="h-4 w-4" />
@@ -187,17 +187,17 @@ export function Sidebar() {
 
       {/* User Mini Card */}
       {!isSidebarCollapsed && (
-        <div className="p-3 border-t border-border bg-card/40">
+        <div className="p-3 border-t-3 border-[var(--text)] bg-[var(--bg-cream)]">
           <Link
             href="/profile"
-            className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-muted transition-colors"
+            className="flex items-center gap-2.5 p-2 rounded-2xl border-2 border-[var(--text)] bg-white hover:bg-[var(--secondary)]/30 transition-colors shadow-[2px_2px_0_var(--text)]"
           >
-            <div className="h-7 w-7 rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900 dark:text-brand-200 flex items-center justify-center font-bold text-xs uppercase shrink-0">
+            <div className="h-8 w-8 rounded-xl bg-[var(--accent-mint)] border-2 border-[var(--text)] text-[var(--text)] flex items-center justify-center font-bold text-xs uppercase shrink-0 shadow-[1px_1px_0_var(--text)]">
               {user?.name?.charAt(0) || "U"}
             </div>
             <div className="overflow-hidden">
-              <p className="text-xs font-medium text-foreground truncate">{user?.name}</p>
-              <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
+              <p className="text-xs font-bold text-[var(--text)] truncate font-display">{user?.name}</p>
+              <p className="text-[10px] font-bold text-[var(--text-muted)] truncate">{user?.email}</p>
             </div>
           </Link>
         </div>

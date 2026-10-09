@@ -17,7 +17,29 @@ const config: Config = {
       },
     },
     extend: {
+      borderWidth: {
+        "3": "3px",
+      },
+      fontFamily: {
+        sans: ["var(--font-nunito)", "Nunito", "sans-serif"],
+        display: ["var(--font-fredoka)", "Fredoka", "sans-serif"],
+        body: ["var(--font-nunito)", "Nunito", "sans-serif"],
+      },
       colors: {
+        edu: {
+          peach: "#fdbcb4",
+          "peach-dark": "#f5a69d",
+          blue: "#add8e6",
+          "blue-dark": "#8bc4d6",
+          cta: "#22c55e",
+          "cta-dark": "#16a34a",
+          purple: "#e6e6fa",
+          mint: "#98ff98",
+          cream: "#fff9f5",
+          text: "#2d3748",
+          "text-muted": "#64748b",
+          border: "#e2e8f0",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

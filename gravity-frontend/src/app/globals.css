@@ -1,76 +1,285 @@
+@import "https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700;800&display=swap";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 224 71.4% 4.1%;
+  :root,
+  .edu-platform {
+    --primary: #fdbcb4;
+    --primary-dark: #f5a69d;
+    --secondary: #add8e6;
+    --secondary-dark: #8bc4d6;
+    --cta: #22c55e;
+    --cta-dark: #16a34a;
+    --accent-purple: #e6e6fa;
+    --accent-mint: #98ff98;
+    --bg: #ffffff;
+    --bg-cream: #fff9f5;
+    --text: #2d3748;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+
+    /* Shadcn/Tailwind mapped variables for component compatibility */
+    --background: 28 100% 98%;
+    --foreground: 218 23% 23%;
     --card: 0 0% 100%;
-    --card-foreground: 224 71.4% 4.1%;
+    --card-foreground: 218 23% 23%;
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71.4% 4.1%;
-    --primary: 238.7 83.5% 66.7%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 220 14.3% 95.9%;
-    --secondary-foreground: 220.9 39.3% 11%;
-    --muted: 220 14.3% 95.9%;
-    --muted-foreground: 220 8.9% 46.1%;
-    --accent: 220 14.3% 95.9%;
-    --accent-foreground: 220.9 39.3% 11%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 238.7 83.5% 66.7%;
-    --radius: 0.75rem;
+    --popover-foreground: 218 23% 23%;
+    --radius: 1.25rem;
   }
 
   .dark {
-    --background: 224 71.4% 4.1%;
-    --foreground: 210 20% 98%;
-    --card: 224 71.4% 6.5%;
-    --card-foreground: 210 20% 98%;
-    --popover: 224 71.4% 6.5%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 238.7 83.5% 66.7%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 215 27.9% 16.9%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 215 27.9% 16.9%;
-    --muted-foreground: 217.9 10.6% 64.9%;
-    --accent: 215 27.9% 16.9%;
-    --accent-foreground: 210 20% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 215 27.9% 16.9%;
-    --input: 215 27.9% 16.9%;
-    --ring: 238.7 83.5% 66.7%;
+    --bg: #1f2937;
+    --bg-cream: #111827;
+    --text: #f9fafb;
+    --text-muted: #9ca3af;
+    --border: #374151;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
+  }
+
+  * {
+    border-color: var(--text);
+  }
+
+  body {
+    background-color: var(--bg-cream);
+    color: var(--text);
+    font-family: var(--font-nunito), Nunito, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-fredoka), Fredoka, sans-serif;
+    color: var(--text);
+    letter-spacing: -0.01em;
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground antialiased selection:bg-brand-500/20 selection:text-brand-700 dark:selection:text-brand-300;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  }
+/* 3px Borders */
+.border-3 {
+  border-width: 3px !important;
+}
+.border-t-3 {
+  border-top-width: 3px !important;
+}
+.border-b-3 {
+  border-bottom-width: 3px !important;
+}
+.border-l-3 {
+  border-left-width: 3px !important;
+}
+.border-r-3 {
+  border-right-width: 3px !important;
+}
+
+/* Claymorphism Cards & Surfaces */
+.clay-card {
+  background: var(--bg);
+  border: 3px solid var(--text) !important;
+  box-shadow: 6px 6px 0 var(--text), inset 0 -4px 0 rgba(0, 0, 0, 0.1);
+  border-radius: 24px;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.clay-card:hover {
+  box-shadow: 4px 4px 0 var(--text), inset 0 -4px 0 rgba(0, 0, 0, 0.1);
+  transform: translate(2px, 2px);
+}
+
+.clay-card-static {
+  background: var(--bg);
+  border: 3px solid var(--text) !important;
+  box-shadow: 6px 6px 0 var(--text), inset 0 -4px 0 rgba(0, 0, 0, 0.1);
+  border-radius: 24px;
+}
+
+.soft-clay {
+  background: var(--bg);
+  border-radius: 24px;
+  border: 3px solid var(--text) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08), inset 0 -4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+/* Clay Buttons */
+.btn-primary {
+  background: var(--cta) !important;
+  color: #ffffff !important;
+  border: 3px solid var(--text) !important;
+  box-shadow: 4px 4px 0 var(--text);
+  cursor: pointer;
+  border-radius: 16px;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem 1.75rem;
+  font-weight: 700;
+  font-family: var(--font-fredoka), Fredoka, sans-serif;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  user-select: none;
+}
+
+.btn-primary:hover {
+  box-shadow: 2px 2px 0 var(--text);
+  transform: translate(2px, 2px);
+}
+
+.btn-primary:active {
+  box-shadow: 0 0 0 var(--text);
+  transform: translate(4px, 4px);
+}
+
+.btn-secondary {
+  background: var(--secondary) !important;
+  color: var(--text) !important;
+  border: 3px solid var(--text) !important;
+  box-shadow: 4px 4px 0 var(--text);
+  cursor: pointer;
+  border-radius: 16px;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem 1.75rem;
+  font-weight: 700;
+  font-family: var(--font-fredoka), Fredoka, sans-serif;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  user-select: none;
+}
+
+.btn-secondary:hover {
+  box-shadow: 2px 2px 0 var(--text);
+  transform: translate(2px, 2px);
+}
+
+.btn-secondary:active {
+  box-shadow: 0 0 0 var(--text);
+  transform: translate(4px, 4px);
+}
+
+.btn-peach {
+  background: var(--primary) !important;
+  color: var(--text) !important;
+  border: 3px solid var(--text) !important;
+  box-shadow: 4px 4px 0 var(--text);
+  cursor: pointer;
+  border-radius: 16px;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem 1.75rem;
+  font-weight: 700;
+  font-family: var(--font-fredoka), Fredoka, sans-serif;
+  transition: all 0.15s ease;
+  display: inline-flex;
+}
+
+.btn-peach:hover {
+  box-shadow: 2px 2px 0 var(--text);
+  transform: translate(2px, 2px);
+}
+
+.btn-purple {
+  background: var(--accent-purple) !important;
+  color: var(--text) !important;
+  border: 3px solid var(--text) !important;
+  box-shadow: 4px 4px 0 var(--text);
+  cursor: pointer;
+  border-radius: 16px;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem 1.75rem;
+  font-weight: 700;
+  font-family: var(--font-fredoka), Fredoka, sans-serif;
+  transition: all 0.15s ease;
+  display: inline-flex;
+}
+
+.btn-purple:hover {
+  box-shadow: 2px 2px 0 var(--text);
+  transform: translate(2px, 2px);
+}
+
+.btn-mint {
+  background: var(--accent-mint) !important;
+  color: var(--text) !important;
+  border: 3px solid var(--text) !important;
+  box-shadow: 4px 4px 0 var(--text);
+  cursor: pointer;
+  border-radius: 16px;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem 1.75rem;
+  font-weight: 700;
+  font-family: var(--font-fredoka), Fredoka, sans-serif;
+  transition: all 0.15s ease;
+  display: inline-flex;
+}
+
+.btn-mint:hover {
+  box-shadow: 2px 2px 0 var(--text);
+  transform: translate(2px, 2px);
+}
+
+/* Clay Badge / Pill */
+.clay-pill {
+  border: 3px solid var(--text);
+  box-shadow: 2px 2px 0 var(--text);
+  border-radius: 9999px;
+  font-weight: 700;
+}
+
+/* Background Color Helpers */
+.bg-peach {
+  background-color: var(--primary);
+}
+.bg-blue {
+  background-color: var(--secondary);
+}
+.bg-purple {
+  background-color: var(--accent-purple);
+}
+.bg-mint {
+  background-color: var(--accent-mint);
+}
+.bg-cream {
+  background-color: var(--bg-cream);
+}
+
+/* Playful Blobs */
+.blob {
+  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
 }
 
 /* Custom subtle scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--bg-cream);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.4);
+  background: var(--secondary);
+  border: 2px solid var(--text);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.6);
+  background: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edu-platform *,
+  .edu-platform :before,
+  .edu-platform :after,
+  .clay-card,
+  .btn-primary,
+  .btn-secondary {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

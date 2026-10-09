@@ -1,19 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Fredoka, Nunito } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/providers/queryProvider";
 import { AppShell } from "@/components/layout/AppShell";
 
-const inter = Inter({
+const fredoka = Fredoka({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-fredoka",
   display: "swap",
-  variable: "--font-inter",
+});
+
+const nunito = Nunito({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-nunito",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "College OS | Modern AI-Powered College Operating System",
+  title: "College OS | Modern Educational Platform & Operating System",
   description:
-    "Intelligent academic operating system connecting students, faculty, and administration with live AI Copilot, attendance tracking, and smart workflows.",
+    "Playful, intelligent academic operating system connecting students, faculty, and administration with live AI Copilot, attendance tracking, and smart workflows.",
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico",
@@ -21,7 +29,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#4f46e5",
+  themeColor: "#22c55e",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -33,8 +41,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body className="min-h-screen font-sans bg-background text-foreground antialiased selection:bg-brand-500/20">
+    <html
+      lang="en"
+      className={`${fredoka.variable} ${nunito.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="min-h-screen font-sans bg-[var(--bg-cream)] text-[var(--text)] antialiased selection:bg-[#98ff98]/40 selection:text-[var(--text)]">
         <Providers>
           <AppShell>{children}</AppShell>
         </Providers>

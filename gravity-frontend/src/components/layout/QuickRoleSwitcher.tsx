@@ -30,27 +30,27 @@ export function QuickRoleSwitcher() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-2xl border-2 border-[var(--text)] bg-white hover:bg-[var(--secondary)]/30 text-xs font-bold font-display text-[var(--text)] transition-all shadow-[2px_2px_0_var(--text)] cursor-pointer"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-2xl border-2 border-border bg-card hover:bg-[var(--secondary)]/30 text-xs font-bold font-display text-foreground transition-all shadow-[2px_2px_0_var(--edu-border)] cursor-pointer"
         title="Switch simulated user role"
       >
-        <span className="flex h-2.5 w-2.5 rounded-full bg-[var(--cta)] animate-pulse border border-[var(--text)]" />
-        <span className="hidden sm:inline text-[var(--text-muted)] font-sans font-bold">Role:</span>
-        <span className="font-bold text-[var(--text)]">
+        <span className="flex h-2.5 w-2.5 rounded-full bg-[var(--cta)] animate-pulse border border-border" />
+        <span className="hidden sm:inline text-muted-foreground font-sans font-bold">Role:</span>
+        <span className="font-bold text-foreground">
           {user?.role ? user.role.replace("_", " ") : "STUDENT"}
         </span>
-        <ChevronDown className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
       </button>
 
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 top-full mt-3 w-72 rounded-3xl border-3 border-[var(--text)] bg-white p-3 shadow-[6px_6px_0_var(--text)] z-50 animate-in fade-in zoom-in-95">
-            <div className="px-2 py-1.5 border-b-2 border-[var(--border)] mb-1.5 flex items-center justify-between">
-              <span className="text-[11px] font-bold font-display tracking-wider uppercase text-[var(--text)] flex items-center gap-1.5">
+          <div className="absolute right-0 top-full mt-3 w-72 rounded-3xl border-3 border-border bg-card p-3 shadow-xl z-50 animate-in fade-in zoom-in-95">
+            <div className="px-2 py-1.5 border-b-2 border-border mb-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-bold font-display tracking-wider uppercase text-foreground flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-[var(--cta)]" />
                 Role Simulation
               </span>
-              <span className="text-[10px] text-[var(--text)] bg-[var(--accent-mint)] border border-[var(--text)] px-2 py-0.5 rounded-full font-bold shadow-[1px_1px_0_var(--text)]">
+              <span className="text-[10px] text-slate-900 bg-[var(--accent-mint)] border border-border px-2 py-0.5 rounded-full font-bold shadow-[1px_1px_0_var(--edu-border)]">
                 Live Switch
               </span>
             </div>

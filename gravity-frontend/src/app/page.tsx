@@ -1,16 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useTheme } from "next-themes";
 import {
   Sparkles,
   ArrowRight,
-  BookOpen,
-  Code,
-  Palette,
-  Database,
-  Smartphone,
-  Cloud,
   Clock,
   Briefcase,
   Award,
@@ -25,140 +20,157 @@ import {
   ShieldCheck,
   Menu,
   X,
+  Layers,
+  DollarSign,
+  Building2,
+  QrCode,
+  BadgeCheck,
+  FileText,
+  ChevronRight,
 } from "lucide-react";
 
 export default function LandingPage() {
+  const { setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedModuleCategory, setSelectedModuleCategory] = useState("All");
   const [activeTrackingTab, setActiveTrackingTab] = useState("attendance");
 
-  const categories = [
+  // Lock this page to light mode by default as requested
+  useEffect(() => {
+    setTheme("light");
+  }, [setTheme]);
+
+  const moduleCategories = [
     "All",
-    "Web Development",
-    "UI/UX Design",
-    "Data Science",
-    "Mobile Apps",
-    "Cloud Architecture",
+    "Academics",
+    "Operations",
+    "Administration",
+    "Student Life",
   ];
 
-  const courses = [
+  const erpModules = [
     {
-      id: "web-dev",
-      category: "Web Development",
-      title: "Web Development Bootcamp",
-      instructor: "Sarah Chen",
-      lessons: 48,
-      duration: "24h",
-      students: "12.5K",
-      rating: "4.9",
-      bgClass: "bg-peach",
-      icon: Code,
+      id: "attendance-engine",
+      category: "Academics",
+      title: "Smart Attendance & Safe-Bunk Engine",
+      description:
+        "Real-time biometric and faculty classroom attendance logging with automated 75% regulatory warning alerts and smart bunk prediction.",
+      metrics: "Live Sync • Instant Alert • 75% Guard",
+      badge: "Core Academic",
+      bgClass: "bg-[var(--primary)]",
+      icon: CalendarCheck2,
+      link: "/student/attendance",
     },
     {
-      id: "uiux-design",
-      category: "UI/UX Design",
-      title: "UI/UX Design Mastery",
-      instructor: "Mike Johnson",
-      lessons: 36,
-      duration: "18h",
-      students: "8.2K",
-      rating: "4.8",
-      bgClass: "bg-blue",
-      icon: Palette,
+      id: "timetable-scheduling",
+      category: "Academics",
+      title: "Conflict-Free Dynamic Timetables",
+      description:
+        "Automated classroom scheduling, faculty workload distribution, lab batch partitioning, and instant lecture substitution alerts.",
+      metrics: "Zero Clashes • Room Allocator • Lab Batches",
+      badge: "Automation",
+      bgClass: "bg-[var(--secondary)]",
+      icon: Clock,
+      link: "/student/timetable",
     },
     {
-      id: "data-science",
-      category: "Data Science",
-      title: "Data Science with Python & AI",
-      instructor: "Emily Davis",
-      lessons: 52,
-      duration: "30h",
-      students: "15.3K",
-      rating: "4.9",
-      bgClass: "bg-purple",
-      icon: Database,
+      id: "exam-grading",
+      category: "Academics",
+      title: "Examination, Moderation & CGPA Grading",
+      description:
+        "Internal assessments, practical scores moderation, automated credit weighting, SGPA calculation, and downloadable official grade cards.",
+      metrics: "Credit Transcripts • Moderation • Grade Cards",
+      badge: "Evaluation",
+      bgClass: "bg-[var(--accent-purple)]",
+      icon: Award,
+      link: "/student/exams",
     },
     {
-      id: "mobile-apps",
-      category: "Mobile Apps",
-      title: "Mobile App Development",
-      instructor: "Alex Kim",
-      lessons: 42,
-      duration: "22h",
-      students: "9.8K",
-      rating: "4.7",
-      bgClass: "bg-mint",
-      icon: Smartphone,
+      id: "tpo-placements",
+      category: "Operations",
+      title: "Training & Placement Cell (TPO) Hub",
+      description:
+        "Automated candidate shortlisting based on CGPA and zero-backlog criteria, company drive registrations, and tier-1 offer analytics.",
+      metrics: "Backlog Guard • Drive Pipeline • Tier Analytics",
+      badge: "Careers",
+      bgClass: "bg-[var(--accent-mint)]",
+      icon: Briefcase,
+      link: "/student/placements",
     },
     {
-      id: "cloud-devops",
-      category: "Cloud Architecture",
-      title: "Cloud Infrastructure & DevOps",
-      instructor: "David O'Connor",
-      lessons: 40,
-      duration: "20h",
-      students: "11.1K",
-      rating: "4.9",
-      bgClass: "bg-peach",
-      icon: Cloud,
+      id: "fees-accounts",
+      category: "Operations",
+      title: "Digital Fees, Dues & Online Receipts",
+      description:
+        "Semester tuition invoices, online payment gateway with instant receipt generation, installment schedules, and automated no-dues clearance.",
+      metrics: "Instant Receipts • Dues Clearance • Ledger Sync",
+      badge: "Finance",
+      bgClass: "bg-[var(--secondary)]",
+      icon: DollarSign,
+      link: "/student/fees",
     },
     {
-      id: "ai-agents",
-      category: "Data Science",
-      title: "Autonomous AI Agents & LLMs",
-      instructor: "Dr. Aris Thorne",
-      lessons: 34,
-      duration: "16h",
-      students: "14.2K",
-      rating: "5.0",
-      bgClass: "bg-purple",
-      icon: Sparkles,
+      id: "gatepass-grievance",
+      category: "Student Life",
+      title: "Digital Gate Pass & Student Grievance",
+      description:
+        "Warden-verified digital out-passes with QR security verification at campus gates, plus confidential grievance ticket routing directly to HOD/Dean.",
+      metrics: "QR Gate Scan • Parental SMS • 24h Triage",
+      badge: "Campus Life",
+      bgClass: "bg-[var(--primary)]",
+      icon: QrCode,
+      link: "/student/gatepass",
     },
   ];
 
-  const filteredCourses =
-    selectedCategory === "All"
-      ? courses
-      : courses.filter((c) => c.category === selectedCategory);
+  const filteredModules =
+    selectedModuleCategory === "All"
+      ? erpModules
+      : erpModules.filter((m) => m.category === selectedModuleCategory);
 
   return (
-    <div className="edu-platform min-h-screen bg-[var(--bg-cream)] text-[var(--text)] flex flex-col font-sans selection:bg-[#98ff98]/50">
-      {/* 1. Header & Floating Navigation Bar */}
+    <div className="edu-platform always-light min-h-screen bg-[var(--bg-cream)] text-[var(--text)] flex flex-col font-sans selection:bg-[#98ff98]/50">
+      {/* 1. Header & Navigation Bar (Light Mode Always, No Dark Toggle) */}
       <nav className="fixed top-4 left-4 right-4 z-50">
-        <div className="clay-card px-6 py-3.5 max-w-6xl mx-auto bg-white">
+        <div className="clay-card px-6 py-3.5 max-w-6xl mx-auto bg-[var(--bg)]">
           <div className="flex items-center justify-between">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2.5 cursor-pointer group">
               <div className="w-10 h-10 rounded-xl bg-[var(--primary)] border-3 border-[var(--text)] flex items-center justify-center shadow-[2px_2px_0_var(--text)] group-hover:scale-105 transition-transform">
-                <BookOpen className="w-5 h-5 text-[var(--text)]" />
+                <GraduationCap className="w-5 h-5 text-[var(--text)]" />
               </div>
-              <span className="text-xl font-bold font-display text-[var(--text)] tracking-tight">
-                LearnHub
-              </span>
-              <span className="hidden sm:inline-block text-[11px] font-bold bg-[var(--accent-mint)] border-2 border-[var(--text)] px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)]">
-                College OS
+              <div className="flex flex-col items-start leading-none">
+                <span className="text-xl font-bold font-display text-[var(--text)] tracking-tight">
+                  CollegeOS
+                </span>
+                <span className="text-[10px] font-bold text-[var(--cta-dark)] uppercase tracking-wider">
+                  Campus ERP
+                </span>
+              </div>
+              <span className="hidden sm:inline-block text-[11px] font-bold bg-[var(--accent-mint)] border-2 border-[var(--text)] px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)] ml-1">
+                v2.6
               </span>
             </Link>
 
             {/* Desktop Navigation Links */}
             <div className="hidden md:flex items-center gap-7">
               <a
-                href="#courses"
+                href="#modules"
                 className="text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer"
               >
-                Courses
+                ERP Modules
               </a>
               <a
                 href="#demo"
                 className="text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer"
               >
-                Live Progress
+                Live Tracking
               </a>
               <a
                 href="#features"
                 className="text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer"
               >
-                Features
+                Architecture
               </a>
               <a
                 href="#portals"
@@ -170,61 +182,63 @@ export default function LandingPage() {
                 href="#testimonials"
                 className="text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer"
               >
-                Reviews
+                Campus Voices
               </a>
             </div>
 
-            {/* Actions */}
+            {/* Desktop Actions (No Dark Toggle) */}
             <div className="hidden md:flex items-center gap-3">
               <Link href="/login">
                 <button className="px-4 py-2 text-sm font-bold text-[var(--text)] hover:text-[var(--cta-dark)] transition-colors cursor-pointer">
-                  Log In
+                  Institutional Login
                 </button>
               </Link>
               <Link href="/student/dashboard">
                 <button className="btn-primary text-sm py-2 px-5">
-                  Start Free
+                  Launch Student Hub
                 </button>
               </Link>
             </div>
 
-            {/* Mobile Hamburger Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden w-10 h-10 rounded-xl bg-[var(--secondary)] border-3 border-[var(--text)] flex items-center justify-center cursor-pointer shadow-[2px_2px_0_var(--text)]"
-              aria-label="Toggle menu"
-            >
-              {mobileMenuOpen ? (
-                <X className="w-5 h-5 text-[var(--text)]" />
-              ) : (
-                <Menu className="w-5 h-5 text-[var(--text)]" />
-              )}
-            </button>
+            {/* Mobile Hamburger Button (No Dark Toggle) */}
+            <div className="flex items-center gap-2 md:hidden">
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="w-10 h-10 rounded-xl bg-[var(--secondary)] border-3 border-[var(--text)] flex items-center justify-center cursor-pointer shadow-[2px_2px_0_var(--text)]"
+                aria-label="Toggle menu"
+              >
+                {mobileMenuOpen ? (
+                  <X className="w-5 h-5 text-[var(--text)]" />
+                ) : (
+                  <Menu className="w-5 h-5 text-[var(--text)]" />
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Mobile dropdown */}
           {mobileMenuOpen && (
             <div className="md:hidden mt-4 pt-4 border-t-3 border-[var(--border)] flex flex-col gap-3">
               <a
-                href="#courses"
+                href="#modules"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-sm font-bold py-1 text-[var(--text)]"
               >
-                Courses
+                ERP Modules
               </a>
               <a
                 href="#demo"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-sm font-bold py-1 text-[var(--text)]"
               >
-                Live Progress
+                Live Tracking
               </a>
               <a
                 href="#features"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-sm font-bold py-1 text-[var(--text)]"
               >
-                Features
+                Architecture
               </a>
               <a
                 href="#portals"
@@ -232,6 +246,13 @@ export default function LandingPage() {
                 className="text-sm font-bold py-1 text-[var(--text)]"
               >
                 Role Portals
+              </a>
+              <a
+                href="#testimonials"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm font-bold py-1 text-[var(--text)]"
+              >
+                Campus Voices
               </a>
               <div className="flex gap-2 pt-2">
                 <Link href="/login" className="flex-1">
@@ -241,7 +262,7 @@ export default function LandingPage() {
                 </Link>
                 <Link href="/student/dashboard" className="flex-1">
                   <button className="btn-primary w-full text-xs py-2">
-                    Start Free
+                    Student Hub
                   </button>
                 </Link>
               </div>
@@ -250,7 +271,7 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* 2. Hero Section with Live Preview Float */}
+      {/* 2. Hero Section with Live Student ERP Preview Card */}
       <section className="pt-28 sm:pt-36 pb-12 sm:pb-20 px-4 bg-[var(--bg-cream)] overflow-hidden relative">
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-10 sm:gap-14 items-center">
@@ -260,163 +281,184 @@ export default function LandingPage() {
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--accent-mint)] border-3 border-[var(--text)] text-sm font-bold mb-6 shadow-[3px_3px_0_var(--text)]">
                 <span className="w-2.5 h-2.5 rounded-full bg-[var(--cta)] animate-ping" />
                 <span className="w-2.5 h-2.5 rounded-full bg-[var(--cta)] -ml-4.5" />
-                <span>New: AI-Powered Learning Hub</span>
+                <span>Next-Gen Campus Intelligence • CollegeOS ERP</span>
               </div>
 
               {/* Display Headline */}
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold font-display text-[var(--text)] mb-6 leading-[1.12]">
-                Learn Anything,<br />
+                The Unified Campus<br />
                 <span className="text-[var(--cta)] underline decoration-wavy decoration-[var(--primary)]">
-                  Anytime
+                  Operating System
                 </span>
-                ,<br />
-                Anywhere!
+                <br />
+                For Higher Education.
               </h1>
 
               {/* Subtitle */}
               <p className="text-lg sm:text-xl text-[var(--text-muted)] mb-8 max-w-lg mx-auto lg:mx-0 leading-relaxed font-semibold">
-                Join millions of learners worldwide. Access 10,000+ interactive courses, smart attendance tracking, and real-time academic AI assistance.
+                Replace fragmented legacy campus tools with a single, high-clarity ERP. Unifying real-time attendance, conflict-free scheduling, AI academic advising, fee management, and campus placements.
               </p>
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-10">
                 <Link href="/student/dashboard">
                   <button className="btn-primary text-base py-3 px-7">
-                    Start Learning Free
+                    Launch Student Portal
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </button>
                 </Link>
-                <a href="#courses">
+                <Link href="/login">
                   <button className="btn-secondary text-base py-3 px-7">
-                    Browse Courses
+                    Instant Demo Roles
                   </button>
-                </a>
+                </Link>
               </div>
 
-              {/* Social Proof Metric Strip */}
+              {/* Institutional Metrics Strip */}
               <div className="flex gap-8 sm:gap-12 justify-center lg:justify-start">
                 <div className="text-center lg:text-left">
                   <div className="text-3xl font-bold font-display text-[var(--text)]">
-                    10K+
+                    99.8%
                   </div>
                   <div className="text-sm font-bold text-[var(--text-muted)]">
-                    Courses
+                    Attendance Precision
                   </div>
                 </div>
                 <div className="text-center lg:text-left">
                   <div className="text-3xl font-bold font-display text-[var(--text)]">
-                    2M+
+                    6 Roles
                   </div>
                   <div className="text-sm font-bold text-[var(--text-muted)]">
-                    Students
+                    Unified Ecosystem
                   </div>
                 </div>
                 <div className="text-center lg:text-left">
                   <div className="text-3xl font-bold font-display text-[var(--text)]">
-                    500+
+                    &lt; 24h
                   </div>
                   <div className="text-sm font-bold text-[var(--text-muted)]">
-                    Instructors
+                    Grievance Triage
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Live Preview Card Component */}
+            {/* Right Live Preview: Student ERP Live Status Card */}
             <div className="relative mx-auto w-full max-w-md lg:max-w-none">
               {/* Main Clay Card */}
-              <div className="clay-card p-6 sm:p-7 bg-white relative z-10 shadow-[8px_8px_0_var(--text)]">
-                <div className="flex items-center gap-4 mb-5">
-                  <div className="w-14 h-14 rounded-2xl bg-[var(--secondary)] border-3 border-[var(--text)] flex items-center justify-center shadow-[2px_2px_0_var(--text)]">
-                    <Code className="w-7 h-7 text-[var(--text)]" />
-                  </div>
-                  <div>
-                    <div className="font-bold font-display text-lg text-[var(--text)]">
-                      Web Development Bootcamp
+              <div className="clay-card p-6 sm:p-7 bg-[var(--bg)] relative z-10 shadow-[8px_8px_0_var(--edu-border)]">
+                {/* Header profile row */}
+                <div className="flex items-center justify-between pb-4 border-b-2 border-[var(--border)] mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[var(--secondary)] border-3 border-[var(--text)] flex items-center justify-center shadow-[2px_2px_0_var(--text)] font-bold text-lg font-display">
+                      DK
                     </div>
-                    <div className="text-xs font-bold text-[var(--text-muted)]">
-                      12 lessons • 4h 30m remaining
+                    <div>
+                      <div className="font-bold font-display text-base text-[var(--text)]">
+                        Deepak Kumar
+                      </div>
+                      <div className="text-xs font-bold text-[var(--text-muted)]">
+                        B.Tech CSE • Sem 6 (Roll: 21CS084)
+                      </div>
                     </div>
                   </div>
+                  <span className="text-[11px] font-bold bg-[var(--accent-mint)] border border-[var(--text)] px-2.5 py-1 rounded-full text-[var(--text)] shadow-[1px_1px_0_var(--text)]">
+                    Active Session
+                  </span>
                 </div>
 
-                {/* Progress Bar Widget */}
-                <div className="mb-6 p-4 rounded-2xl bg-[var(--bg-cream)] border-2 border-[var(--text)]">
-                  <div className="flex justify-between text-sm mb-2 font-bold font-display">
-                    <span className="text-[var(--text-muted)]">Course Completion</span>
-                    <span className="text-[var(--cta)]">65%</span>
+                {/* Live Attendance Metric Widget */}
+                <div className="mb-4 p-4 rounded-2xl bg-[var(--bg-cream)] border-2 border-[var(--text)]">
+                  <div className="flex justify-between items-center text-sm mb-2 font-bold font-display">
+                    <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+                      <CalendarCheck2 className="w-4 h-4 text-[var(--cta-dark)]" />
+                      Cumulative Attendance
+                    </span>
+                    <span className="text-[var(--cta-dark)] text-base">84.6%</span>
                   </div>
                   <div className="h-3.5 bg-[var(--border)] rounded-full border-2 border-[var(--text)] overflow-hidden p-[2px]">
-                    <div className="h-full w-[65%] bg-[var(--cta)] rounded-full transition-all duration-500" />
+                    <div className="h-full w-[84.6%] bg-[var(--cta)] rounded-full transition-all duration-500" />
+                  </div>
+                  <div className="flex justify-between items-center mt-2 text-[11px] font-bold">
+                    <span className="text-[var(--text-muted)]">Mandatory Cutoff: 75%</span>
+                    <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                      Safe Bunks: +4 Available
+                    </span>
                   </div>
                 </div>
 
-                {/* Live Stats Row */}
+                {/* Today's Schedule & Clearance Status */}
                 <div className="grid grid-cols-2 gap-3 mb-5">
                   <div className="p-3 rounded-xl bg-[var(--accent-mint)]/40 border-2 border-[var(--text)]">
-                    <div className="text-[11px] font-bold text-[var(--text-muted)]">
-                      Current Module
+                    <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase">
+                      Upcoming Lecture
                     </div>
-                    <div className="text-xs font-bold text-[var(--text)] truncate">
-                      Async State & APIs
+                    <div className="text-xs font-bold text-[var(--text)] truncate mt-0.5">
+                      Distributed Systems
+                    </div>
+                    <div className="text-[10px] font-semibold text-[var(--text-muted)]">
+                      10:30 AM • Hall LH-204
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-[var(--accent-purple)]/50 border-2 border-[var(--text)]">
-                    <div className="text-[11px] font-bold text-[var(--text-muted)]">
-                      Next Quiz
+                    <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase">
+                      Exam Eligibility
                     </div>
-                    <div className="text-xs font-bold text-[var(--text)]">
-                      Full Score (100%)
+                    <div className="text-xs font-bold text-emerald-700 mt-0.5 flex items-center gap-1">
+                      <BadgeCheck className="w-3.5 h-3.5" /> Dues Cleared
+                    </div>
+                    <div className="text-[10px] font-semibold text-[var(--text-muted)]">
+                      Hall Ticket Active
                     </div>
                   </div>
                 </div>
 
                 <Link href="/student/dashboard" className="block w-full">
                   <button className="w-full btn-primary text-sm py-3.5">
-                    Continue Learning
+                    Open Student Workspace
                     <Play className="w-4 h-4 ml-2 fill-current" />
                   </button>
                 </Link>
               </div>
 
               {/* Floating Decorative Badges */}
-              <div className="absolute -top-5 -right-5 z-20 w-20 h-20 rounded-2xl bg-[var(--primary)] border-3 border-[var(--text)] flex items-center justify-center shadow-[4px_4px_0_var(--text)] animate-bounce duration-1000">
-                <span className="text-3xl select-none">🎯</span>
+              <div className="absolute -top-5 -right-5 z-20 w-18 h-18 rounded-2xl bg-[var(--primary)] border-3 border-[var(--text)] flex items-center justify-center shadow-[4px_4px_0_var(--text)] animate-bounce duration-1000">
+                <span className="text-2xl select-none">🎓</span>
               </div>
               <div className="absolute -bottom-5 -left-5 z-20 w-16 h-16 rounded-2xl bg-[var(--accent-purple)] border-3 border-[var(--text)] flex items-center justify-center shadow-[4px_4px_0_var(--text)]">
-                <span className="text-2xl select-none">📚</span>
+                <span className="text-2xl select-none">📊</span>
               </div>
-              <div className="absolute top-1/2 -right-8 z-20 w-14 h-14 rounded-full bg-[var(--accent-mint)] border-3 border-[var(--text)] flex items-center justify-center shadow-[4px_4px_0_var(--text)]">
-                <span className="text-xl select-none">⭐</span>
+              <div className="absolute top-1/2 -right-8 z-20 w-14 h-14 rounded-full bg-[var(--accent-mint)] border-3 border-[var(--text)] flex items-center justify-center shadow-[3px_3px_0_var(--text)]">
+                <span className="text-xl select-none">⚡</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 3. Course Catalog Preview Grid Section */}
-      <section id="courses" className="py-14 sm:py-24 px-4 bg-white border-y-3 border-[var(--text)]">
+      {/* 3. Core CollegeOS ERP Modules Section */}
+      <section id="modules" className="py-14 sm:py-24 px-4 bg-[var(--bg)] border-y-3 border-border">
         <div className="max-w-6xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-10 sm:mb-14">
             <span className="inline-block px-5 py-2 rounded-full bg-[var(--secondary)] border-3 border-[var(--text)] text-sm font-bold font-display mb-4 shadow-[3px_3px_0_var(--text)]">
-              Popular Courses
+              Academic & Administrative Suite
             </span>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold font-display text-[var(--text)] mb-4">
-              Explore Top-Rated Courses
+              Engineered for Every Campus Workflow
             </h2>
             <p className="text-lg text-[var(--text-muted)] max-w-2xl mx-auto font-semibold">
-              Learn from industry experts and university faculty to gain real-world practical skills.
+              From classroom attendance registers to placement drives, CollegeOS consolidates entire campus operations into one responsive platform.
             </p>
 
             {/* Category Filter Pills */}
             <div className="flex flex-wrap items-center justify-center gap-2.5 mt-8">
-              {categories.map((category) => (
+              {moduleCategories.map((category) => (
                 <button
                   key={category}
-                  onClick={() => setSelectedCategory(category)}
+                  onClick={() => setSelectedModuleCategory(category)}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold border-2 border-[var(--text)] transition-all cursor-pointer ${
-                    selectedCategory === category
+                    selectedModuleCategory === category
                       ? "bg-[var(--cta)] text-white shadow-[2px_2px_0_var(--text)]"
                       : "bg-[var(--bg-cream)] text-[var(--text)] hover:bg-[var(--secondary)]"
                   }`}
@@ -427,60 +469,47 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Course Cards Grid */}
+          {/* ERP Modules Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourses.map((course) => {
-              const Icon = course.icon;
+            {filteredModules.map((module) => {
+              const Icon = module.icon;
               return (
                 <div
-                  key={course.id}
-                  className="clay-card p-6 cursor-pointer bg-white flex flex-col justify-between group hover:scale-[1.01]"
+                  key={module.id}
+                  className="clay-card p-6 cursor-pointer bg-[var(--bg)] flex flex-col justify-between group hover:scale-[1.01]"
                 >
                   <div>
-                    {/* Top Row: Icon + Star Rating */}
+                    {/* Top Row: Icon + Badge */}
                     <div className="flex items-start justify-between gap-4 mb-4">
                       <div
-                        className={`w-14 h-14 rounded-2xl border-3 border-[var(--text)] flex items-center justify-center flex-shrink-0 shadow-[2px_2px_0_var(--text)] ${course.bgClass}`}
+                        className={`w-14 h-14 rounded-2xl border-3 border-[var(--text)] flex items-center justify-center flex-shrink-0 shadow-[2px_2px_0_var(--text)] ${module.bgClass}`}
                       >
                         <Icon className="w-7 h-7 text-[var(--text)]" />
                       </div>
-                      <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-[var(--cta)]/10 border-2 border-[var(--cta)] shadow-[1px_1px_0_var(--cta)]">
-                        <Star className="w-4 h-4 text-[var(--cta)] fill-[var(--cta)]" />
-                        <span className="text-sm font-bold font-display text-[var(--cta-dark)]">
-                          {course.rating}
-                        </span>
+                      <div className="px-3 py-1 rounded-full bg-[var(--secondary)]/40 border-2 border-[var(--text)] text-xs font-bold font-display shadow-[1px_1px_0_var(--text)]">
+                        {module.badge}
                       </div>
                     </div>
 
-                    {/* Course Title & Author */}
-                    <h3 className="font-bold font-display text-xl text-[var(--text)] mb-1 group-hover:text-[var(--cta-dark)] transition-colors">
-                      {course.title}
+                    {/* Title & Description */}
+                    <h3 className="font-bold font-display text-xl text-[var(--text)] mb-2 group-hover:text-[var(--cta-dark)] transition-colors">
+                      {module.title}
                     </h3>
-                    <p className="text-xs font-bold text-[var(--text-muted)] mb-4">
-                      by {course.instructor}
+                    <p className="text-xs font-semibold text-[var(--text-muted)] leading-relaxed mb-4">
+                      {module.description}
                     </p>
                   </div>
 
-                  {/* Metadata Tokens Row */}
+                  {/* Metadata Row */}
                   <div className="pt-4 border-t-2 border-[var(--border)]">
-                    <div className="flex flex-wrap items-center justify-between text-xs font-bold text-[var(--text-muted)] gap-2">
-                      <span className="flex items-center gap-1.5">
-                        <BookOpen className="w-4 h-4 text-[var(--text)]" />
-                        {course.lessons} lessons
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="w-4 h-4 text-[var(--text)]" />
-                        {course.duration}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Users className="w-4 h-4 text-[var(--text)]" />
-                        {course.students}
-                      </span>
+                    <div className="text-[11px] font-bold text-[var(--text-muted)] flex items-center justify-between">
+                      <span>{module.metrics}</span>
                     </div>
 
-                    <Link href="/student/dashboard" className="block mt-4">
-                      <button className="w-full btn-secondary text-xs py-2.5">
-                        View Course Details
+                    <Link href={module.link} className="block mt-4">
+                      <button className="w-full btn-secondary text-xs py-2.5 flex items-center justify-center gap-1.5">
+                        Access Module
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </Link>
                   </div>
@@ -492,7 +521,7 @@ export default function LandingPage() {
           <div className="text-center mt-12">
             <Link href="/student/dashboard">
               <button className="btn-secondary text-base py-3 px-8">
-                View All 10,000+ Courses
+                Explore All Campus Features
                 <ArrowRight className="w-5 h-5 ml-2" />
               </button>
             </Link>
@@ -505,7 +534,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12 sm:mb-16">
             <span className="inline-block px-5 py-2 rounded-full bg-[var(--accent-purple)] border-3 border-[var(--text)] text-sm font-bold font-display mb-4 shadow-[3px_3px_0_var(--text)]">
-              Interactive College OS Demo
+              Interactive CollegeOS Simulation
             </span>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold font-display text-[var(--text)] mb-4">
               Real-Time Academic Progress Tracking
@@ -518,7 +547,7 @@ export default function LandingPage() {
             <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
               {[
                 { id: "attendance", label: "Safe Bunk & Attendance", icon: CalendarCheck2 },
-                { id: "assignments", label: "Smart Assignments", icon: BookOpen },
+                { id: "assignments", label: "Academic Assignments", icon: FileText },
                 { id: "placements", label: "Placement Matching", icon: Briefcase },
                 { id: "ai", label: "Autonomous AI Copilot", icon: Sparkles },
               ].map((tab) => {
@@ -531,7 +560,7 @@ export default function LandingPage() {
                     className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold font-display border-3 border-[var(--text)] transition-all cursor-pointer ${
                       isActive
                         ? "bg-[var(--cta)] text-white shadow-[4px_4px_0_var(--text)] translate-x-[1px] translate-y-[1px]"
-                        : "bg-white text-[var(--text)] shadow-[4px_4px_0_var(--text)] hover:bg-[var(--secondary)]"
+                        : "bg-[var(--bg)] text-[var(--text)] shadow-[4px_4px_0_var(--text)] hover:bg-[var(--secondary)]"
                     }`}
                   >
                     <TabIcon className="w-4 h-4" />
@@ -543,7 +572,7 @@ export default function LandingPage() {
           </div>
 
           {/* Interactive Screen Preview Container */}
-          <div className="clay-card p-6 sm:p-8 md:p-10 bg-white max-w-4xl mx-auto shadow-[8px_8px_0_var(--text)]">
+          <div className="clay-card p-6 sm:p-8 md:p-10 bg-[var(--bg)] max-w-4xl mx-auto shadow-[8px_8px_0_var(--edu-border)]">
             {activeTrackingTab === "attendance" && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b-2 border-[var(--border)]">
@@ -595,7 +624,7 @@ export default function LandingPage() {
                 <div className="p-4 rounded-2xl bg-[var(--bg-cream)] border-2 border-[var(--text)] flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm font-semibold text-[var(--text)] leading-relaxed">
-                    <strong>College AI Advice:</strong> Attending Monday&apos;s 10:00 AM lecture and Wednesday&apos;s lab will lift your DBMS attendance to <strong>75.5%</strong>, ensuring full mid-term eligibility.
+                    <strong>College AI Advice:</strong> Attending Monday&apos;s 10:00 AM lecture and Wednesday&apos;s lab will lift your DBMS attendance to <strong>75.5%</strong>, ensuring full mid-term exam eligibility.
                   </p>
                 </div>
               </div>
@@ -623,7 +652,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-white border-3 border-[var(--text)] shadow-[3px_3px_0_var(--text)]">
+                  <div className="p-4 rounded-2xl bg-[var(--bg)] border-3 border-[var(--text)] shadow-[3px_3px_0_var(--text)]">
                     <h4 className="font-bold font-display text-sm text-[var(--text)] mb-2">
                       Rubrics & Submission Checklist
                     </h4>
@@ -649,12 +678,14 @@ export default function LandingPage() {
                         Automated AI Pre-Checker
                       </div>
                       <div className="text-sm font-bold text-[var(--text)]">
-                        No formatting syntax errors detected.
+                        No formatting syntax errors detected in submission package.
                       </div>
                     </div>
-                    <button className="btn-primary text-xs py-2 w-full mt-4">
-                      Submit Assignment
-                    </button>
+                    <Link href="/student/assignments">
+                      <button className="btn-primary text-xs py-2 w-full mt-4">
+                        Submit Assignment
+                      </button>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -668,7 +699,7 @@ export default function LandingPage() {
                       High Match Tier
                     </span>
                     <h3 className="text-2xl font-bold font-display text-[var(--text)] mt-2">
-                      TCS Prime & Google Summer Placement Drive
+                      Campus Placement Drive: Top Tier Hiring
                     </h3>
                   </div>
                   <div className="text-right">
@@ -700,7 +731,7 @@ export default function LandingPage() {
                   </div>
                   <div className="p-4 rounded-2xl bg-[var(--secondary)]/40 border-3 border-[var(--text)]">
                     <div className="text-xs font-bold text-[var(--text-muted)]">
-                      Package Tier
+                      Package Range
                     </div>
                     <div className="text-xl font-bold font-display text-[var(--cta-dark)]">
                       11.5 - 18 LPA
@@ -721,7 +752,7 @@ export default function LandingPage() {
                       Apex College AI Copilot
                     </h3>
                     <p className="text-xs font-bold text-[var(--text-muted)]">
-                      Grounded in university regulations, course curriculum & hostel notices
+                      Grounded in university regulations, syllabus documents & campus notices
                     </p>
                   </div>
                 </div>
@@ -730,8 +761,8 @@ export default function LandingPage() {
                   <div className="p-3.5 rounded-2xl bg-[var(--secondary)]/30 border-2 border-[var(--text)] text-xs font-bold text-[var(--text)]">
                     👤 <em>&quot;Can I get medical leave compensation for last Friday&apos;s OS lab?&quot;</em>
                   </div>
-                  <div className="p-4 rounded-2xl bg-white border-3 border-[var(--text)] text-xs font-semibold text-[var(--text)] leading-relaxed shadow-[3px_3px_0_var(--text)]">
-                    🤖 <strong>AI Copilot:</strong> Yes! Under Apex Academic Regulation §4.2, submit your hospital medical certificate to the HOD office within <strong>7 days</strong>. I have already filled out the preliminary grievance request ticket for you!
+                  <div className="p-4 rounded-2xl bg-[var(--bg)] border-3 border-[var(--text)] text-xs font-semibold text-[var(--text)] leading-relaxed shadow-[3px_3px_0_var(--text)]">
+                    🤖 <strong>AI Copilot:</strong> Yes! Under University Academic Regulation §4.2, submit your medical prescription to the HOD office within <strong>7 days</strong>. I have already filled out the preliminary leave compensation request for you!
                   </div>
                 </div>
               </div>
@@ -740,79 +771,79 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 5. Why Choose Us / Value Proposition Features Grid */}
-      <section id="features" className="py-14 sm:py-24 px-4 bg-[var(--bg-cream)] border-t-3 border-[var(--text)]">
+      {/* 5. Architectural Advantages & Campus Security */}
+      <section id="features" className="py-14 sm:py-24 px-4 bg-[var(--bg-cream)] border-t-3 border-border">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12 sm:mb-16">
             <span className="inline-block px-5 py-2 rounded-full bg-[var(--primary)] border-3 border-[var(--text)] text-sm font-bold font-display mb-4 shadow-[3px_3px_0_var(--text)]">
-              Why Choose Us
+              Campus Architecture
             </span>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold font-display text-[var(--text)] mb-4">
-              Everything You Need to Succeed
+              Everything Your Institution Needs
             </h2>
             <p className="text-lg text-[var(--text-muted)] max-w-2xl mx-auto font-semibold">
-              Built from the ground up to give college students and faculty an enjoyable, structured, high-clarity academic hub.
+              Built specifically for engineering colleges and autonomous universities to ensure flawless compliance and speed.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Feature 1 */}
-            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-white">
+            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-[var(--bg)]">
               <div className="w-16 h-16 rounded-2xl border-3 border-[var(--text)] flex items-center justify-center mx-auto mb-5 bg-[var(--primary)] shadow-[3px_3px_0_var(--text)]">
-                <Clock className="w-8 h-8 text-[var(--text)]" />
+                <ShieldCheck className="w-8 h-8 text-[var(--text)]" />
               </div>
               <h3 className="font-bold font-display text-xl text-[var(--text)] mb-2">
-                Learn at Your Pace
+                Enterprise RBAC
               </h3>
               <p className="text-sm font-semibold text-[var(--text-muted)] leading-relaxed">
-                Access courses anytime, anywhere. Pause, rewind, and replay lessons and lab demonstrations as needed.
+                Dedicated permission silos for Students, Faculty, HODs, Exam Officers, and Administrators.
               </p>
             </div>
 
             {/* Feature 2 */}
-            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-white">
+            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-[var(--bg)]">
               <div className="w-16 h-16 rounded-2xl border-3 border-[var(--text)] flex items-center justify-center mx-auto mb-5 bg-[var(--secondary)] shadow-[3px_3px_0_var(--text)]">
-                <Briefcase className="w-8 h-8 text-[var(--text)]" />
+                <Sparkles className="w-8 h-8 text-[var(--text)]" />
               </div>
               <h3 className="font-bold font-display text-xl text-[var(--text)] mb-2">
-                Expert Instructors
+                Grounded AI Copilot
               </h3>
               <p className="text-sm font-semibold text-[var(--text-muted)] leading-relaxed">
-                Learn from university professors and industry engineers with decades of real-world production experience.
+                Trained on university ordinances, course catalogs, exam rules, and syllabus circulars.
               </p>
             </div>
 
             {/* Feature 3 */}
-            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-white">
+            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-[var(--bg)]">
               <div className="w-16 h-16 rounded-2xl border-3 border-[var(--text)] flex items-center justify-center mx-auto mb-5 bg-[var(--accent-purple)] shadow-[3px_3px_0_var(--text)]">
-                <Award className="w-8 h-8 text-[var(--text)]" />
+                <Layers className="w-8 h-8 text-[var(--text)]" />
               </div>
               <h3 className="font-bold font-display text-xl text-[var(--text)] mb-2">
-                Recognized Certificates
+                Real-Time Data Sync
               </h3>
               <p className="text-sm font-semibold text-[var(--text-muted)] leading-relaxed">
-                Earn university-accredited certifications and digital badges that bolster your resume and LinkedIn profile.
+                Zero overnight batch delays. Marks entry, attendance logs, and fee clearance update instantly.
               </p>
             </div>
 
             {/* Feature 4 */}
-            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-white">
+            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-[var(--bg)]">
               <div className="w-16 h-16 rounded-2xl border-3 border-[var(--text)] flex items-center justify-center mx-auto mb-5 bg-[var(--accent-mint)] shadow-[3px_3px_0_var(--text)]">
-                <Users className="w-8 h-8 text-[var(--text)]" />
+                <Building2 className="w-8 h-8 text-[var(--text)]" />
               </div>
               <h3 className="font-bold font-display text-xl text-[var(--text)] mb-2">
-                Community Support
+                Audit Compliance
               </h3>
               <p className="text-sm font-semibold text-[var(--text-muted)] leading-relaxed">
-                Join active study rooms, chat with peers, ask questions, and share notes with thousands of fellow students.
+                1-click automated exports for NAAC, NBA, and regulatory university accreditation committees.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 6. Role Portals Exploration Section */}
-      <section id="portals" className="py-14 sm:py-24 px-4 bg-white border-t-3 border-[var(--text)]">
+      {/* 6. Institutional Role Portals Section */}
+      <section id="portals" className="py-14 sm:py-24 px-4 bg-[var(--bg)] border-t-3 border-border">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12 sm:mb-16">
             <span className="inline-block px-5 py-2 rounded-full bg-[var(--secondary)] border-3 border-[var(--text)] text-sm font-bold font-display mb-4 shadow-[3px_3px_0_var(--text)]">
@@ -822,13 +853,13 @@ export default function LandingPage() {
               Explore Institutional Portals
             </h2>
             <p className="text-lg text-[var(--text-muted)] max-w-2xl mx-auto font-semibold">
-              Seamlessly tailored interfaces for students, faculty, department heads, and campus administration.
+              Tailored workspaces for students, faculty, department heads, and campus administrators.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Student */}
-            <div className="clay-card p-6 bg-white flex flex-col justify-between">
+            <div className="clay-card p-6 bg-[var(--bg)] flex flex-col justify-between">
               <div>
                 <div className="w-12 h-12 rounded-xl bg-[var(--accent-mint)] border-3 border-[var(--text)] flex items-center justify-center mb-4 shadow-[2px_2px_0_var(--text)]">
                   <GraduationCap className="w-6 h-6 text-[var(--text)]" />
@@ -837,7 +868,7 @@ export default function LandingPage() {
                   Student Portal
                 </h3>
                 <p className="text-xs font-semibold text-[var(--text-muted)] leading-relaxed mb-4">
-                  Track attendance, exam halls, calculate safe bunks, submit assignments, and prepare for placement rounds.
+                  Track attendance, exam timetables, calculate safe bunks, submit assignments, and apply for placements.
                 </p>
               </div>
               <Link href="/student/dashboard">
@@ -848,7 +879,7 @@ export default function LandingPage() {
             </div>
 
             {/* Teacher */}
-            <div className="clay-card p-6 bg-white flex flex-col justify-between">
+            <div className="clay-card p-6 bg-[var(--bg)] flex flex-col justify-between">
               <div>
                 <div className="w-12 h-12 rounded-xl bg-[var(--primary)] border-3 border-[var(--text)] flex items-center justify-center mb-4 shadow-[2px_2px_0_var(--text)]">
                   <Users className="w-6 h-6 text-[var(--text)]" />
@@ -857,7 +888,7 @@ export default function LandingPage() {
                   Teacher Portal
                 </h3>
                 <p className="text-xs font-semibold text-[var(--text-muted)] leading-relaxed mb-4">
-                  1-click class attendance, rubric generation, grading pipelines, and broadcast alerts to your course batches.
+                  1-click class attendance, rubric generation, grading pipelines, and broadcast alerts to course batches.
                 </p>
               </div>
               <Link href="/teacher/dashboard">
@@ -868,7 +899,7 @@ export default function LandingPage() {
             </div>
 
             {/* HOD */}
-            <div className="clay-card p-6 bg-white flex flex-col justify-between">
+            <div className="clay-card p-6 bg-[var(--bg)] flex flex-col justify-between">
               <div>
                 <div className="w-12 h-12 rounded-xl bg-[var(--accent-purple)] border-3 border-[var(--text)] flex items-center justify-center mb-4 shadow-[2px_2px_0_var(--text)]">
                   <TrendingUp className="w-6 h-6 text-[var(--text)]" />
@@ -877,7 +908,7 @@ export default function LandingPage() {
                   HOD Operations
                 </h3>
                 <p className="text-xs font-semibold text-[var(--text-muted)] leading-relaxed mb-4">
-                  Department intelligence, teacher workload balancing, grievance tickets triage, and course pass-rates.
+                  Department intelligence, faculty workload balancing, grievance tickets triage, and course pass-rates.
                 </p>
               </div>
               <Link href="/hod/dashboard">
@@ -888,7 +919,7 @@ export default function LandingPage() {
             </div>
 
             {/* Admin */}
-            <div className="clay-card p-6 bg-white flex flex-col justify-between">
+            <div className="clay-card p-6 bg-[var(--bg)] flex flex-col justify-between">
               <div>
                 <div className="w-12 h-12 rounded-xl bg-[var(--secondary)] border-3 border-[var(--text)] flex items-center justify-center mb-4 shadow-[2px_2px_0_var(--text)]">
                   <ShieldCheck className="w-6 h-6 text-[var(--text)]" />
@@ -910,24 +941,24 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 7. Social Proof & Student Testimonials Section */}
+      {/* 7. Institutional Stakeholder Testimonials */}
       <section id="testimonials" className="py-14 sm:py-24 px-4 bg-[var(--bg-cream)] border-t-3 border-[var(--text)]">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12 sm:mb-16">
             <span className="inline-block px-5 py-2 rounded-full bg-[var(--accent-mint)] border-3 border-[var(--text)] text-sm font-bold font-display mb-4 shadow-[3px_3px_0_var(--text)]">
-              Student Stories
+              Campus Voices
             </span>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold font-display text-[var(--text)] mb-4">
-              What Our Students Say
+              What Academic Leaders Say
             </h2>
             <p className="text-lg text-[var(--text-muted)] max-w-2xl mx-auto font-semibold">
-              Read how LearnHub & College OS transformed everyday campus life for over 2 million learners.
+              Read how CollegeOS transformed day-to-day operations and student clarity at Apex Institute.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {/* Review 1 */}
-            <div className="clay-card p-7 bg-white flex flex-col justify-between">
+            <div className="clay-card p-7 bg-[var(--bg)] flex flex-col justify-between">
               <div>
                 <div className="flex gap-1.5 mb-4">
                   {[...Array(5)].map((_, i) => (
@@ -938,26 +969,26 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p className="text-sm font-semibold text-[var(--text-muted)] mb-6 leading-relaxed">
-                  &quot;LearnHub helped me transition from traditional marketing to full-stack tech. The courses are structured like real engineering projects and the peer community is incredibly supportive!&quot;
+                  &quot;CollegeOS reduced our semester grading overhead by 80% and eliminated attendance discrepancies across 4,200 students. The automated safe bunk alerts keep students proactively compliant.&quot;
                 </p>
               </div>
               <div className="flex items-center gap-3.5 pt-4 border-t-2 border-[var(--border)]">
                 <div className="w-12 h-12 rounded-xl border-3 border-[var(--text)] bg-[var(--primary)] flex items-center justify-center text-lg font-bold font-display shadow-[2px_2px_0_var(--text)]">
-                  J
+                  AR
                 </div>
                 <div>
                   <div className="font-bold font-display text-base text-[var(--text)]">
-                    Jessica Wang
+                    Prof. Ananya Roy
                   </div>
                   <div className="text-xs font-bold text-[var(--text-muted)]">
-                    Software Developer @ Stripe
+                    Dean of Academic Affairs
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Review 2 */}
-            <div className="clay-card p-7 bg-white flex flex-col justify-between">
+            <div className="clay-card p-7 bg-[var(--bg)] flex flex-col justify-between">
               <div>
                 <div className="flex gap-1.5 mb-4">
                   {[...Array(5)].map((_, i) => (
@@ -968,26 +999,26 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p className="text-sm font-semibold text-[var(--text-muted)] mb-6 leading-relaxed">
-                  &quot;The UI/UX design tracks were exactly what I needed. The claymorphism principles, tactile design systems, and Figma prototypes landed me my dream job just 3 months after completion!&quot;
+                  &quot;The Safe-Bunk calculator and instant placement drive eligibility filter saved me so much stress. I never had to worry about dropping below 75% before on-campus hiring drives.&quot;
                 </p>
               </div>
               <div className="flex items-center gap-3.5 pt-4 border-t-2 border-[var(--border)]">
                 <div className="w-12 h-12 rounded-xl border-3 border-[var(--text)] bg-[var(--secondary)] flex items-center justify-center text-lg font-bold font-display shadow-[2px_2px_0_var(--text)]">
-                  D
+                  RV
                 </div>
                 <div>
                   <div className="font-bold font-display text-base text-[var(--text)]">
-                    David Miller
+                    Rohan Varma
                   </div>
                   <div className="text-xs font-bold text-[var(--text-muted)]">
-                    UX Designer @ Figma Labs
+                    Final Year B.Tech CSE Student
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Review 3 */}
-            <div className="clay-card p-7 bg-white flex flex-col justify-between">
+            <div className="clay-card p-7 bg-[var(--bg)] flex flex-col justify-between">
               <div>
                 <div className="flex gap-1.5 mb-4">
                   {[...Array(5)].map((_, i) => (
@@ -998,19 +1029,19 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p className="text-sm font-semibold text-[var(--text-muted)] mb-6 leading-relaxed">
-                  &quot;The absolute best investment I&apos;ve made in my career. The Python & AI course gave me practical data pipeline skills that I rely upon every single day in production.&quot;
+                  &quot;Department timetable clashes dropped to zero. Handling student grievances now takes hours instead of weeks thanks to the built-in escalation workflows and AI Copilot.&quot;
                 </p>
               </div>
               <div className="flex items-center gap-3.5 pt-4 border-t-2 border-[var(--border)]">
                 <div className="w-12 h-12 rounded-xl border-3 border-[var(--text)] bg-[var(--accent-purple)] flex items-center justify-center text-lg font-bold font-display shadow-[2px_2px_0_var(--text)]">
-                  M
+                  VS
                 </div>
                 <div>
                   <div className="font-bold font-display text-base text-[var(--text)]">
-                    Maria Garcia
+                    Dr. Vikram Sharma
                   </div>
                   <div className="text-xs font-bold text-[var(--text-muted)]">
-                    Senior Data Analyst @ Spotify
+                    Head of Computer Science & Engineering
                   </div>
                 </div>
               </div>
@@ -1019,27 +1050,27 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 8. High-Conversion Enrollment Call-to-Action (CTA) */}
-      <section className="py-14 sm:py-24 px-4 bg-[var(--secondary)] border-y-3 border-[var(--text)]">
+      {/* 8. Institutional Call-to-Action */}
+      <section className="py-14 sm:py-24 px-4 bg-[var(--secondary)] border-y-3 border-border">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="clay-card p-8 sm:p-14 bg-white shadow-[8px_8px_0_var(--text)]">
+          <div className="clay-card p-8 sm:p-14 bg-[var(--bg)] shadow-[8px_8px_0_var(--edu-border)]">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold font-display text-[var(--text)] mb-4">
-              Ready to Start Learning?
+              Modernize Your Campus with CollegeOS
             </h2>
             <p className="text-lg text-[var(--text-muted)] mb-8 max-w-xl mx-auto font-semibold">
-              Join over 2 million students and start your learning journey today. First 7 days are completely free!
+              Join autonomous institutes and modern colleges experiencing unified, zero-friction academic operations.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
               <Link href="/student/dashboard">
                 <button className="btn-primary text-base px-8 py-3.5">
-                  Start Free Trial
+                  Launch Student Hub
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </button>
               </Link>
               <Link href="/login">
                 <button className="btn-secondary text-base px-8 py-3.5">
-                  Explore Role Portals
+                  Instant Demo Roles
                 </button>
               </Link>
             </div>
@@ -1047,22 +1078,22 @@ export default function LandingPage() {
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm font-bold text-[var(--text-muted)]">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-[var(--cta)]" />
-                <span>No credit card required</span>
+                <span>Zero legacy software lag</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-[var(--cta)]" />
-                <span>Cancel anytime</span>
+                <span>NAAC & AICTE audit-ready</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-[var(--cta)]" />
-                <span>Instant campus access</span>
+                <span>Instant multi-role access</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 9. Comprehensive Playful Footer */}
+      {/* 9. Institutional Campus Footer */}
       <footer className="py-12 sm:py-16 px-4 bg-[var(--bg-cream)]">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-10 sm:gap-12 mb-12">
@@ -1070,64 +1101,62 @@ export default function LandingPage() {
             <div className="lg:col-span-2">
               <Link href="/" className="flex items-center gap-2.5 mb-4 cursor-pointer">
                 <div className="w-10 h-10 rounded-xl bg-[var(--primary)] border-3 border-[var(--text)] flex items-center justify-center shadow-[2px_2px_0_var(--text)]">
-                  <BookOpen className="w-5 h-5 text-[var(--text)]" />
+                  <GraduationCap className="w-5 h-5 text-[var(--text)]" />
                 </div>
-                <span className="text-xl font-bold font-display text-[var(--text)]">
-                  LearnHub
-                </span>
+                <div className="flex flex-col items-start leading-none">
+                  <span className="text-xl font-bold font-display text-[var(--text)]">
+                    CollegeOS
+                  </span>
+                  <span className="text-[10px] font-bold text-[var(--cta-dark)] uppercase tracking-wider">
+                    Campus ERP
+                  </span>
+                </div>
               </Link>
               <p className="text-sm font-semibold text-[var(--text-muted)] mb-6 max-w-xs leading-relaxed">
-                Empowering millions of learners and college campuses worldwide with approachable, high-quality, and AI-grounded educational software.
+                The modern, approachable, and AI-grounded operating system for higher education institutions, autonomous universities, and engineering campuses.
               </p>
-
-              {/* Social Icon Pills */}
-              <div className="flex gap-3">
-                {["X", "FB", "IG", "YT"].map((social) => (
-                  <button
-                    key={social}
-                    className="w-10 h-10 rounded-xl bg-white border-3 border-[var(--text)] flex items-center justify-center font-bold text-xs shadow-[2px_2px_0_var(--text)] hover:bg-[var(--secondary)] transition-colors cursor-pointer"
-                  >
-                    {social}
-                  </button>
-                ))}
-              </div>
             </div>
 
-            {/* Links 1: Courses */}
+            {/* Links 1: ERP Modules */}
             <div>
               <h4 className="font-bold font-display text-base text-[var(--text)] mb-4">
-                Courses
+                Core Modules
               </h4>
               <ul className="space-y-2.5 text-sm font-semibold text-[var(--text-muted)]">
                 <li>
-                  <a href="#courses" className="hover:text-[var(--text)] transition-colors">
-                    Web Development
-                  </a>
+                  <Link href="/student/attendance" className="hover:text-[var(--text)] transition-colors">
+                    Attendance & Safe Bunk
+                  </Link>
                 </li>
                 <li>
-                  <a href="#courses" className="hover:text-[var(--text)] transition-colors">
-                    UI/UX Design
-                  </a>
+                  <Link href="/student/timetable" className="hover:text-[var(--text)] transition-colors">
+                    Dynamic Timetable
+                  </Link>
                 </li>
                 <li>
-                  <a href="#courses" className="hover:text-[var(--text)] transition-colors">
-                    Data Science & AI
-                  </a>
+                  <Link href="/student/exams" className="hover:text-[var(--text)] transition-colors">
+                    Examinations & Grades
+                  </Link>
                 </li>
                 <li>
-                  <a href="#courses" className="hover:text-[var(--text)] transition-colors">
-                    Mobile Applications
-                  </a>
+                  <Link href="/student/placements" className="hover:text-[var(--text)] transition-colors">
+                    Placement & TPO Cell
+                  </Link>
                 </li>
                 <li>
-                  <a href="#courses" className="hover:text-[var(--text)] transition-colors">
-                    Cloud & DevOps
-                  </a>
+                  <Link href="/student/fees" className="hover:text-[var(--text)] transition-colors">
+                    Fees & Online Dues
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/student/gatepass" className="hover:text-[var(--text)] transition-colors">
+                    QR Gate Passes
+                  </Link>
                 </li>
               </ul>
             </div>
 
-            {/* Links 2: Portals */}
+            {/* Links 2: Role Portals */}
             <div>
               <h4 className="font-bold font-display text-base text-[var(--text)] mb-4">
                 Role Portals
@@ -1145,7 +1174,7 @@ export default function LandingPage() {
                 </li>
                 <li>
                   <Link href="/hod/dashboard" className="hover:text-[var(--text)] transition-colors">
-                    HOD Desk
+                    HOD Operations
                   </Link>
                 </li>
                 <li>
@@ -1154,42 +1183,37 @@ export default function LandingPage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/student/attendance" className="hover:text-[var(--text)] transition-colors">
-                    Attendance Tracker
+                  <Link href="/login" className="hover:text-[var(--text)] transition-colors">
+                    Instant Demo Login
                   </Link>
                 </li>
               </ul>
             </div>
 
-            {/* Links 3: Company */}
+            {/* Links 3: Governance & Support */}
             <div>
               <h4 className="font-bold font-display text-base text-[var(--text)] mb-4">
-                Company
+                Governance
               </h4>
               <ul className="space-y-2.5 text-sm font-semibold text-[var(--text-muted)]">
                 <li>
+                  <Link href="/student/complaints" className="hover:text-[var(--text)] transition-colors">
+                    Grievance Redressal
+                  </Link>
+                </li>
+                <li>
                   <a href="#" className="hover:text-[var(--text)] transition-colors">
-                    About Us
+                    AICTE & NAAC Reports
                   </a>
                 </li>
                 <li>
                   <a href="#" className="hover:text-[var(--text)] transition-colors">
-                    Careers (We&apos;re hiring!)
+                    Campus Security & RBAC
                   </a>
                 </li>
                 <li>
                   <a href="#" className="hover:text-[var(--text)] transition-colors">
-                    Campus Partnerships
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-[var(--text)] transition-colors">
-                    Security & Privacy
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-[var(--text)] transition-colors">
-                    Contact Support
+                    IT Helpdesk
                   </a>
                 </li>
               </ul>
@@ -1199,17 +1223,17 @@ export default function LandingPage() {
           {/* Bottom Copyright Row */}
           <div className="pt-8 border-t-3 border-[var(--border)] flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm font-bold text-[var(--text-muted)]">
-              © 2026 LearnHub / College OS. All rights reserved.
+              © 2026 CollegeOS ERP. All institutional rights reserved.
             </p>
             <div className="flex items-center gap-6 text-sm font-bold text-[var(--text-muted)]">
               <a href="#" className="hover:text-[var(--text)] transition-colors cursor-pointer">
                 Privacy Policy
               </a>
               <a href="#" className="hover:text-[var(--text)] transition-colors cursor-pointer">
-                Terms of Service
+                Academic Regulations
               </a>
               <a href="#" className="hover:text-[var(--text)] transition-colors cursor-pointer">
-                Cookie Settings
+                Campus SSO
               </a>
             </div>
           </div>

@@ -19,12 +19,16 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "College OS | Modern Educational Platform & Operating System",
+  title: "CollegeOS | Modern Educational Platform & Operating System",
   description:
     "Playful, intelligent academic operating system connecting students, faculty, and administration with live AI Copilot, attendance tracking, and smart workflows.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/image.png", type: "image/png" },
+    ],
+    shortcut: "/image.png",
+    apple: "/image.png",
   },
 };
 
@@ -46,7 +50,7 @@ export default function RootLayout({
       className={`${fredoka.variable} ${nunito.variable}`}
       suppressHydrationWarning
     >
-      <body className="min-h-screen font-sans bg-[var(--bg-cream)] text-[var(--text)] antialiased selection:bg-[#98ff98]/40 selection:text-[var(--text)]">
+      <body className="min-h-screen font-sans bg-[var(--bg-cream)] text-foreground antialiased selection:bg-brand-500/20 selection:text-brand-700 dark:selection:text-brand-300">
         <Providers>
           <AppShell>{children}</AppShell>
         </Providers>

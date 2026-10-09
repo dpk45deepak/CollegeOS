@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useTheme } from "next-themes";
 import { useAuthStore } from "@/lib/auth/authStore";
 import { useUIStore } from "@/stores/useUIStore";
 import { useNotificationStore } from "@/stores/useNotificationStore";
@@ -19,33 +20,43 @@ import {
   User,
   ExternalLink,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function Topbar() {
   const { user, logout } = useAuthStore();
-  const { toggleSidebar, setCommandPaletteOpen, toggleCopilot } = useUIStore();
+  const {
+    isSidebarOpen,
+    toggleSidebar,
+    setCommandPaletteOpen,
+    toggleCopilot,
+  } = useUIStore();
   const { notifications, unreadCount, markAsRead, markAllAsRead } =
     useNotificationStore();
 
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isDark, setIsDark] = useState(false);
 
   const toggleDarkMode = () => {
-    setIsDark(!isDark);
-    if (!isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
   return (
-    <header className="h-16 border-b-3 border-[var(--text)] bg-white sticky top-0 z-30 px-3 sm:px-6 flex items-center justify-between gap-2 select-none">
+    <header className="h-16 border-b-3 border-border bg-card sticky top-0 z-30 px-3 sm:px-6 flex items-center justify-between gap-2 select-none">
       {/* Left: Mobile hamburger & Search trigger */}
       <div className="flex items-center gap-3">
         <button
           onClick={toggleSidebar}
-          className="md:hidden w-9 h-9 rounded-xl border-2 border-[var(--text)] bg-white text-[var(--text)] hover:bg-[var(--secondary)] flex items-center justify-center shadow-[2px_2px_0_var(--text)] transition-colors"
+          className={cn(
+            "md:hidden w-9 h-9 rounded-xl border-2 border-border bg-card text-foreground hover:bg-[var(--secondary)]/30 flex items-center justify-center shadow-[2px_2px_0_var(--edu-border)] transition-colors cursor-pointer",
+            isSidebarOpen && "bg-[var(--secondary)] text-slate-900 border-[var(--edu-border)]"
+          )}
           aria-label="Open navigation menu"
         >
           <Menu className="h-5 w-5" />
@@ -54,13 +65,13 @@ export function Topbar() {
         {/* Global Search Button (⌘K) */}
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border-2 border-[var(--text)] bg-[var(--bg-cream)] hover:bg-white text-xs font-bold text-[var(--text)] shadow-[2px_2px_0_var(--text)] transition-all w-48 sm:w-72 justify-between cursor-pointer"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border-2 border-border bg-[var(--bg-cream)] hover:bg-card text-xs font-bold text-foreground shadow-[2px_2px_0_var(--edu-border)] transition-all w-48 sm:w-72 justify-between cursor-pointer"
         >
           <div className="flex items-center gap-2 truncate">
-            <Search className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="truncate">Search courses, records, exams...</span>
           </div>
-          <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-lg border-2 border-[var(--text)] bg-white text-[10px] font-mono font-bold text-[var(--text)] shadow-[1px_1px_0_var(--text)]">
+          <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-lg border-2 border-border bg-card text-[10px] font-mono font-bold text-foreground shadow-[1px_1px_0_var(--edu-border)]">
             ⌘K
           </kbd>
         </button>
@@ -83,22 +94,32 @@ export function Topbar() {
         {/* Dark Mode Toggle */}
         <button
           onClick={toggleDarkMode}
-          className="w-9 h-9 rounded-xl border-2 border-[var(--text)] bg-white text-[var(--text)] hover:bg-[var(--secondary)] flex items-center justify-center transition-colors shadow-[2px_2px_0_var(--text)] cursor-pointer"
-          title={isDark ? "Switch to Light mode" : "Switch to Dark mode"}
+          className="w-9 h-9 rounded-xl border-2 border-border bg-card text-foreground hover:bg-[var(--secondary)]/30 flex items-center justify-center transition-colors shadow-[2px_2px_0_var(--edu-border)] cursor-pointer"
+          title={
+            mounted
+              ? `Theme: ${theme || "system"} (Click to switch to ${resolvedTheme === "dark" ? "Light" : "Dark"})`
+              : "Toggle dark mode"
+          }
+          aria-label="Toggle dark mode"
+          suppressHydrationWarning
         >
-          {isDark ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4" />}
+          {mounted && resolvedTheme === "dark" ? (
+            <Sun className="h-4 w-4 text-amber-500" />
+          ) : (
+            <Moon className="h-4 w-4 text-foreground" />
+          )}
         </button>
 
         {/* Notifications Popover */}
         <div className="relative">
           <button
             onClick={() => setIsNotifOpen(!isNotifOpen)}
-            className="w-9 h-9 rounded-xl border-2 border-[var(--text)] bg-white text-[var(--text)] hover:bg-[var(--secondary)] flex items-center justify-center transition-colors shadow-[2px_2px_0_var(--text)] relative cursor-pointer"
+            className="w-9 h-9 rounded-xl border-2 border-border bg-card text-foreground hover:bg-[var(--secondary)]/30 flex items-center justify-center transition-colors shadow-[2px_2px_0_var(--edu-border)] relative cursor-pointer"
             aria-label="Open notifications"
           >
             <Bell className="h-4 w-4" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white border border-[var(--text)]">
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white border border-card">
                 {unreadCount}
               </span>
             )}
@@ -110,14 +131,14 @@ export function Topbar() {
                 className="fixed inset-0 z-40"
                 onClick={() => setIsNotifOpen(false)}
               />
-              <div className="absolute right-0 top-full mt-3 w-80 sm:w-96 rounded-3xl border-3 border-[var(--text)] bg-white p-4 shadow-[6px_6px_0_var(--text)] z-50 animate-in fade-in zoom-in-95">
-                <div className="flex items-center justify-between pb-3 mb-2 border-b-2 border-[var(--border)]">
+              <div className="absolute right-0 top-full mt-3 w-80 sm:w-96 rounded-3xl border-3 border-border bg-card p-4 shadow-xl z-50 animate-in fade-in zoom-in-95">
+                <div className="flex items-center justify-between pb-3 mb-2 border-b-2 border-border">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold font-display text-[var(--text)]">
+                    <span className="text-sm font-bold font-display text-foreground">
                       Notifications
                     </span>
                     {unreadCount > 0 && (
-                      <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold border border-rose-300">
+                      <span className="text-[10px] bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded-full font-bold border border-rose-300 dark:border-rose-800">
                         {unreadCount} unread
                       </span>
                     )}
@@ -134,7 +155,7 @@ export function Topbar() {
 
                 <div className="max-h-80 overflow-y-auto space-y-2">
                   {notifications.length === 0 ? (
-                    <p className="text-xs font-semibold text-[var(--text-muted)] text-center py-6">
+                    <p className="text-xs font-semibold text-muted-foreground text-center py-6">
                       No notifications yet
                     </p>
                   ) : (
@@ -144,17 +165,17 @@ export function Topbar() {
                         onClick={() => markAsRead(item.id)}
                         className={`p-3 rounded-2xl text-xs cursor-pointer transition-colors border-2 ${
                           item.isRead
-                            ? "bg-white border-transparent hover:bg-[var(--bg-cream)] hover:border-[var(--text)]"
-                            : "bg-[var(--accent-mint)]/30 border-[var(--text)] shadow-[2px_2px_0_var(--text)]"
+                            ? "bg-card border-transparent hover:bg-muted text-foreground"
+                            : "bg-[var(--accent-mint)]/20 border-border shadow-[2px_2px_0_var(--edu-border)] text-foreground"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <p className="font-bold text-[var(--text)]">{item.title}</p>
-                          <span className="text-[10px] font-bold text-[var(--text-muted)] shrink-0">
+                          <p className="font-bold text-foreground">{item.title}</p>
+                          <span className="text-[10px] font-bold text-muted-foreground shrink-0">
                             {item.timestamp}
                           </span>
                         </div>
-                        <p className="text-[var(--text-muted)] mt-1 text-[11px] font-semibold leading-relaxed">
+                        <p className="text-muted-foreground mt-1 text-[11px] font-semibold leading-relaxed">
                           {item.message}
                         </p>
                         {item.actionUrl && (
@@ -179,7 +200,7 @@ export function Topbar() {
         <div className="relative">
           <button
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="w-9 h-9 rounded-xl border-2 border-[var(--text)] bg-[var(--accent-mint)] text-[var(--text)] flex items-center justify-center font-bold font-display text-sm uppercase shadow-[2px_2px_0_var(--text)] hover:scale-105 transition-all cursor-pointer"
+            className="w-9 h-9 rounded-xl border-2 border-border bg-[var(--accent-mint)] text-slate-900 flex items-center justify-center font-bold font-display text-sm uppercase shadow-[2px_2px_0_var(--edu-border)] hover:scale-105 transition-all cursor-pointer"
           >
             {user?.name?.charAt(0) || "U"}
           </button>
@@ -190,34 +211,34 @@ export function Topbar() {
                 className="fixed inset-0 z-40"
                 onClick={() => setIsUserMenuOpen(false)}
               />
-              <div className="absolute right-0 top-full mt-3 w-56 rounded-3xl border-3 border-[var(--text)] bg-white p-2 shadow-[6px_6px_0_var(--text)] z-50 animate-in fade-in zoom-in-95">
-                <div className="p-3 border-b-2 border-[var(--border)] mb-1">
-                  <p className="text-xs font-bold font-display text-[var(--text)] truncate">{user?.name}</p>
-                  <p className="text-[10px] font-bold text-[var(--text-muted)] truncate">{user?.email}</p>
+              <div className="absolute right-0 top-full mt-3 w-56 rounded-3xl border-3 border-border bg-card p-2 shadow-xl z-50 animate-in fade-in zoom-in-95">
+                <div className="p-3 border-b-2 border-border mb-1">
+                  <p className="text-xs font-bold font-display text-foreground truncate">{user?.name}</p>
+                  <p className="text-[10px] font-bold text-muted-foreground truncate">{user?.email}</p>
                 </div>
                 <Link
                   href="/profile"
                   onClick={() => setIsUserMenuOpen(false)}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-[var(--text)] hover:bg-[var(--secondary)]/30 transition-colors"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-foreground hover:bg-muted transition-colors"
                 >
-                  <User className="h-4 w-4 text-[var(--text-muted)]" />
+                  <User className="h-4 w-4 text-muted-foreground" />
                   My Profile
                 </Link>
                 <Link
                   href="/settings"
                   onClick={() => setIsUserMenuOpen(false)}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-[var(--text)] hover:bg-[var(--secondary)]/30 transition-colors"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-foreground hover:bg-muted transition-colors"
                 >
-                  <Moon className="h-4 w-4 text-[var(--text-muted)]" />
+                  <Moon className="h-4 w-4 text-muted-foreground" />
                   Settings & Theme
                 </Link>
-                <div className="border-t-2 border-[var(--border)] my-1" />
+                <div className="border-t-2 border-border my-1" />
                 <button
                   onClick={() => {
                     setIsUserMenuOpen(false);
                     logout();
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors text-left cursor-pointer"
                 >
                   <LogOut className="h-4 w-4" />
                   Sign Out

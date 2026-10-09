@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/auth/authStore";
@@ -28,13 +28,24 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuthStore();
-  const { isSidebarCollapsed, setSidebarCollapsed } = useUIStore();
+  const {
+    isSidebarOpen,
+    setSidebarOpen,
+    isSidebarCollapsed,
+    setSidebarCollapsed,
+  } = useUIStore();
+
+  // Auto-close mobile sidebar drawer on navigation
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname, setSidebarOpen]);
 
   const role = user?.role || "STUDENT";
 
@@ -91,117 +102,218 @@ export function Sidebar() {
   const navLinks = getNavLinks();
 
   return (
-    <aside
-      className={cn(
-        "hidden md:flex flex-col border-r-3 border-[var(--text)] bg-white transition-all duration-300 relative select-none z-30",
-        isSidebarCollapsed ? "w-20" : "w-64"
-      )}
-    >
-      {/* Brand Header */}
-      <div className="flex items-center justify-between h-16 px-4 border-b-3 border-[var(--text)] bg-[var(--bg-cream)]">
-        {!isSidebarCollapsed && (
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)] border-3 border-[var(--text)] text-[var(--text)] font-bold font-display text-base shadow-[2px_2px_0_var(--text)]">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="font-bold font-display text-base tracking-tight text-[var(--text)] block leading-tight">
-                LearnHub
-              </span>
-              <span className="text-[10px] font-bold text-[var(--text-muted)] block">
-                College OS
-              </span>
-            </div>
-          </Link>
+    <>
+      {/* Desktop Sidebar */}
+      <aside
+        className={cn(
+          "hidden md:flex flex-col border-r-3 border-border bg-card transition-all duration-300 relative select-none z-30",
+          isSidebarCollapsed ? "w-20" : "w-64"
         )}
-        {isSidebarCollapsed && (
-          <Link href="/" className="mx-auto">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)] border-3 border-[var(--text)] text-[var(--text)] font-bold font-display text-base shadow-[2px_2px_0_var(--text)]">
-              <BookOpen className="w-5 h-5" />
-            </div>
-          </Link>
-        )}
-        <button
-          onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
-          className={cn(
-            "w-7 h-7 rounded-lg border-2 border-[var(--text)] bg-white text-[var(--text)] hover:bg-[var(--secondary)] flex items-center justify-center transition-colors shadow-[1px_1px_0_var(--text)]",
-            isSidebarCollapsed && "hidden"
-          )}
-          title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* Nav List */}
-      <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1.5">
-        {navLinks.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all group relative font-display",
-                isActive
-                  ? "bg-[var(--secondary)] text-[var(--text)] border-2 border-[var(--text)] shadow-[2px_2px_0_var(--text)] translate-x-[1px] translate-y-[1px]"
-                  : "text-[var(--text-muted)] hover:bg-[var(--bg-cream)] hover:text-[var(--text)] border-2 border-transparent hover:border-[var(--text)]",
-                isSidebarCollapsed && "justify-center px-0 py-2.5"
-              )}
-              title={isSidebarCollapsed ? item.label : undefined}
-            >
-              <Icon
-                className={cn(
-                  "h-4 w-4 shrink-0 transition-colors",
-                  isActive
-                    ? "text-[var(--text)]"
-                    : "text-[var(--text-muted)] group-hover:text-[var(--text)]"
-                )}
-              />
-              {!isSidebarCollapsed && (
-                <span className="truncate flex-1">{item.label}</span>
-              )}
-              {!isSidebarCollapsed && item.badge && (
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[var(--accent-purple)] text-[var(--text)] border border-[var(--text)] shadow-[1px_1px_0_var(--text)]">
-                  {item.badge}
+      >
+        {/* Brand Header */}
+        <div className="flex items-center justify-between h-16 px-4 border-b-3 border-border bg-[var(--bg-cream)]">
+          {!isSidebarCollapsed && (
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)] border-3 border-[var(--edu-border)] text-slate-900 font-bold font-display text-base shadow-[2px_2px_0_var(--edu-border)]">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-bold font-display text-base tracking-tight text-foreground block leading-tight">
+                  CollegeOS
                 </span>
-              )}
+                <span className="text-[10px] font-bold text-muted-foreground block">
+                  Campus ERP
+                </span>
+              </div>
             </Link>
-          );
-        })}
-      </div>
-
-      {/* Footer Toggle button when collapsed */}
-      {isSidebarCollapsed && (
-        <div className="p-2 border-t-3 border-[var(--text)] flex justify-center bg-[var(--bg-cream)]">
+          )}
+          {isSidebarCollapsed && (
+            <Link href="/" className="mx-auto">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)] border-3 border-[var(--edu-border)] text-slate-900 font-bold font-display text-base shadow-[2px_2px_0_var(--edu-border)]">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+            </Link>
+          )}
           <button
-            onClick={() => setSidebarCollapsed(false)}
-            className="w-8 h-8 rounded-xl border-2 border-[var(--text)] bg-white text-[var(--text)] hover:bg-[var(--secondary)] flex items-center justify-center transition-colors shadow-[2px_2px_0_var(--text)]"
-            title="Expand sidebar"
+            onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
+            className={cn(
+              "w-7 h-7 rounded-lg border-2 border-border bg-card text-foreground hover:bg-[var(--secondary)]/30 flex items-center justify-center transition-colors shadow-[1px_1px_0_var(--edu-border)] cursor-pointer",
+              isSidebarCollapsed && "hidden"
+            )}
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" />
           </button>
         </div>
+
+        {/* Nav List */}
+        <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1.5">
+          {navLinks.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all group relative font-display",
+                  isActive
+                    ? "bg-[var(--secondary)] text-slate-900 border-2 border-[var(--edu-border)] shadow-[2px_2px_0_var(--edu-border)] translate-x-[1px] translate-y-[1px]"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground border-2 border-transparent hover:border-border",
+                  isSidebarCollapsed && "justify-center px-0 py-2.5"
+                )}
+                title={isSidebarCollapsed ? item.label : undefined}
+              >
+                <Icon
+                  className={cn(
+                    "h-4 w-4 shrink-0 transition-colors",
+                    isActive
+                      ? "text-slate-900"
+                      : "text-muted-foreground group-hover:text-foreground"
+                  )}
+                />
+                {!isSidebarCollapsed && (
+                  <span className="truncate flex-1">{item.label}</span>
+                )}
+                {!isSidebarCollapsed && item.badge && (
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[var(--accent-purple)] text-slate-900 border border-[var(--edu-border)] shadow-[1px_1px_0_var(--edu-border)]">
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Footer Toggle button when collapsed */}
+        {isSidebarCollapsed && (
+          <div className="p-2 border-t-3 border-border flex justify-center bg-[var(--bg-cream)]">
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              className="w-8 h-8 rounded-xl border-2 border-border bg-card text-foreground hover:bg-[var(--secondary)]/30 flex items-center justify-center transition-colors shadow-[2px_2px_0_var(--edu-border)] cursor-pointer"
+              title="Expand sidebar"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* User Mini Card */}
+        {!isSidebarCollapsed && (
+          <div className="p-3 border-t-3 border-border bg-[var(--bg-cream)]">
+            <Link
+              href="/profile"
+              className="flex items-center gap-2.5 p-2 rounded-2xl border-2 border-border bg-card hover:bg-[var(--secondary)]/20 transition-colors shadow-[2px_2px_0_var(--edu-border)]"
+            >
+              <div className="h-8 w-8 rounded-xl bg-[var(--accent-mint)] border-2 border-[var(--edu-border)] text-slate-900 flex items-center justify-center font-bold text-xs uppercase shrink-0 shadow-[1px_1px_0_var(--edu-border)]">
+                {user?.name?.charAt(0) || "U"}
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-xs font-bold text-foreground truncate font-display">{user?.name}</p>
+                <p className="text-[10px] font-bold text-muted-foreground truncate">{user?.email}</p>
+              </div>
+            </Link>
+          </div>
+        )}
+      </aside>
+
+      {/* Mobile Drawer Backdrop */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs md:hidden animate-in fade-in duration-200"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
       )}
 
-      {/* User Mini Card */}
-      {!isSidebarCollapsed && (
-        <div className="p-3 border-t-3 border-[var(--text)] bg-[var(--bg-cream)]">
+      {/* Mobile Off-canvas Slide-over Drawer */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-card border-r-3 border-border flex flex-col md:hidden transition-transform duration-300 ease-in-out shadow-[8px_0_0_var(--edu-border)] select-none",
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
+        )}
+      >
+        {/* Mobile Drawer Header */}
+        <div className="flex items-center justify-between h-16 px-4 border-b-3 border-border bg-[var(--bg-cream)]">
+          <Link
+            href="/"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-2.5"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)] border-3 border-[var(--edu-border)] text-slate-900 font-bold font-display text-base shadow-[2px_2px_0_var(--edu-border)]">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-bold font-display text-base tracking-tight text-foreground block leading-tight">
+                CollegeOS
+              </span>
+              <span className="text-[10px] font-bold text-muted-foreground block">
+                Campus ERP
+              </span>
+            </div>
+          </Link>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="w-8 h-8 rounded-xl border-2 border-border bg-card text-foreground hover:bg-[var(--secondary)]/30 flex items-center justify-center transition-colors shadow-[1px_1px_0_var(--edu-border)] cursor-pointer"
+            aria-label="Close navigation menu"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Mobile Nav Links */}
+        <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1.5">
+          {navLinks.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all group font-display",
+                  isActive
+                    ? "bg-[var(--secondary)] text-slate-900 border-2 border-[var(--edu-border)] shadow-[2px_2px_0_var(--edu-border)] translate-x-[1px] translate-y-[1px]"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground border-2 border-transparent hover:border-border"
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-4 w-4 shrink-0 transition-colors",
+                    isActive
+                      ? "text-slate-900"
+                      : "text-muted-foreground group-hover:text-foreground"
+                  )}
+                />
+                <span className="truncate flex-1">{item.label}</span>
+                {item.badge && (
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[var(--accent-purple)] text-slate-900 border border-[var(--edu-border)] shadow-[1px_1px_0_var(--edu-border)]">
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Mobile Drawer User Footer */}
+        <div className="p-3 border-t-3 border-border bg-[var(--bg-cream)]">
           <Link
             href="/profile"
-            className="flex items-center gap-2.5 p-2 rounded-2xl border-2 border-[var(--text)] bg-white hover:bg-[var(--secondary)]/30 transition-colors shadow-[2px_2px_0_var(--text)]"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-2.5 p-2 rounded-2xl border-2 border-border bg-card hover:bg-[var(--secondary)]/20 transition-colors shadow-[2px_2px_0_var(--edu-border)]"
           >
-            <div className="h-8 w-8 rounded-xl bg-[var(--accent-mint)] border-2 border-[var(--text)] text-[var(--text)] flex items-center justify-center font-bold text-xs uppercase shrink-0 shadow-[1px_1px_0_var(--text)]">
+            <div className="h-8 w-8 rounded-xl bg-[var(--accent-mint)] border-2 border-[var(--edu-border)] text-slate-900 flex items-center justify-center font-bold text-xs uppercase shrink-0 shadow-[1px_1px_0_var(--edu-border)]">
               {user?.name?.charAt(0) || "U"}
             </div>
-            <div className="overflow-hidden">
-              <p className="text-xs font-bold text-[var(--text)] truncate font-display">{user?.name}</p>
-              <p className="text-[10px] font-bold text-[var(--text-muted)] truncate">{user?.email}</p>
+            <div className="overflow-hidden flex-1">
+              <p className="text-xs font-bold text-foreground truncate font-display">{user?.name}</p>
+              <p className="text-[10px] font-bold text-muted-foreground truncate">{user?.email}</p>
             </div>
           </Link>
         </div>
-      )}
-    </aside>
+      </aside>
+    </>
   );
 }

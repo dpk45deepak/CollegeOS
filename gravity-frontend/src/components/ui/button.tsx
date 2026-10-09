@@ -12,7 +12,7 @@ const buttonVariants = cva(
         destructive:
           "bg-rose-500 text-white border-3 border-[var(--text)] shadow-[4px_4px_0_var(--text)] hover:shadow-[2px_2px_0_var(--text)] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none",
         outline:
-          "bg-white text-[var(--text)] border-3 border-[var(--text)] shadow-[3px_3px_0_var(--text)] hover:shadow-[1px_1px_0_var(--text)] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none",
+          "bg-card text-foreground border-2 border-border shadow-xs hover:bg-muted active:shadow-none",
         secondary:
           "bg-[var(--secondary)] text-[var(--text)] border-3 border-[var(--text)] shadow-[4px_4px_0_var(--text)] hover:shadow-[2px_2px_0_var(--text)] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none",
         peach:
@@ -22,10 +22,10 @@ const buttonVariants = cva(
         mint:
           "bg-[var(--accent-mint)] text-[var(--text)] border-3 border-[var(--text)] shadow-[4px_4px_0_var(--text)] hover:shadow-[2px_2px_0_var(--text)] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none",
         ghost:
-          "text-[var(--text)] hover:bg-[var(--secondary)]/30 hover:text-[var(--text)] rounded-xl border-2 border-transparent hover:border-[var(--text)]",
+          "text-foreground hover:bg-muted rounded-xl border-2 border-transparent hover:border-border",
         link: "text-[var(--cta-dark)] underline-offset-4 hover:underline",
         subtle:
-          "bg-white/70 text-[var(--text)] hover:bg-white rounded-xl border-2 border-[var(--text)]",
+          "bg-muted/70 text-foreground hover:bg-muted rounded-xl border-2 border-border",
       },
       size: {
         default: "h-10 px-5 py-2 rounded-2xl",

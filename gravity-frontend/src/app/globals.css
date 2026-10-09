@@ -20,31 +20,81 @@
     --text: #2d3748;
     --text-muted: #64748b;
     --border: #e2e8f0;
+    --input: #e2e8f0;
 
-    /* Shadcn/Tailwind mapped variables for component compatibility */
+    /* Shadcn/Tailwind mapped variables */
     --background: 28 100% 98%;
     --foreground: 218 23% 23%;
     --card: 0 0% 100%;
     --card-foreground: 218 23% 23%;
     --popover: 0 0% 100%;
     --popover-foreground: 218 23% 23%;
+    --muted: 220 14.3% 95.9%;
+    --muted-foreground: 220 8.9% 46.1%;
+    --accent: 220 14.3% 95.9%;
+    --accent-foreground: 220.9 39.3% 11%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+    --ring: 238.7 83.5% 66.7%;
     --radius: 1.25rem;
   }
 
+  .always-light {
+    --primary: #fdbcb4 !important;
+    --primary-dark: #f5a69d !important;
+    --secondary: #add8e6 !important;
+    --secondary-dark: #8bc4d6 !important;
+    --cta: #22c55e !important;
+    --cta-dark: #16a34a !important;
+    --accent-purple: #e6e6fa !important;
+    --accent-mint: #98ff98 !important;
+    --bg: #ffffff !important;
+    --bg-cream: #fff9f5 !important;
+    --text: #2d3748 !important;
+    --text-muted: #64748b !important;
+    --border: #e2e8f0 !important;
+    --input: #e2e8f0 !important;
+    --background: 28 100% 98% !important;
+    --foreground: 218 23% 23% !important;
+    --card: 0 0% 100% !important;
+    --card-foreground: 218 23% 23% !important;
+    color: #2d3748 !important;
+    background-color: #fff9f5 !important;
+  }
+
   .dark {
-    --bg: #1f2937;
-    --bg-cream: #111827;
-    --text: #f9fafb;
-    --text-muted: #9ca3af;
-    --border: #374151;
+    --bg: #1e293b;
+    --bg-cream: #0f172a;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --border: #334155;
+    --input: #334155;
+    --primary: #f5a69d;
+    --primary-dark: #fdbcb4;
+    --secondary: #38bdf8;
+    --secondary-dark: #0284c7;
+    --cta: #22c55e;
+    --cta-dark: #16a34a;
+    --accent-purple: #4c1d95;
+    --accent-mint: #064e3b;
+
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
     --card: 217 33% 17%;
     --card-foreground: 210 40% 98%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
+    --muted: 215 27.9% 16.9%;
+    --muted-foreground: 217.9 10.6% 64.9%;
+    --accent: 215 27.9% 16.9%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
+    --ring: 238.7 83.5% 66.7%;
   }
 
   * {
-    border-color: var(--text);
+    @apply border-border;
   }
 
   body {
@@ -269,6 +319,67 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
+}
+
+/* Dark mode overrides for clay elements and borders */
+.dark .clay-card {
+  border-color: #334155 !important;
+  box-shadow: 4px 4px 0 #0f172a, inset 0 -2px 0 rgba(255, 255, 255, 0.05);
+}
+.dark .clay-card:hover {
+  box-shadow: 2px 2px 0 #0f172a, inset 0 -2px 0 rgba(255, 255, 255, 0.05);
+}
+.dark .clay-card-static {
+  border-color: #334155 !important;
+  box-shadow: 4px 4px 0 #0f172a, inset 0 -2px 0 rgba(255, 255, 255, 0.05);
+}
+.dark .soft-clay {
+  border-color: #334155 !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+.dark .btn-primary,
+.dark .btn-secondary,
+.dark .btn-peach,
+.dark .btn-purple,
+.dark .btn-mint {
+  border-color: #334155 !important;
+  box-shadow: 3px 3px 0 #0f172a;
+}
+.dark .btn-primary:hover,
+.dark .btn-secondary:hover,
+.dark .btn-peach:hover,
+.dark .btn-purple:hover,
+.dark .btn-mint:hover {
+  box-shadow: 1px 1px 0 #0f172a;
+}
+.dark .btn-primary:active,
+.dark .btn-secondary:active,
+.dark .btn-peach:active,
+.dark .btn-purple:active,
+.dark .btn-mint:active {
+  box-shadow: 0 0 0 #0f172a;
+}
+.dark .clay-pill {
+  border-color: #334155;
+  box-shadow: 2px 2px 0 #0f172a;
+}
+
+/* Recharts Dark/Light theme styles */
+.recharts-default-tooltip {
+  background-color: hsl(var(--card)) !important;
+  border-color: var(--border) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+.recharts-tooltip-item {
+  color: hsl(var(--card-foreground)) !important;
+}
+.recharts-text {
+  fill: hsl(var(--muted-foreground)) !important;
+}
+.recharts-cartesian-grid line {
+  stroke: var(--border) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

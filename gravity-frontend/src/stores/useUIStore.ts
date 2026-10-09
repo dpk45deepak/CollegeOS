@@ -10,6 +10,7 @@ interface UIStore {
   theme: "light" | "dark" | "system";
   activeFilter: string;
   toggleSidebar: () => void;
+  setSidebarOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setCommandPaletteOpen: (open: boolean) => void;
   setCopilotOpen: (open: boolean) => void;
@@ -26,6 +27,7 @@ export const useUIStore = create<UIStore>((set) => ({
   activeFilter: "all",
 
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+  setSidebarOpen: (open) => set({ isSidebarOpen: open }),
   setSidebarCollapsed: (collapsed) => set({ isSidebarCollapsed: collapsed }),
   setCommandPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),
   setCopilotOpen: (open) => set({ isCopilotOpen: open }),

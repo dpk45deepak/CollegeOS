@@ -25,7 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden bg-[var(--bg-cream)]">
       {/* Desktop Sidebar */}
       <Sidebar />
 

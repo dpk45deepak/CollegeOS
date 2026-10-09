@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 export function MobileNav() {
   const pathname = usePathname();
   const { user } = useAuthStore();
-  const { toggleSidebar, toggleCopilot } = useUIStore();
+  const { isSidebarOpen, toggleSidebar, toggleCopilot } = useUIStore();
 
   const role = user?.role || "STUDENT";
 
@@ -31,14 +31,14 @@ export function MobileNav() {
   const basePath = getBasePath();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 border-t-3 border-[var(--text)] bg-white z-40 px-2 flex items-center justify-around select-none">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 border-t-3 border-border bg-card z-40 px-2 flex items-center justify-around select-none">
       <Link
         href={`${basePath}/dashboard`}
         className={cn(
           "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display transition-colors rounded-xl",
           pathname.includes("dashboard")
-            ? "text-[var(--text)] bg-[var(--secondary)] border-2 border-[var(--text)] shadow-[1px_1px_0_var(--text)]"
-            : "text-[var(--text-muted)] hover:text-[var(--text)]"
+            ? "text-slate-900 bg-[var(--secondary)] border-2 border-[var(--edu-border)] shadow-[1px_1px_0_var(--edu-border)]"
+            : "text-muted-foreground hover:text-foreground"
         )}
       >
         <LayoutDashboard className="h-5 w-5 mb-0.5" />
@@ -50,8 +50,8 @@ export function MobileNav() {
         className={cn(
           "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display transition-colors rounded-xl",
           pathname.includes("attendance")
-            ? "text-[var(--text)] bg-[var(--primary)] border-2 border-[var(--text)] shadow-[1px_1px_0_var(--text)]"
-            : "text-[var(--text-muted)] hover:text-[var(--text)]"
+            ? "text-slate-900 bg-[var(--primary)] border-2 border-[var(--edu-border)] shadow-[1px_1px_0_var(--edu-border)]"
+            : "text-muted-foreground hover:text-foreground"
         )}
       >
         <CalendarCheck2 className="h-5 w-5 mb-0.5" />
@@ -61,7 +61,7 @@ export function MobileNav() {
       {/* Floating Center AI Copilot Action */}
       <button
         onClick={toggleCopilot}
-        className="-mt-6 flex items-center justify-center h-12 w-12 rounded-2xl bg-[var(--cta)] border-3 border-[var(--text)] text-white shadow-[3px_3px_0_var(--text)] active:scale-95 transition-transform"
+        className="-mt-6 flex items-center justify-center h-12 w-12 rounded-2xl bg-[var(--cta)] border-3 border-[var(--edu-border)] text-white shadow-[3px_3px_0_var(--edu-border)] active:scale-95 transition-transform cursor-pointer"
         aria-label="Open AI Copilot"
       >
         <Sparkles className="h-6 w-6 animate-pulse" />
@@ -72,8 +72,8 @@ export function MobileNav() {
         className={cn(
           "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display transition-colors rounded-xl",
           pathname.includes("timetable") || pathname.includes("assignments")
-            ? "text-[var(--text)] bg-[var(--accent-mint)] border-2 border-[var(--text)] shadow-[1px_1px_0_var(--text)]"
-            : "text-[var(--text-muted)] hover:text-[var(--text)]"
+            ? "text-slate-900 bg-[var(--accent-mint)] border-2 border-[var(--edu-border)] shadow-[1px_1px_0_var(--edu-border)]"
+            : "text-muted-foreground hover:text-foreground"
         )}
       >
         <CalendarDays className="h-5 w-5 mb-0.5" />
@@ -82,7 +82,13 @@ export function MobileNav() {
 
       <button
         onClick={toggleSidebar}
-        className="flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+        className={cn(
+          "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display transition-colors rounded-xl cursor-pointer",
+          isSidebarOpen
+            ? "text-slate-900 bg-[var(--secondary)] border-2 border-[var(--edu-border)] shadow-[1px_1px_0_var(--edu-border)]"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+        aria-label="Open navigation menu"
       >
         <Menu className="h-5 w-5 mb-0.5" />
         <span>More</span>

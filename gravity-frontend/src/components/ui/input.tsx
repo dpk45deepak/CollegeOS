@@ -11,13 +11,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     if (icon) {
       return (
         <div className="relative flex items-center w-full">
-          <div className="absolute left-3.5 text-[var(--text-muted)] pointer-events-none">
+          <div className="absolute left-3.5 text-muted-foreground pointer-events-none">
             {icon}
           </div>
           <input
             type={type}
             className={cn(
-              "flex h-11 w-full rounded-2xl border-3 border-[var(--text)] bg-white pl-10 pr-4 py-2 text-sm text-[var(--text)] font-bold shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-4 focus:ring-[var(--secondary)]/60 disabled:cursor-not-allowed disabled:opacity-50 transition-all",
+              "flex h-11 w-full rounded-2xl border-2 border-border bg-background pl-10 pr-4 py-2 text-sm text-foreground font-bold shadow-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50 transition-all",
               className
             )}
             ref={ref}
@@ -31,7 +31,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <input
         type={type}
         className={cn(
-          "flex h-11 w-full rounded-2xl border-3 border-[var(--text)] bg-white px-4 py-2 text-sm text-[var(--text)] font-bold shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-4 focus:ring-[var(--secondary)]/60 disabled:cursor-not-allowed disabled:opacity-50 transition-all",
+          "flex h-11 w-full rounded-2xl border-2 border-border bg-background px-4 py-2 text-sm text-foreground font-bold shadow-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50 transition-all",
           className
         )}
         ref={ref}

@@ -35,7 +35,7 @@ export default function StudentDashboardPage() {
   return (
     <div className="space-y-6 select-none">
       {/* Top Personal Assistant Greeting */}
-      <div className="clay-card p-6 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[6px_6px_0_var(--text)]">
+      <div className="clay-card p-6 bg-[var(--bg)] flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[6px_6px_0_var(--edu-border)]">
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--accent-mint)] border-2 border-[var(--text)] text-xs font-bold text-[var(--text)] mb-2 shadow-[1px_1px_0_var(--text)]">
             <Sparkles className="w-3.5 h-3.5 text-[var(--cta-dark)]" />
@@ -75,7 +75,7 @@ export default function StudentDashboardPage() {
                 <AlertTriangle className="h-4 w-4" />
                 Attendance Alert
               </span>
-              <span className="text-xs font-mono font-bold text-rose-700 bg-white border-2 border-rose-500 px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)]">
+              <span className="text-xs font-mono font-bold text-rose-700 bg-[var(--bg)] border-2 border-rose-500 px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)]">
                 71.1%
               </span>
             </div>
@@ -102,7 +102,7 @@ export default function StudentDashboardPage() {
                 <Clock className="h-4 w-4" />
                 Due in 28 Hours
               </span>
-              <span className="text-xs font-bold font-display bg-white border-2 border-[var(--text)] text-[var(--text)] px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)]">
+              <span className="text-xs font-bold font-display bg-[var(--bg)] border-2 border-[var(--text)] text-[var(--text)] px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)]">
                 25 Marks
               </span>
             </div>
@@ -129,7 +129,7 @@ export default function StudentDashboardPage() {
                 <GraduationCap className="h-4 w-4" />
                 Mid-Term Exam
               </span>
-              <span className="text-xs font-bold font-display bg-white border-2 border-[var(--text)] text-[var(--text)] px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)]">
+              <span className="text-xs font-bold font-display bg-[var(--bg)] border-2 border-[var(--text)] text-[var(--text)] px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)]">
                 Oct 16
               </span>
             </div>
@@ -156,7 +156,7 @@ export default function StudentDashboardPage() {
                 <Briefcase className="h-4 w-4" />
                 Placement Drive
               </span>
-              <span className="text-xs font-bold font-display bg-white border-2 border-[var(--text)] text-[var(--cta-dark)] px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)]">
+              <span className="text-xs font-bold font-display bg-[var(--bg)] border-2 border-[var(--text)] text-[var(--cta-dark)] px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)]">
                 Closes Today
               </span>
             </div>
@@ -199,7 +199,7 @@ export default function StudentDashboardPage() {
               <Link
                 key={item.label}
                 href={item.href}
-                className="flex items-center gap-3 p-3 rounded-2xl border-2 border-[var(--text)] bg-white hover:bg-[var(--secondary)]/30 transition-all shadow-[2px_2px_0_var(--text)] hover:translate-x-[1px] hover:translate-y-[1px] group cursor-pointer"
+                className="flex items-center gap-3 p-3 rounded-2xl border-2 border-border bg-card hover:bg-[var(--secondary)]/20 transition-all shadow-[2px_2px_0_var(--edu-border)] hover:translate-x-[1px] hover:translate-y-[1px] group cursor-pointer"
               >
                 <div className={`w-8 h-8 rounded-xl border-2 border-[var(--text)] ${item.bg} flex items-center justify-center shrink-0 shadow-[1px_1px_0_var(--text)]`}>
                   <Icon className="h-4 w-4 text-[var(--text)]" />

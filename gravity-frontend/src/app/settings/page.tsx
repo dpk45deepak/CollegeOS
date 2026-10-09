@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 import {
   Moon,
   Sun,
@@ -15,19 +16,19 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function SettingsPage() {
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState(true);
   const [citationVerbosity, setCitationVerbosity] = useState(true);
   const [attendanceAlerts, setAttendanceAlerts] = useState(true);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme);
-    if (newTheme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else if (newTheme === "light") {
-      document.documentElement.classList.remove("dark");
-    }
   };
 
   const handleSave = () => {
@@ -69,7 +70,7 @@ export default function SettingsPage() {
               { id: "system", label: "System", icon: Laptop },
             ].map((t) => {
               const Icon = t.icon;
-              const isActive = theme === t.id;
+              const isActive = mounted && theme === t.id;
 
               return (
                 <button

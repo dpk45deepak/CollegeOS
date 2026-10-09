@@ -67,7 +67,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="edu-platform min-h-screen flex items-center justify-center p-4 sm:p-6 bg-[var(--bg-cream)] relative overflow-hidden select-none">
+    <div className="edu-platform always-light min-h-screen flex items-center justify-center p-4 sm:p-6 bg-[var(--bg-cream)] relative overflow-hidden select-none">
       {/* Decorative Floating Badges in Background */}
       <div className="absolute top-12 left-12 hidden lg:flex w-16 h-16 rounded-2xl bg-[var(--primary)] border-3 border-[var(--text)] items-center justify-center shadow-[4px_4px_0_var(--text)]">
         <span className="text-2xl select-none">🎯</span>
@@ -86,20 +86,25 @@ export default function LoginPage() {
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--primary)] border-3 border-[var(--text)] text-[var(--text)] font-bold text-xl shadow-[3px_3px_0_var(--text)] group-hover:scale-105 transition-transform">
               <GraduationCap className="w-6 h-6 text-[var(--text)]" />
             </div>
-            <span className="font-bold font-display text-2xl tracking-tight text-[var(--text)]">
-              LearnHub
-            </span>
+            <div className="flex flex-col items-start leading-none">
+              <span className="font-bold font-display text-2xl tracking-tight text-[var(--text)]">
+                CollegeOS
+              </span>
+              <span className="text-[10px] font-bold text-[var(--cta-dark)] uppercase tracking-wider">
+                Campus ERP
+              </span>
+            </div>
           </Link>
           <h1 className="text-2xl font-bold font-display text-[var(--text)]">
-            Welcome to Apex College
+            Apex Institute Portal
           </h1>
           <p className="text-xs font-bold text-[var(--text-muted)]">
-            Sign in with your institutional credentials to enter your workspace.
+            Sign in with your institutional credentials or use instant demo access.
           </p>
         </div>
 
         {/* Login Card */}
-        <div className="clay-card p-6 sm:p-8 bg-white shadow-[8px_8px_0_var(--text)]">
+        <div className="clay-card p-6 sm:p-8 bg-card shadow-[8px_8px_0_var(--edu-border)]">
           {error && (
             <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border-2 border-rose-400 text-rose-700 text-xs font-bold">
               {error}

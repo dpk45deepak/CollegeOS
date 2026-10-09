@@ -1,0 +1,36 @@
+import { BadRequestException, Controller, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { CurrentUser, Tenant } from '../common/decorators/auth.decorators';
+import { Principal } from '../common/types/principal';
+import { StorageService } from './storage.service';
+
+@ApiTags('Files')
+@ApiBearerAuth()
+@Controller('files')
+export class StorageController {
+  constructor(private readonly storage: StorageService) {}
+
+  @Post('attachments')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024, files: 1 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiOperation({
+    summary: 'Upload an attachment (pdf/png/jpg/docx/txt)',
+    description:
+      'Returns a storage key to reference from assignments/submissions/notices. Type is detected from content, not extension.',
+  })
+  async attachment(@CurrentUser() u: Principal, @Tenant() t: string, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('file is required');
+    return this.storage.upload({
+      collegeId: t,
+      ownerId: u.userId,
+      scope: 'attachments',
+      file: file.buffer,
+      originalName: file.originalname,
+      allowedExts: ['pdf', 'png', 'jpg', 'docx', 'txt'],
+    });
+  }
+}

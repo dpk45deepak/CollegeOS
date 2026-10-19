@@ -188,13 +188,8 @@ export default function LandingPage() {
 
             {/* Desktop Actions (No Dark Toggle) */}
             <div className="hidden md:flex items-center gap-2.5">
-              <a href="#preview">
-                <button className="px-3.5 py-2 text-xs font-bold rounded-xl border-2 border-[var(--text)] bg-[var(--accent-mint)]/40 hover:bg-[var(--accent-mint)] text-[var(--text)] shadow-[2px_2px_0_var(--text)] transition-transform active:translate-x-[1px] active:translate-y-[1px] cursor-pointer">
-                  System Preview
-                </button>
-              </a>
               <Link href="/login">
-                <button className="px-3.5 py-2 text-xs font-bold text-[var(--text)] hover:text-[var(--cta-dark)] transition-colors cursor-pointer">
+                <button className="px-3.5 py-2 text-xs font-bold rounded-xl border-2 border-[var(--text)] bg-[var(--accent-mint)]/40 hover:bg-[var(--accent-mint)] text-[var(--text)] shadow-[2px_2px_0_var(--text)] transition-transform active:translate-x-[1px] active:translate-y-[1px] cursor-pointer">
                   Institutional Login
                 </button>
               </Link>

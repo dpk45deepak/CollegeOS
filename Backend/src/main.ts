@@ -54,4 +54,9 @@ async function bootstrap(): Promise<void> {
   await app.listen(config.get('PORT'), '0.0.0.0');
 }
 
-void bootstrap();
+if (!process.env.VERCEL) {
+  void bootstrap();
+}
+
+export { default } from '../api/index';
+

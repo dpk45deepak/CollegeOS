@@ -83,25 +83,35 @@ The frontend web application is available at `http://localhost:3001`.
 
 ---
 
-## 3. Production Deployment Topology
+## 3. Production Deployment Topology ($0 / ₹0 Free-Tier)
 
-A scalable, cost-efficient deployment topology:
+A zero-cost, serverless deployment topology using permanent free tiers:
 
-### Frontend: Next.js on Vercel or Node.js Container
+### Frontend: Next.js 15 on Vercel Hobby
+- Platform: Vercel Hobby ($0/mo)
 - Build Command: `npm run build`
 - Output Directory: `.next`
-- Environment Variables: Set `NEXT_PUBLIC_API_URL` to the production backend domain (e.g. `https://api.collegeos.sdiet.edu.in/api/v1`).
+- Environment Variables:
+  - `NEXT_PUBLIC_API_URL=https://college-os-backend.vercel.app/api/v1`
+  - `NEXT_PUBLIC_SOCKET_URL=https://college-os-backend.vercel.app`
+  - `NEXT_PUBLIC_COLLEGE_NAME="Satyug Darshan Institute of Engineering and Technology"`
+  - `NEXT_PUBLIC_COLLEGE_SHORT_CODE="SDIET"`
 
-### Backend: NestJS on Render / AWS ECS / Google Cloud Run
-- Dockerfile: Uses the multi-stage `Backend/Dockerfile`.
-- Port: `3000` (or `PORT` supplied by host).
-- Health Probes:
-  - Liveness: `GET /health` (unprefixed)
-  - Readiness: `GET /health/ready` (unprefixed)
+### Backend: NestJS 10 on Vercel Functions
+- Platform: Vercel Functions Hobby ($0/mo)
+- Entrypoint: `Backend/api/index.ts`
+- Configuration: `Backend/vercel.json` (`maxDuration: 15`, memory: 1024)
+- Health Probes: `GET /health` and `GET /health/ready`
 
-### Database: Managed PostgreSQL (Neon / Supabase / AWS RDS)
-- Run `npm run prisma:deploy` during the deployment release phase.
-- Ensure the `vector` extension is installed: `CREATE EXTENSION IF NOT EXISTS vector;`.
+### Database: Neon Serverless PostgreSQL
+- Platform: Neon.tech Free Tier ($0/mo)
+- Storage: 0.5 GB with native `pgvector`
+- Connection: Pooled connection string (`-pooler.neon.tech?sslmode=require`)
 
-### Redis: Upstash / AWS ElastiCache
-- Handles session revocation denylists, BullMQ queues, and WebSocket clustering.
+### Redis: Upstash Serverless Redis
+- Platform: Upstash Free Tier ($0/mo)
+- Limit: 10,000 requests/day with TLS (`rediss://`)
+
+### AI Copilot: Google Gemini 1.5 Flash
+- Platform: Google AI Studio Free Tier ($0/mo)
+- Limit: 15 RPM / 1M TPM (`AI_PROVIDER=gemini`)

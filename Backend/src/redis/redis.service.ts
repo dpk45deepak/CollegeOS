@@ -8,7 +8,12 @@ export class RedisService implements OnModuleDestroy {
   readonly client: Redis;
 
   constructor(config: AppConfigService) {
-    this.client = new Redis(config.get('REDIS_URL'), { maxRetriesPerRequest: 3 });
+    this.client = new Redis(config.get('REDIS_URL'), {
+      maxRetriesPerRequest: 1,
+      connectTimeout: 3000,
+      lazyConnect: !!process.env.VERCEL,
+      enableOfflineQueue: false,
+    });
     this.client.on('error', (err) => this.logger.error(`Redis error: ${err.message}`));
   }
 

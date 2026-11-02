@@ -22,6 +22,9 @@ import { ALL_QUEUES } from './queue.constants';
             password: url.password ? decodeURIComponent(url.password) : undefined,
             db: url.pathname.length > 1 ? Number(url.pathname.slice(1)) : 0,
             tls: url.protocol === 'rediss:' ? {} : undefined,
+            connectTimeout: 3000,
+            enableOfflineQueue: false,
+            retryStrategy: () => (process.env.VERCEL ? null : 3000),
           },
           prefix: 'collegeos',
           defaultJobOptions: {

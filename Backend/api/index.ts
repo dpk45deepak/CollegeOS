@@ -53,6 +53,22 @@ async function bootstrap() {
 }
 
 export default async function handler(req: Request, res: Response) {
-    await bootstrap();
-    server(req, res);
+    try {
+        if (req.headers['x-matched-path'] && typeof req.headers['x-matched-path'] === 'string') {
+            const originalPath = req.headers['x-matched-path'];
+            if (originalPath && originalPath !== '/api') {
+                req.url = originalPath;
+            }
+        }
+        await bootstrap();
+        server(req, res);
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error('Fatal serverless bootstrap error:', error);
+        res.status(500).json({
+            statusCode: 500,
+            message: 'Serverless Application Bootstrap Failure',
+            error: error?.message || String(error),
+        });
+    }
 }

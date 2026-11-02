@@ -34,10 +34,14 @@ export class SchedulerService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    if (this.config.get('NODE_ENV') === 'test') return;
-    for (const s of SCHEDULES)
-      await this.queue.upsertJobScheduler(s.id, { pattern: s.pattern }, { name: s.job, data: {} });
-    this.logger.log(`Registered ${SCHEDULES.length} scheduled analytics jobs`);
+    if (this.config.get('NODE_ENV') === 'test' || process.env.VERCEL) return;
+    try {
+      for (const s of SCHEDULES)
+        await this.queue.upsertJobScheduler(s.id, { pattern: s.pattern }, { name: s.job, data: {} });
+      this.logger.log(`Registered ${SCHEDULES.length} scheduled analytics jobs`);
+    } catch (err: unknown) {
+      this.logger.warn(`Could not register scheduled analytics jobs: ${(err as Error)?.message}`);
+    }
   }
 
   /** StudentAttendanceUpdated → (debounced) analytics → shortage events → notifications; and risk refresh. */

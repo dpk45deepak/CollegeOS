@@ -59,4 +59,3 @@ if (!process.env.VERCEL) {
 }
 
 export { default } from '../api/index';
-

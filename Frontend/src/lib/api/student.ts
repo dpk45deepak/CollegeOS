@@ -335,8 +335,22 @@ export const studentApi = {
   },
 
   getNotifications: async (): Promise<NotificationItem[]> => {
-    const raw = await apiClient<any>("/notifications");
-    const items = Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
-    return items as NotificationItem[];
+    try {
+      const raw = await apiClient<any>("/notifications");
+      const items = Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
+      return items.map((n: any) => ({
+        id: n.id,
+        type: n.type || "general",
+        title: n.title || "Notification",
+        message: n.body || n.message || "",
+        timestamp: n.createdAt
+          ? new Date(n.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })
+          : "Just now",
+        isRead: !!n.readAt,
+        actionUrl: n.data?.actionUrl,
+      }));
+    } catch {
+      return [];
+    }
   },
 };

@@ -1,5 +1,10 @@
 "use client";
 
+function formatRoom(r: any): string {
+  if (!r) return "Room Assigned";
+  if (typeof r === "string") return r;
+  return r.code || r.number || "Room Assigned";
+}
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { studentApi } from "@/lib/api/student";
@@ -101,7 +106,7 @@ export default function StudentTimetablePage() {
           <span className="font-semibold text-foreground">
             {nextSlot ? (
               <>
-                Next Lecture ({defaultDay}): <strong>{nextSlot.subjectName} ({nextSlot.subjectCode})</strong> in Room <strong>{nextSlot.room}</strong>
+                Next Lecture ({defaultDay}): <strong>{nextSlot.subjectName} ({nextSlot.subjectCode})</strong> in Room <strong>{formatRoom(nextSlot.room)}</strong>
               </>
             ) : (
               "No further lecture sessions scheduled for today."
@@ -178,7 +183,7 @@ export default function StudentTimetablePage() {
                         <div className="mt-2 pt-2 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground">
                           <span className="flex items-center gap-1 font-semibold text-foreground">
                             <MapPin className="h-3 w-3 text-brand-500" />
-                            {slot.room}
+                            {formatRoom(slot.room)}
                           </span>
                           <span className="truncate max-w-[80px]">
                             {slot.instructor}
@@ -226,7 +231,7 @@ export default function StudentTimetablePage() {
                     <p className="text-xs font-semibold text-foreground">{slot.subjectName}</p>
                     <p className="text-[11px] text-muted-foreground flex items-center gap-3 pt-1">
                       <span className="flex items-center gap-1 text-brand-600 font-semibold">
-                        <MapPin className="h-3 w-3" /> {slot.room}
+                        <MapPin className="h-3 w-3" /> {formatRoom(slot.room)}
                       </span>
                       <span>• {slot.instructor}</span>
                     </p>

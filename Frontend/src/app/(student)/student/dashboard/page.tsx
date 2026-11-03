@@ -19,16 +19,24 @@ import {
   AlertCircle,
   Clock,
   ArrowRight,
-  TrendingUp,
   AlertTriangle,
   ChevronRight,
   CheckCircle2,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
+
+// Helper to format minute-of-day (e.g. 600 -> "10:00 AM")
+function formatMinute(m?: number): string {
+  if (m == null) return "";
+  const h = Math.floor(m / 60);
+  const mins = m % 60;
+  const ampm = h >= 12 ? "PM" : "AM";
+  const displayH = h % 12 || 12;
+  return `${displayH}:${mins.toString().padStart(2, "0")} ${ampm}`;
+}
 
 export default function StudentDashboardPage() {
   const { user } = useAuthStore();
@@ -76,12 +84,23 @@ export default function StudentDashboardPage() {
 
   // 3. Upcoming Exam
   const upcomingExam = dashboard.upcomingExams?.[0];
+  const upcomingExamSubject =
+    upcomingExam?.subjectOffering?.subject?.name ||
+    upcomingExam?.offering?.subject?.name ||
+    upcomingExam?.title ||
+    (typeof upcomingExam?.type === "string" ? upcomingExam.type : "Schedule Pending");
+
+  const upcomingExamDate = upcomingExam?.scheduledAt || upcomingExam?.date;
+  const upcomingExamRoom =
+    typeof upcomingExam?.room === "string"
+      ? upcomingExam.room
+      : upcomingExam?.room?.code || upcomingExam?.room?.number || "";
 
   // 4. Fees
   const feeOutstanding = dashboard.fees?.outstanding ?? 0;
 
   // 5. Classes Today
-  const todaysClasses = dashboard.todaysClasses || [];
+  const todaysClasses = Array.isArray(dashboard.todaysClasses) ? dashboard.todaysClasses : [];
 
   return (
     <div className="space-y-6 select-none">
@@ -157,9 +176,9 @@ export default function StudentDashboardPage() {
                 <Clock className="h-4 w-4" />
                 {pendingAssignment ? "Due Assignment" : "Assignments"}
               </span>
-              {pendingAssignment?.maxScore && (
+              {(pendingAssignment?.maxMarks || pendingAssignment?.maxScore) && (
                 <span className="text-xs font-bold font-display bg-[var(--bg)] border-2 border-[var(--text)] text-[var(--text)] px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)]">
-                  {pendingAssignment.maxScore} Marks
+                  {String(pendingAssignment.maxMarks || pendingAssignment.maxScore)} Marks
                 </span>
               )}
             </div>
@@ -188,18 +207,18 @@ export default function StudentDashboardPage() {
                 <GraduationCap className="h-4 w-4" />
                 {upcomingExam ? "Upcoming Exam" : "Examinations"}
               </span>
-              {upcomingExam?.date && (
+              {upcomingExamDate && (
                 <span className="text-xs font-bold font-display bg-[var(--bg)] border-2 border-[var(--text)] text-[var(--text)] px-2 py-0.5 rounded-full shadow-[1px_1px_0_var(--text)]">
-                  {new Date(upcomingExam.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  {new Date(upcomingExamDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                 </span>
               )}
             </div>
             <h4 className="text-sm font-bold font-display text-[var(--text)] truncate">
-              {upcomingExam?.offering?.subject?.name || upcomingExam?.type || "Schedule Pending"}
+              {upcomingExamSubject}
             </h4>
             <p className="text-xs font-semibold text-[var(--text-muted)] mt-1 leading-relaxed">
-              {upcomingExam?.room?.number
-                ? `Room: ${upcomingExam.room.number} • Seating verified`
+              {upcomingExamRoom
+                ? `Room: ${upcomingExamRoom} • Seating verified`
                 : upcomingExam
                 ? "Examination hall tickets will be issued prior to exam date."
                 : "No active exams scheduled in the upcoming examination window."}
@@ -309,11 +328,31 @@ export default function StudentDashboardPage() {
               </div>
             ) : (
               todaysClasses.map((slot: any, i: number) => {
-                const subjectTitle = slot.subject?.name || slot.subject?.code || slot.subjectCode || "Class Session";
-                const roomName = slot.room?.number || slot.room || "Room Assigned";
-                const teacherName = slot.teacher?.user
-                  ? `${slot.teacher.user.firstName} ${slot.teacher.user.lastName}`.trim()
-                  : slot.instructor || "Faculty Assigned";
+                const subject = slot.subjectOffering?.subject || slot.subject;
+                const subjectTitle = subject?.name
+                  ? `${subject.name}${subject.code ? ` (${subject.code})` : ""}`
+                  : typeof slot.subjectCode === "string"
+                  ? slot.subjectCode
+                  : "Class Session";
+
+                const roomName =
+                  typeof slot.room === "string"
+                    ? slot.room
+                    : slot.room?.code || slot.room?.number || "Room Assigned";
+
+                const teacherUser = slot.subjectOffering?.teacher?.user || slot.teacher?.user;
+                const teacherName = teacherUser
+                  ? `${teacherUser.firstName || ""} ${teacherUser.lastName || ""}`.trim()
+                  : typeof slot.instructor === "string"
+                  ? slot.instructor
+                  : "Faculty Assigned";
+
+                const timeDisplay =
+                  slot.startTime && slot.endTime
+                    ? `${slot.startTime} - ${slot.endTime}`
+                    : slot.startMinute != null && slot.endMinute != null
+                    ? `${formatMinute(slot.startMinute)} - ${formatMinute(slot.endMinute)}`
+                    : "Scheduled";
 
                 return (
                   <div
@@ -322,7 +361,7 @@ export default function StudentDashboardPage() {
                   >
                     <div className="flex items-start sm:items-center gap-3">
                       <span className="text-xs font-mono font-semibold text-muted-foreground shrink-0 w-36">
-                        {slot.startTime} - {slot.endTime}
+                        {timeDisplay}
                       </span>
                       <div>
                         <h4 className="text-xs font-semibold text-foreground">

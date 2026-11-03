@@ -1,5 +1,10 @@
 "use client";
 
+function formatRoom(r: any): string {
+  if (!r) return "Hall Assigned";
+  if (typeof r === "string") return r;
+  return r.code || r.number || "Hall Assigned";
+}
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { studentApi } from "@/lib/api/student";
@@ -114,7 +119,7 @@ export default function StudentExamsPage() {
                   </div>
                   <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/50">
                     <span className="flex items-center gap-1 font-semibold text-brand-700 dark:text-brand-300">
-                      <MapPin className="h-3 w-3" /> {exam.room}
+                      <MapPin className="h-3 w-3" /> {formatRoom(exam.room)}
                     </span>
                     <span className="font-mono text-[10px] text-muted-foreground">
                       {exam.seatNumber}

@@ -46,7 +46,7 @@ export const teacherApi = {
         subjectCode: offering.subject?.code || "Course",
         subjectName: offering.subject?.name || "Subject Lecture",
         section: offering.section?.name || "A",
-        room: offering.defaultRoom?.number || "Room Assigned",
+        room: offering.defaultRoom?.code || offering.defaultRoom?.number || (typeof offering.defaultRoom === "string" ? offering.defaultRoom : "Room Assigned"),
         time: "Scheduled Session",
         enrolledStudents: offering._count?.enrollments || 0,
         attendanceMarked: false,

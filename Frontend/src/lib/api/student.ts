@@ -121,23 +121,50 @@ export const studentApi = {
   getTimetable: async (): Promise<TimetableSlot[]> => {
     const raw = await apiClient<any[]>("/students/me/timetable");
 
-    if (Array.isArray(raw) && raw.length > 0 && "dayOfWeek" in raw[0]) {
-      return raw.map((slot) => ({
-        id: slot.id,
-        day: DAY_MAP[slot.dayOfWeek] || "Monday",
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        subjectCode: slot.subject?.code || slot.subjectCode || "GEN101",
-        subjectName: slot.subject?.name || slot.subjectName || "Course Lecture",
-        room: slot.room?.number || slot.room || "Room Assigned",
-        instructor: slot.teacher?.user
-          ? `${slot.teacher.user.firstName} ${slot.teacher.user.lastName}`.trim()
-          : slot.instructor || "Faculty Assigned",
-        type: (slot.type as "Lecture" | "Lab" | "Tutorial") || "Lecture",
-      }));
+    if (Array.isArray(raw)) {
+      return raw.map((slot) => {
+        const subject = slot.subjectOffering?.subject || slot.subject;
+        const teacher = slot.subjectOffering?.teacher?.user || slot.teacher?.user;
+        const roomStr =
+          typeof slot.room === "string"
+            ? slot.room
+            : slot.room?.code || slot.room?.number || "Room Assigned";
+
+        const start =
+          slot.startTime ||
+          (slot.startMinute != null
+            ? `${String(Math.floor(slot.startMinute / 60)).padStart(2, "0")}:${String(
+                slot.startMinute % 60
+              ).padStart(2, "0")}`
+            : "09:00");
+
+        const end =
+          slot.endTime ||
+          (slot.endMinute != null
+            ? `${String(Math.floor(slot.endMinute / 60)).padStart(2, "0")}:${String(
+                slot.endMinute % 60
+              ).padStart(2, "0")}`
+            : "10:00");
+
+        return {
+          id: slot.id,
+          day: DAY_MAP[slot.dayOfWeek] || (typeof slot.day === "string" ? slot.day : "Monday"),
+          startTime: start,
+          endTime: end,
+          subjectCode: subject?.code || (typeof slot.subjectCode === "string" ? slot.subjectCode : "GEN101"),
+          subjectName: subject?.name || (typeof slot.subjectName === "string" ? slot.subjectName : "Course Lecture"),
+          room: roomStr,
+          instructor: teacher
+            ? `${teacher.firstName || ""} ${teacher.lastName || ""}`.trim()
+            : typeof slot.instructor === "string"
+            ? slot.instructor
+            : "Faculty Assigned",
+          type: (slot.type as "Lecture" | "Lab" | "Tutorial") || "Lecture",
+        };
+      });
     }
 
-    return Array.isArray(raw) ? (raw as TimetableSlot[]) : [];
+    return [];
   },
 
   getAssignments: async (): Promise<Assignment[]> => {
@@ -182,25 +209,33 @@ export const studentApi = {
 
   getExams: async (): Promise<Exam[]> => {
     const raw = await apiClient<any[]>("/students/me/exams");
+    const items = Array.isArray(raw) ? raw : (raw as any)?.data || [];
 
-    if (Array.isArray(raw) && raw.length > 0 && "offering" in raw[0]) {
-      return raw.map((e: any) => ({
+    return items.map((e: any) => {
+      const subject = e.subjectOffering?.subject || e.offering?.subject || e.subject;
+      const roomStr =
+        typeof e.room === "string"
+          ? e.room
+          : e.room?.code || e.room?.number || "Hall Assigned";
+
+      const dateStr = e.scheduledAt || e.date;
+      const parsedDate = dateStr ? new Date(dateStr) : new Date();
+
+      return {
         id: e.id,
-        subjectCode: e.offering?.subject?.code || "Course",
-        subjectName: e.offering?.subject?.name || "Course Exam",
+        subjectCode: subject?.code || (typeof e.subjectCode === "string" ? e.subjectCode : "Course"),
+        subjectName: subject?.name || e.title || (typeof e.subjectName === "string" ? e.subjectName : "Course Exam"),
         examType: (e.type as "Mid-Term" | "End-Term" | "Practical") || "Mid-Term",
-        date: e.date ? new Date(e.date).toISOString().split("T")[0] : "",
-        startTime: e.startTime || "",
+        date: dateStr ? parsedDate.toISOString().split("T")[0] : "",
+        startTime: e.startTime || (dateStr ? parsedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "10:00 AM"),
         endTime: e.endTime || "",
-        room: e.room?.number || "Hall Assigned",
-        seatNumber: "Allocated at Gate",
+        room: roomStr,
+        seatNumber: typeof e.seatNumber === "string" ? e.seatNumber : "Allocated at Gate",
         maxMarks: e.maxMarks || 100,
-        syllabus: "Assigned Syllabus",
-        status: (new Date(e.date || Date.now()) > new Date() ? "UPCOMING" : "COMPLETED") as "UPCOMING" | "COMPLETED",
-      }));
-    }
-
-    return Array.isArray(raw) ? (raw as Exam[]) : [];
+        syllabus: typeof e.syllabus === "string" ? e.syllabus : "Comprehensive course curriculum and assigned units.",
+        status: (parsedDate > new Date() ? "UPCOMING" : "COMPLETED") as "UPCOMING" | "COMPLETED",
+      };
+    });
   },
 
   getResults: async (): Promise<SemesterResult> => {

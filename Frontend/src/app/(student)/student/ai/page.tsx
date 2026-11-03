@@ -13,269 +13,653 @@ import {
   Terminal,
   BookOpen,
   ArrowRight,
-  TrendingUp,
   BarChart2,
+  CheckCircle2,
+  Copy,
+  Check,
+  AlertCircle,
+  FileText,
+  Clock,
+  Layers,
+  ChevronDown,
+  ChevronUp,
+  Cpu,
+  GraduationCap,
+  Scale,
+  Briefcase,
+  DollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+
+// Map backend agent names to UI friendly labels and badges
+function getAgentMeta(agentName?: string) {
+  switch (agentName) {
+    case "AttendanceAdvisorAgent":
+      return {
+        label: "Attendance Advisor",
+        icon: BarChart2,
+        color: "text-blue-600 dark:text-blue-400",
+        badgeBg: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-300",
+      };
+    case "AcademicAssistantAgent":
+      return {
+        label: "Academic Assistant",
+        icon: GraduationCap,
+        color: "text-indigo-600 dark:text-indigo-400",
+        badgeBg: "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-300",
+      };
+    case "ScholarshipAgent":
+      return {
+        label: "Scholarship Guide",
+        icon: DollarSign,
+        color: "text-emerald-600 dark:text-emerald-400",
+        badgeBg: "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-300",
+      };
+    case "PlacementAgent":
+      return {
+        label: "Placement Advisor",
+        icon: Briefcase,
+        color: "text-amber-600 dark:text-amber-400",
+        badgeBg: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-300",
+      };
+    case "GrievanceAgent":
+    case "GrievanceDesk":
+      return {
+        label: "Grievance Desk",
+        icon: Scale,
+        color: "text-rose-600 dark:text-rose-400",
+        badgeBg: "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-300",
+      };
+    case "CollegeKnowledgeAgent":
+      return {
+        label: "University Bylaws",
+        icon: BookOpen,
+        color: "text-cyan-600 dark:text-cyan-400",
+        badgeBg: "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-300",
+      };
+    default:
+      return {
+        label: "Campus Intelligence",
+        icon: Cpu,
+        color: "text-brand-600 dark:text-brand-400",
+        badgeBg: "bg-brand-500/10 border-brand-500/20 text-brand-600 dark:text-brand-300",
+      };
+  }
+}
+
+// Lightweight Markdown Formatter
+function MarkdownViewer({ content }: { content: string }) {
+  const lines = content.split("\n");
+  const elements: React.ReactNode[] = [];
+  let currentList: string[] = [];
+  let listType: "ul" | "ol" = "ul";
+
+  const flushList = () => {
+    if (currentList.length === 0) return;
+    const items = currentList.map((item, idx) => (
+      <li key={idx} className="leading-relaxed">
+        {renderInlineMarkdown(item)}
+      </li>
+    ));
+    if (listType === "ul") {
+      elements.push(
+        <ul key={`ul-${elements.length}`} className="my-2 ml-4 list-disc space-y-1 text-sm text-foreground/90">
+          {items}
+        </ul>
+      );
+    } else {
+      elements.push(
+        <ol key={`ol-${elements.length}`} className="my-2 ml-4 list-decimal space-y-1 text-sm text-foreground/90">
+          {items}
+        </ol>
+      );
+    }
+    currentList = [];
+  };
+
+  lines.forEach((rawLine, i) => {
+    const line = rawLine.trim();
+
+    // Empty line
+    if (!line) {
+      flushList();
+      elements.push(<div key={`sp-${i}`} className="h-2" />);
+      return;
+    }
+
+    // Headings
+    if (line.startsWith("### ")) {
+      flushList();
+      elements.push(
+        <h3 key={`h3-${i}`} className="mt-3 mb-1 text-base font-bold text-foreground">
+          {renderInlineMarkdown(line.slice(4))}
+        </h3>
+      );
+      return;
+    }
+    if (line.startsWith("## ")) {
+      flushList();
+      elements.push(
+        <h2 key={`h2-${i}`} className="mt-4 mb-1.5 text-lg font-bold text-foreground">
+          {renderInlineMarkdown(line.slice(3))}
+        </h2>
+      );
+      return;
+    }
+    if (line.startsWith("# ")) {
+      flushList();
+      elements.push(
+        <h1 key={`h1-${i}`} className="mt-4 mb-2 text-xl font-extrabold text-foreground">
+          {renderInlineMarkdown(line.slice(2))}
+        </h1>
+      );
+      return;
+    }
+
+    // Bullet lists
+    if (line.startsWith("* ") || line.startsWith("- ")) {
+      if (currentList.length > 0 && listType !== "ul") flushList();
+      listType = "ul";
+      currentList.push(line.slice(2));
+      return;
+    }
+
+    // Numbered lists
+    const numMatch = line.match(/^\d+\.\s+(.*)$/);
+    if (numMatch) {
+      if (currentList.length > 0 && listType !== "ol") flushList();
+      listType = "ol";
+      currentList.push(numMatch[1]);
+      return;
+    }
+
+    // Blockquote
+    if (line.startsWith("> ")) {
+      flushList();
+      elements.push(
+        <blockquote
+          key={`bq-${i}`}
+          className="my-2 border-l-2 border-brand-500 bg-muted/30 px-3 py-1.5 text-xs italic text-muted-foreground rounded-r"
+        >
+          {renderInlineMarkdown(line.slice(2))}
+        </blockquote>
+      );
+      return;
+    }
+
+    // Standard paragraph line
+    flushList();
+    elements.push(
+      <p key={`p-${i}`} className="text-sm leading-relaxed text-foreground/90">
+        {renderInlineMarkdown(line)}
+      </p>
+    );
+  });
+
+  flushList();
+
+  return <div className="space-y-1">{elements}</div>;
+}
+
+// Render bold, inline code, and emphasis within a string
+function renderInlineMarkdown(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*.*?\*\*|`.*?`|\*.*?\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={index} className="font-semibold text-foreground">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code
+          key={index}
+          className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-brand-600 dark:text-brand-400 font-medium"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return (
+        <em key={index} className="italic text-foreground/80">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    return part;
+  });
+}
 
 export default function StudentAIPage() {
-  const { messages, isStreaming, suggestedPrompts, sendMessage, resetConversation } =
+  const { messages, isStreaming, sendMessage, resetConversation, confirmDraft, cancelDraft } =
     useAIStore();
 
   const [input, setInput] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedTrace, setExpandedTrace] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!input.trim() || isStreaming) return;
-    sendMessage(input);
+    sendMessage(input.trim());
     setInput("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
   };
 
-  const handlePromptClick = (prompt: string) => {
-    sendMessage(prompt);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
   };
+
+  const handleCopy = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    toast.success("Copied to clipboard");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const toggleTrace = (id: string) => {
+    setExpandedTrace((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const agentPills = [
+    { label: "Attendance Status", prompt: "What is my current attendance percentage and do I have any deficit below 75%?" },
+    { label: "Exam Seating", prompt: "When is my next upcoming exam and what is my hall / seat allocation?" },
+    { label: "Fee Dues", prompt: "Show my current fee balance and due date" },
+    { label: "Leave Rules", prompt: "What is the official university policy regarding medical leave and condonation?" },
+    { label: "Scholarships", prompt: "Which scholarships are currently open that match my CGPA and branch?" },
+    { label: "Draft Grievance", prompt: "Help me draft an official grievance regarding broken computer lab equipment" },
+  ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 h-[calc(100vh-8rem)] flex flex-col">
-      {/* Top Banner */}
-      <div className="flex items-center justify-between pb-3 border-b border-border shrink-0">
+    <div className="max-w-5xl mx-auto h-[calc(100vh-6.5rem)] flex flex-col gap-3">
+      {/* Sleek Agent System Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-card border border-border/80 shadow-xs backdrop-blur-sm shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white shadow-lg shadow-brand-500/25">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-brand-500/20">
             <Sparkles className="h-5 w-5" />
+            <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-card"></span>
+            </span>
           </div>
           <div>
-            <h1 className="text-lg font-bold text-foreground">
-              College AI Copilot
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Grounded in official college ordinances, live attendance databases, and faculty registries.
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-bold text-foreground">
+                Campus Intelligence Copilot
+              </h1>
+              <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-brand-500/10 text-brand-600 dark:text-brand-300 border-brand-500/20">
+                Gemini 3.5 Flash
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              Grounded in live university databases, faculty records, and academic bylaws
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={resetConversation}
-          className="text-xs gap-1.5"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          Reset Chat
-        </Button>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={resetConversation}
+            className="text-xs gap-1.5 rounded-xl border-border/80 hover:bg-muted/60 transition-colors"
+          >
+            <RotateCcw className="h-3.5 w-3.5 text-muted-foreground" />
+            New Session
+          </Button>
+        </div>
       </div>
 
       {/* Main Conversation Stream */}
-      <div className="flex-1 overflow-y-auto pr-2 space-y-5">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex flex-col ${
-              msg.sender === "user" ? "items-end" : "items-start"
-            }`}
-          >
+      <div className="flex-1 overflow-y-auto px-1 space-y-4">
+        {messages.map((msg) => {
+          const isUser = msg.sender === "user";
+          const agentMeta = getAgentMeta(msg.agent);
+          const AgentIcon = agentMeta.icon;
+          const isTraceOpen = !!expandedTrace[msg.id];
+
+          return (
             <div
-              className={`flex gap-3 max-w-[85%] ${
-                msg.sender === "user" ? "flex-row-reverse" : "flex-row"
-              }`}
+              key={msg.id}
+              className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
             >
-              {/* Avatar */}
               <div
-                className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-semibold ${
-                  msg.sender === "user"
-                    ? "bg-brand-600 text-white"
-                    : "bg-muted text-foreground border border-border"
+                className={`flex gap-3 max-w-[92%] sm:max-w-[85%] ${
+                  isUser ? "flex-row-reverse" : "flex-row"
                 }`}
               >
-                {msg.sender === "user" ? (
-                  <User className="h-4 w-4" />
-                ) : (
-                  <Bot className="h-4 w-4 text-brand-600 dark:text-brand-400" />
-                )}
-              </div>
-
-              {/* Message Content Container */}
-              <div className="space-y-3">
+                {/* Avatar */}
                 <div
-                  className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${
-                    msg.sender === "user"
-                      ? "bg-brand-600 text-white rounded-tr-none shadow-md"
-                      : "bg-card border border-border text-foreground rounded-tl-none shadow-sm"
+                  className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-semibold shadow-xs ${
+                    isUser
+                      ? "bg-brand-600 text-white"
+                      : "bg-card border border-border text-foreground"
                   }`}
                 >
-                  {msg.content}
+                  {isUser ? (
+                    <User className="h-4 w-4" />
+                  ) : (
+                    <Bot className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                  )}
                 </div>
 
-                {/* Visual Distinction: Official Record vs AI Advisory */}
-                {msg.sender === "assistant" && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {msg.isOfficial && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                        Official College Information
+                {/* Message Bubble & Cards */}
+                <div className="space-y-2.5 flex-1 min-w-0">
+                  {/* Agent Header Tag on Assistant Messages */}
+                  {!isUser && (
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${agentMeta.badgeBg}`}>
+                          <AgentIcon className="h-3 w-3" />
+                          {agentMeta.label}
+                        </span>
+
+                        {msg.isOfficial && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                            <ShieldCheck className="h-3 w-3" />
+                            Verified Record
+                          </span>
+                        )}
+                        {msg.isRecommendation && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-purple-600 dark:text-purple-400 font-medium">
+                            <Lightbulb className="h-3 w-3" />
+                            AI Advisory
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
+                        <Clock className="h-2.5 w-2.5" />
+                        {msg.timestamp}
                       </span>
-                    )}
-                    {msg.isRecommendation && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-purple-50 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border border-purple-300 dark:border-purple-700">
-                        <Lightbulb className="h-3.5 w-3.5 text-purple-600" />
-                        AI Advisory Insight
-                      </span>
+                    </div>
+                  )}
+
+                  {/* Bubble Content */}
+                  <div
+                    className={`rounded-2xl p-4 sm:p-5 shadow-xs ${
+                      isUser
+                        ? "bg-brand-600 text-white rounded-tr-none text-sm leading-relaxed"
+                        : "bg-card border border-border/80 text-foreground rounded-tl-none"
+                    }`}
+                  >
+                    {isUser ? (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    ) : (
+                      <MarkdownViewer content={msg.content} />
                     )}
                   </div>
-                )}
 
-                {/* Tool Execution Card */}
-                {msg.toolExecution && (
-                  <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-2 font-mono text-xs">
-                    <div className="flex items-center justify-between text-muted-foreground pb-1.5 border-b border-border/50">
-                      <span className="flex items-center gap-1.5 font-semibold text-brand-600 dark:text-brand-400">
-                        <Terminal className="h-3.5 w-3.5" />
-                        Tool Invoked: {msg.toolExecution.toolName}
-                      </span>
-                      <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.2 rounded font-sans">
-                        Executed in 382ms
-                      </span>
-                    </div>
+                  {/* Verification Trace / Tool Execution Accordion */}
+                  {!isUser && (msg.collegeData?.length || msg.toolExecution) && (
+                    <div className="rounded-xl border border-border/70 bg-muted/30 overflow-hidden text-xs">
+                      <button
+                        onClick={() => toggleTrace(msg.id)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors font-medium"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Terminal className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
+                          Database Verification & Tool Execution Trace
+                          <span className="ml-1 px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono">
+                            {msg.collegeData?.length || 1} Queries Verified
+                          </span>
+                        </span>
+                        {isTraceOpen ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
+                      </button>
 
-                    {/* Visual Attendance Card if attendance tool */}
-                    {msg.toolExecution.data && (() => {
-                      const toolData = msg.toolExecution.data as Record<string, unknown>;
-                      const rawPercent = toolData.currentPercent ?? toolData.percentage;
-                      const percent = typeof rawPercent === "number" ? rawPercent : Number(rawPercent) || 75;
-                      const isDeficit = percent < 75;
-                      return (
-                        <div className="font-sans rounded-lg border border-border bg-card p-3 my-2 shadow-xs">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                              <BarChart2 className="h-4 w-4 text-brand-600" />
-                              Live Attendance Metrics
-                            </span>
-                            <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded ${isDeficit ? "text-rose-600 bg-rose-50 dark:bg-rose-950" : "text-emerald-600 bg-emerald-50 dark:bg-emerald-950"}`}>
-                              {isDeficit ? "Deficit Alert" : "Safe Standing"}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="p-2 rounded bg-muted/50">
-                              <span className="text-muted-foreground text-[10px] block">Current Attendance</span>
-                              <span className="font-bold text-foreground text-sm">
-                                {percent}%
-                              </span>
+                      {isTraceOpen && (
+                        <div className="p-3 border-t border-border/60 space-y-2 bg-card/40">
+                          {msg.collegeData?.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="p-2.5 rounded-lg bg-muted/50 border border-border/50 space-y-1 font-mono text-[11px]"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                  {item.tool}()
+                                </span>
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                  Query Succeeded
+                                </span>
+                              </div>
+                              <p className="font-sans text-xs text-muted-foreground">
+                                {item.summary}
+                              </p>
                             </div>
-                            <div className="p-2 rounded bg-muted/50">
-                              <span className="text-muted-foreground text-[10px] block">Statutory Threshold</span>
-                              <span className="font-bold text-emerald-600 text-sm">75.0% Required</span>
+                          ))}
+
+                          {!msg.collegeData?.length && msg.toolExecution && (
+                            <div className="p-2.5 rounded-lg bg-muted/50 border border-border/50 space-y-1 font-mono text-[11px]">
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                  {msg.toolExecution.toolName}()
+                                </span>
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                  Verified
+                                </span>
+                              </div>
+                              <p className="font-sans text-xs text-muted-foreground">
+                                {msg.toolExecution.summary}
+                              </p>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    <div className="text-[11px] font-sans text-muted-foreground">
-                      {msg.toolExecution.summary}
-                    </div>
-                  </div>
-                )}
-
-                {/* Verified Source Citations */}
-                {msg.citations && msg.citations.length > 0 && (
-                  <div className="rounded-xl border border-border bg-card/60 p-3 space-y-2">
-                    <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                      <BookOpen className="h-3.5 w-3.5 text-brand-500" />
-                      Official Grounded Sources ({msg.citations.length})
-                    </div>
-                    <div className="space-y-1.5">
-                      {msg.citations.map((cite, i) => (
-                        <div
-                          key={i}
-                          className="p-2 rounded-lg bg-muted/40 border border-border/70 text-xs"
-                        >
-                          <div className="font-semibold text-foreground">
-                            {cite.title} {cite.page ? `• Page ${cite.page}` : ""}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">
-                            {cite.source}
-                          </div>
-                          {cite.excerpt && (
-                            <blockquote className="mt-1 pl-2 border-l-2 border-brand-500 text-[11px] italic text-muted-foreground">
-                              &ldquo;{cite.excerpt}&rdquo;
-                            </blockquote>
                           )}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Action Chips */}
-                {msg.quickActions && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {msg.quickActions.map((action, i) => (
-                      <button
-                        key={i}
-                        onClick={() => handlePromptClick(action.prompt)}
-                        className="px-3 py-1 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 hover:bg-brand-100 transition-colors border border-brand-200 dark:border-brand-800 flex items-center gap-1"
+                  {/* Grievance Draft Confirmation Card */}
+                  {!isUser && msg.pendingDraftId && (
+                    <div className="p-3.5 rounded-xl border-2 border-brand-500/40 bg-brand-500/5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Scale className="h-4 w-4 text-brand-600" />
+                          Official Grievance Draft Ready for Submission
+                        </span>
+                        <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20">
+                          Pending Approval
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        The AI assistant has composed this grievance based on your description. Per college safety policy, no official ticket is logged until you explicitly submit it.
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          onClick={() => confirmDraft(msg.pendingDraftId!)}
+                          className="text-xs gap-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          Confirm & Submit to Grievance Desk
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => cancelDraft(msg.pendingDraftId!)}
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Discard Draft
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Grounded Source Citations */}
+                  {!isUser && msg.citations && msg.citations.length > 0 && (
+                    <div className="rounded-xl border border-border/70 bg-card p-3 space-y-2">
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <BookOpen className="h-3.5 w-3.5 text-brand-500" />
+                        Grounded College Documents ({msg.citations.length})
+                      </div>
+                      <div className="space-y-1.5">
+                        {msg.citations.map((cite, i) => (
+                          <div
+                            key={i}
+                            className="p-2 rounded-lg bg-muted/40 border border-border/60 text-xs"
+                          >
+                            <div className="font-semibold text-foreground flex items-center justify-between">
+                              <span>{cite.title}</span>
+                              {cite.page && (
+                                <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">
+                                  Page {cite.page}
+                                </span>
+                              )}
+                            </div>
+                            {cite.excerpt && (
+                              <blockquote className="mt-1 pl-2 border-l-2 border-brand-500 text-[11px] italic text-muted-foreground">
+                                &ldquo;{cite.excerpt}&rdquo;
+                              </blockquote>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Message Footer: Actions & Copy */}
+                  {!isUser && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                      {/* Quick Action Chips */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {msg.quickActions?.map((action, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              sendMessage(action.prompt);
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-muted/60 hover:bg-muted text-foreground/80 hover:text-foreground transition-all border border-border/60 flex items-center gap-1 shadow-2xs hover:border-brand-500/40"
+                          >
+                            {action.label}
+                            <ArrowRight className="h-2.5 w-2.5 opacity-60" />
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Copy Button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleCopy(msg.id, msg.content)}
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-lg"
+                        title="Copy response"
                       >
-                        {action.label} <ArrowRight className="h-3 w-3" />
-                      </button>
-                    ))}
-                  </div>
-                )}
+                        {copiedId === msg.id ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
+        {/* Live Thinking / Solvers State */}
         {isStreaming && (
-          <div className="flex items-center gap-3 p-3 text-xs text-muted-foreground">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-950">
-              <Sparkles className="h-4 w-4 animate-spin" />
+          <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-card border border-border/70 max-w-[80%] shadow-xs">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white animate-pulse">
+              <Sparkles className="h-4 w-4" />
             </div>
-            <span className="animate-pulse">
-              Running constraint solvers and cross-referencing university policies...
-            </span>
+            <div className="space-y-0.5">
+              <div className="text-xs font-semibold text-foreground flex items-center gap-2">
+                Campus Intelligence Agent Active
+                <span className="flex space-x-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-bounce"></span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-bounce [animation-delay:0.2s]"></span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-bounce [animation-delay:0.4s]"></span>
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Executing student database queries and evaluating statutory requirements...
+              </p>
+            </div>
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggested Prompts Shelf */}
-      <div className="shrink-0 pt-2 border-t border-border">
-        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-          {suggestedPrompts.map((s, idx) => (
+      {/* Suggested Prompts Quick Bar */}
+      <div className="shrink-0 space-y-2 pt-1 border-t border-border/80">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          {agentPills.map((p, idx) => (
             <button
               key={idx}
-              onClick={() => handlePromptClick(s.prompt)}
+              onClick={() => {
+                sendMessage(p.prompt);
+              }}
               disabled={isStreaming}
-              className="whitespace-nowrap px-3 py-1.5 rounded-full bg-card hover:bg-muted text-xs text-foreground border border-border transition-colors font-medium shrink-0 disabled:opacity-50"
+              className="whitespace-nowrap px-3 py-1 rounded-full bg-card hover:bg-muted text-xs text-foreground/90 border border-border/80 hover:border-brand-500/40 transition-colors font-medium shrink-0 disabled:opacity-50 shadow-2xs"
             >
-              {s.label}
+              {p.label}
             </button>
           ))}
         </div>
 
-        {/* Input Bar */}
-        <form onSubmit={handleSubmit} className="relative flex items-center mt-2">
-          <input
-            type="text"
-            placeholder="Ask anything: 'Why is my attendance low?', 'When is my next exam?', 'Find scholarships'..."
+        {/* Modern Command Bar Input */}
+        <div className="relative rounded-2xl border border-input bg-card p-2 shadow-sm focus-within:ring-2 focus-within:ring-brand-500 focus-within:border-brand-500 transition-all">
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            placeholder="Ask anything: 'What is my attendance percentage?', 'When is my next exam?', 'Check pending fees'..."
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              e.target.style.height = "auto";
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+            }}
+            onKeyDown={handleKeyDown}
             disabled={isStreaming}
-            className="w-full rounded-2xl border border-input bg-card pl-4 pr-14 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm"
+            className="w-full resize-none bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none max-h-32 leading-relaxed"
           />
-          <Button
-            type="submit"
-            disabled={!input.trim() || isStreaming}
-            className="absolute right-2 h-9 w-9 rounded-xl p-0 shadow-md shadow-brand-500/20"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
+
+          <div className="flex items-center justify-between pt-1 border-t border-border/40 mt-1">
+            <span className="text-[10px] text-muted-foreground hidden sm:inline-flex items-center gap-1 pl-2">
+              <span>Press</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[9px] font-mono">↵ Enter</kbd>
+              <span>to send,</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[9px] font-mono">Shift + ↵</kbd>
+              <span>for new line</span>
+            </span>
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => handleSubmit()}
+              disabled={!input.trim() || isStreaming}
+              className="ml-auto h-8 px-3 rounded-xl gap-1.5 bg-brand-600 hover:bg-brand-700 text-white shadow-xs"
+            >
+              <span>Send</span>
+              <Send className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

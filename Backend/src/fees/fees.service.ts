@@ -359,9 +359,14 @@ export class FeesService {
   }
   private async receiptNo(c: string): Promise<string> {
     const d = new Date();
-    const key = `receipt:${c}:${d.getUTCFullYear()}`;
-    const n = await this.redis.client.incr(key);
-    return `RCPT-${d.getUTCFullYear()}-${String(n).padStart(6, '0')}-${randomBytes(2).toString('hex').toUpperCase()}`;
+    try {
+      const key = `receipt:${c}:${d.getUTCFullYear()}`;
+      const n = await this.redis.client.incr(key);
+      return `RCPT-${d.getUTCFullYear()}-${String(n).padStart(6, '0')}-${randomBytes(2).toString('hex').toUpperCase()}`;
+    } catch {
+      const count = await this.prisma.payment.count({ where: { collegeId: c } });
+      return `RCPT-${d.getUTCFullYear()}-${String(count + 1).padStart(6, '0')}-${randomBytes(2).toString('hex').toUpperCase()}`;
+    }
   }
 }
 export { PaymentStatus };

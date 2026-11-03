@@ -20,12 +20,28 @@ import { OpenAiCompatProvider, PROVIDER_DEFAULTS } from './providers/openai-comp
           [AiProviderName.OpenRouter]: c.get('OPENROUTER_API_KEY'),
           [AiProviderName.Local]: undefined,
         }[name];
+        let baseUrl = (c.get('AI_BASE_URL') || d.baseUrl).trim().replace(/\/+$/, '');
+        if (name === AiProviderName.Gemini && !baseUrl.includes('/openai')) {
+          baseUrl = 'https://generativelanguage.googleapis.com/v1beta/openai';
+        }
+        let chatModel = (c.get('AI_CHAT_MODEL') || d.chatModel).trim();
+        if (name === AiProviderName.Gemini) {
+          if (!chatModel || chatModel.includes('2.0') || chatModel.includes('2.5') || chatModel.includes('3.8')) {
+            chatModel = 'gemini-3.5-flash';
+          }
+        }
+        let embeddingModel = (c.get('AI_EMBEDDING_MODEL') || d.embeddingModel).trim();
+        if (name === AiProviderName.Gemini) {
+          if (!embeddingModel || embeddingModel.includes('text-embedding-004')) {
+            embeddingModel = 'gemini-embedding-2';
+          }
+        }
         return new OpenAiCompatProvider({
           name,
-          baseUrl: (c.get('AI_BASE_URL') ?? d.baseUrl).replace(/\/$/, ''),
+          baseUrl,
           apiKey,
-          chatModel: c.get('AI_CHAT_MODEL') ?? d.chatModel,
-          embeddingModel: c.get('AI_EMBEDDING_MODEL') ?? d.embeddingModel,
+          chatModel,
+          embeddingModel,
           requiresKey: d.requiresKey,
           extraHeaders: name === AiProviderName.OpenRouter ? { 'X-Title': 'College OS' } : undefined,
         });

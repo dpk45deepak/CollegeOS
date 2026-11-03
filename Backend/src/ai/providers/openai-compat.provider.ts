@@ -25,8 +25,8 @@ export const PROVIDER_DEFAULTS: Record<
   },
   gemini: {
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    chatModel: 'gemini-2.0-flash',
-    embeddingModel: 'text-embedding-004',
+    chatModel: 'gemini-3.5-flash',
+    embeddingModel: 'gemini-embedding-2',
     requiresKey: true,
   },
   openrouter: {

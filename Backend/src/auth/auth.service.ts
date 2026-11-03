@@ -257,8 +257,12 @@ export class AuthService {
     await Promise.all(sessions.map((s) => this.markRevoked(s.id)));
   }
   /** Lets the access-token guard reject tokens of a revoked session without a DB hit. */
-  private markRevoked(sessionId: string) {
-    return this.redis.client.set(revokedKey(sessionId), '1', 'EX', 24 * 3600);
+  private async markRevoked(sessionId: string) {
+    try {
+      await this.redis.client.set(revokedKey(sessionId), '1', 'EX', 24 * 3600);
+    } catch {
+      // Redis is offline; session is already revoked in database
+    }
   }
 
   private async registerFailure(userId: string, attempts: number): Promise<void> {

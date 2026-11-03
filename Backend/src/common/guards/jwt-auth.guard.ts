@@ -7,6 +7,7 @@ import { RequestContext } from '../utils/request-context';
 import { PrincipalService } from '../../security/principal.service';
 import { TokenService } from '../../security/token.service';
 import { RedisService } from '../../redis/redis.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 export const revokedKey = (sid: string) => `revoked:${sid}`;
 
@@ -17,6 +18,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly tokens: TokenService,
     private readonly principals: PrincipalService,
     private readonly redis: RedisService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -34,9 +36,23 @@ export class JwtAuthGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException({ message: 'Invalid or expired token', errorCode: 'TOKEN_INVALID' });
     }
-    if (await this.redis.client.exists(revokedKey(payload.sid))) {
+
+    let isRevoked = false;
+    try {
+      isRevoked = (await this.redis.client.exists(revokedKey(payload.sid))) === 1;
+    } catch {
+      // Redis is offline/unreachable in serverless environments; fallback to PostgreSQL session lookup
+      const session = await this.prisma.authSession.findUnique({
+        where: { id: payload.sid },
+        select: { revokedAt: true },
+      });
+      isRevoked = !session || !!session.revokedAt;
+    }
+
+    if (isRevoked) {
       throw new UnauthorizedException({ message: 'Session has been revoked', errorCode: 'SESSION_REVOKED' });
     }
+
     const principal = await this.principals.load(payload.sub);
     if (!principal || principal.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException({ message: 'Account is not active', errorCode: 'ACCOUNT_INACTIVE' });

@@ -39,7 +39,7 @@ npm run prisma:generate
 npm run prisma:migrate
 SEED_PASSWORD='Dev-Passw0rd-123' npm run seed
 ```
-This generates the Prisma client, runs schema migrations, and populates the database with the `SDIET` demo college, user accounts, and test scenarios.
+This generates the Prisma client, runs schema migrations, and populates the database with the `SDIET` demo college, user accounts, and test scenarios. See [DEMO_CREDENTIALS.md](./DEMO_CREDENTIALS.md) for a comprehensive list of all demo user logins and scenarios.
 
 ### 4. Start the NestJS Backend
 ```bash

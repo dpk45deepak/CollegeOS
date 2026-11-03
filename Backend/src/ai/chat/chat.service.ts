@@ -96,14 +96,19 @@ export class ChatService {
   }
 
   private async rateLimit(userId: string) {
-    const key = `aichat:${userId}:${Math.floor(Date.now() / 60_000)}`;
-    const n = await this.redis.client.incr(key);
-    if (n === 1) await this.redis.client.expire(key, 90);
-    if (n > PER_MINUTE)
-      throw new HttpException(
-        { message: 'Too many AI requests. Please wait a minute.', errorCode: 'AI_RATE_LIMITED' },
-        429,
-      );
+    try {
+      const key = `aichat:${userId}:${Math.floor(Date.now() / 60_000)}`;
+      const n = await this.redis.client.incr(key);
+      if (n === 1) await this.redis.client.expire(key, 90);
+      if (n > PER_MINUTE)
+        throw new HttpException(
+          { message: 'Too many AI requests. Please wait a minute.', errorCode: 'AI_RATE_LIMITED' },
+          429,
+        );
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+      // Redis unavailable in serverless; bypass rate limiting
+    }
   }
 
   async list(p: Principal, collegeId: string, q: PaginationQueryDto) {

@@ -22,6 +22,7 @@ const TTL = 30 * 60;
  */
 @Injectable()
 export class ComplaintDraftService {
+  private readonly draftFallback = new Map<string, { data: string; expiresAt: number }>();
   constructor(
     private readonly redis: RedisService,
     private readonly complaints: ComplaintsService,
@@ -38,7 +39,13 @@ export class ComplaintDraftService {
     return id;
   }
   async get(userId: string, id: string): Promise<ComplaintDraft> {
-    const raw = await this.redis.client.get(`cdraft:${userId}:${id}`);
+    let raw: string | null = null;
+    try {
+      raw = await this.redis.client.get(`cdraft:${userId}:${id}`);
+    } catch {
+      const item = this.draftFallback.get(`cdraft:${userId}:${id}`);
+      if (item && item.expiresAt > Date.now()) raw = item.data;
+    }
     if (!raw) throw new NotFoundException('Draft expired or not found');
     return JSON.parse(raw) as ComplaintDraft;
   }
@@ -51,10 +58,10 @@ export class ComplaintDraftService {
       { category: d.category, subject: d.subject, description: d.description },
       { routing: d.routing, routedByAi: true },
     );
-    await this.redis.client.del(`cdraft:${p.userId}:${id}`);
+    try { await this.redis.client.del(`cdraft:${p.userId}:${id}`); } catch { this.draftFallback.delete(`cdraft:${p.userId}:${id}`); }
     return complaint;
   }
   async cancel(userId: string, id: string) {
-    await this.redis.client.del(`cdraft:${userId}:${id}`);
+    try { await this.redis.client.del(`cdraft:${userId}:${id}`); } catch { this.draftFallback.delete(`cdraft:${userId}:${id}`); }
   }
 }

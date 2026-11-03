@@ -78,7 +78,15 @@ export class Supervisor {
       return await agent.run(i);
     } catch (e) {
       this.logger.warn(`agent ${name} failed: ${(e as Error).message}`);
-      if (name === 'CollegeKnowledgeAgent') throw e;
+      if (name === 'CollegeKnowledgeAgent') {
+        return {
+          reply: 'I am currently unable to retrieve official college documents, but I can check your verified student records, attendance, fee dues, exam dates, or timetable if you ask directly!',
+          agent: name,
+          citations: [],
+          collegeData: [],
+          mode: 'deterministic',
+        };
+      }
       return this.fallback.respond(agent, i);
     }
   }

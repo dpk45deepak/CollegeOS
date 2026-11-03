@@ -2,6 +2,8 @@ export interface ToolCall {
   id: string;
   type: 'function';
   function: { name: string; arguments: string };
+  extra_content?: unknown;
+  [key: string]: unknown;
 }
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';

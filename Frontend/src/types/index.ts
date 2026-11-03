@@ -265,11 +265,21 @@ export interface NotificationItem {
 
 export interface AIChatMessage {
   id: string;
-  sender: "user" | "assistant";
+  sender: 'user' | 'assistant';
   content: string;
   timestamp: string;
   isOfficial?: boolean;
   isRecommendation?: boolean;
+  agent?: string;
+  mode?: string;
+  disclaimer?: string;
+  pendingDraftId?: string;
+  collegeData?: Array<{
+    tool: string;
+    ok: boolean;
+    summary: string;
+    data?: Record<string, unknown>;
+  }>;
   citations?: {
     title: string;
     source: string;
@@ -278,7 +288,7 @@ export interface AIChatMessage {
   }[];
   toolExecution?: {
     toolName: string;
-    status: "executing" | "completed";
+    status: 'executing' | 'completed';
     summary: string;
     data?: Record<string, unknown>;
   };

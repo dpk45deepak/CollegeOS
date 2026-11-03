@@ -18,8 +18,12 @@ export class PrincipalService {
   private key = (userId: string) => `principal:${userId}`;
 
   async load(userId: string): Promise<CachedPrincipal | null> {
-    const cached = await this.redis.client.get(this.key(userId));
-    if (cached) return JSON.parse(cached) as CachedPrincipal;
+    try {
+      const cached = await this.redis.client.get(this.key(userId));
+      if (cached) return JSON.parse(cached) as CachedPrincipal;
+    } catch {
+      // Redis is offline/unreachable in serverless environments; fallback to PostgreSQL
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -57,11 +61,19 @@ export class PrincipalService {
       isSuperAdmin: roleKeys.includes(ROLE.SUPER_ADMIN),
       status: user.status,
     };
-    await this.redis.client.set(this.key(userId), JSON.stringify(principal), 'EX', TTL_SECONDS);
+    try {
+      await this.redis.client.set(this.key(userId), JSON.stringify(principal), 'EX', TTL_SECONDS);
+    } catch {
+      // Redis write failure is non-fatal
+    }
     return principal;
   }
 
   async invalidate(userId: string): Promise<void> {
-    await this.redis.client.del(this.key(userId));
+    try {
+      await this.redis.client.del(this.key(userId));
+    } catch {
+      // Redis del failure is non-fatal
+    }
   }
 }

@@ -16,8 +16,10 @@ export const defaultSuggestedPrompts: AISuggestion[] = [
 ];
 
 export interface BackendChatResponse {
+  conversationId?: string;
   reply: string;
-  mode?: "tool" | "rag" | "direct";
+  agent?: string;
+  mode?: "tool" | "rag" | "direct" | "llm" | "no_answer" | string;
   citations?: Array<{
     documentId: string;
     title: string;
@@ -64,8 +66,13 @@ export const aiApi = {
         sender: "assistant",
         content: response.reply,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        isOfficial: hasCollegeData,
+        isOfficial: hasCollegeData || response.mode === "tool",
         isRecommendation: response.mode === "rag" || !hasCollegeData,
+        agent: response.agent,
+        mode: response.mode,
+        disclaimer: response.disclaimer,
+        pendingDraftId: response.pendingDraftId,
+        collegeData: response.collegeData,
         citations: response.citations?.map((c) => ({
           title: c.title,
           source: `Doc ID: ${c.documentId}`,
@@ -81,9 +88,10 @@ export const aiApi = {
             }
           : undefined,
         quickActions: [
-          { label: "View Attendance", prompt: "Why is my attendance low?" },
-          { label: "View Timetable", prompt: "What classes do I have today?" },
-          { label: "Check Fee Dues", prompt: "What are my pending fees?" },
+          { label: "View Attendance", prompt: "What is my current attendance percentage and shortfall?" },
+          { label: "Upcoming Exams", prompt: "When is my next internal exam and where is my seat allocated?" },
+          { label: "Check Fee Dues", prompt: "What are my pending fees and payment deadlines?" },
+          { label: "Find Scholarships", prompt: "What scholarships match my academic profile?" },
         ],
       };
     } catch (error) {
@@ -101,6 +109,14 @@ export const aiApi = {
     return apiClient<any>("/ai/advisor", {
       params: studentId ? { studentId } : undefined,
     });
+  },
+
+  confirmDraft: async (draftId: string) => {
+    return apiClient<any>(`/ai/complaint-draft/${draftId}/confirm`, { method: "POST" });
+  },
+
+  cancelDraft: async (draftId: string) => {
+    return apiClient<any>(`/ai/complaint-draft/${draftId}/cancel`, { method: "POST" });
   },
 
   getAgents: async () => {

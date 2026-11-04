@@ -161,7 +161,7 @@ export default function StudentAssignmentsPage() {
                 {/* Attachments if any */}
                 {asg.attachments && asg.attachments.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-1">
-                    {asg.attachments.map((file, i) => (
+                    {((asg.attachments || [])).map((file, i) => (
                       <div
                         key={i}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted text-[11px] text-muted-foreground border border-border"

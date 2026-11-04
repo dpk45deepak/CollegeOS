@@ -159,7 +159,7 @@ export default function AdminUsersPage() {
                       </span>
                     </td>
                     <td className="p-3 font-semibold text-foreground">
-                      {u.department}
+                      {typeof u.department === "string" ? u.department : (u.department as any)?.code || (u.department as any)?.name || "General"}
                     </td>
                     <td className="p-3">
                       <span

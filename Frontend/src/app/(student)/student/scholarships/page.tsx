@@ -135,7 +135,7 @@ export default function StudentScholarshipsPage() {
                     Required Credentials:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {sch.documentsNeeded.map((doc, idx) => (
+                    {((sch.documentsNeeded || [])).map((doc, idx) => (
                       <span
                         key={idx}
                         className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border"
@@ -202,7 +202,7 @@ export default function StudentScholarshipsPage() {
             <div className="space-y-2">
               <span className="font-bold text-foreground">Rule Verification Check:</span>
               <ul className="space-y-1.5 text-muted-foreground">
-                {selectedScholarship.requirements.map((req, i) => (
+                {((selectedScholarship?.requirements || [])).map((req, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
                     <span>{req}</span>

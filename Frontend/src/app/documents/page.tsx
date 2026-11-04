@@ -127,7 +127,7 @@ export default function DocumentsPage() {
                 {doc.title}
               </CardTitle>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Authority: {doc.department}
+                Authority: {typeof doc.department === "string" ? doc.department : (doc.department as any)?.code || (doc.department as any)?.name || "Academic Affairs"}
               </p>
             </CardHeader>
 

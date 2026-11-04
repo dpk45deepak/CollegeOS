@@ -74,7 +74,7 @@ export default function HodDashboardPage() {
           <span className="text-[10px] text-muted-foreground uppercase font-bold block">
             Avg Department Attendance
           </span>
-          <span className="text-2xl font-extrabold text-emerald-600 font-mono">{metrics.avgAttendance.toFixed(1)}%</span>
+          <span className="text-2xl font-extrabold text-emerald-600 font-mono">{(metrics.avgAttendance ?? 0).toFixed(1)}%</span>
           <p className="text-[11px] text-muted-foreground mt-1">Statutory target: 75.0%</p>
         </div>
 
@@ -112,10 +112,10 @@ export default function HodDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {metrics.facultyWorkloadHours.map((f, i) => (
+                  {((metrics.facultyWorkloadHours || [])).map((f, i) => (
                     <tr key={i} className="hover:bg-muted/20">
                       <td className="p-3 pl-4 font-semibold text-foreground">{f.facultyName}</td>
-                      <td className="p-3 text-muted-foreground">{f.subjects.join(", ")}</td>
+                      <td className="p-3 text-muted-foreground">{f.subjects?.join(", ") || "General Courses"}</td>
                       <td className="p-3 pr-4 text-right font-mono font-bold text-foreground">
                         {f.hoursPerWeek}h
                       </td>
@@ -150,7 +150,7 @@ export default function HodDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {metrics.subjectPassRates.map((s, i) => (
+                  {((metrics.subjectPassRates || [])).map((s, i) => (
                     <tr key={i} className="hover:bg-muted/20">
                       <td className="p-3 pl-4 font-semibold text-foreground">{s.subject}</td>
                       <td className="p-3 font-mono font-bold text-emerald-600">{s.passRate}%</td>

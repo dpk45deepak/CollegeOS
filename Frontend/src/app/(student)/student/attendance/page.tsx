@@ -75,12 +75,12 @@ export default function StudentAttendancePage() {
               <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
                 Attendance Governance Status
               </span>
-              <span className={`text-[10px] ${data.overallPercentage >= data.requiredPercentage ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"} px-2 py-0.5 rounded-full font-bold`}>
-                {data.overallPercentage >= data.requiredPercentage ? "Eligible for Hall Ticket" : "Condonation Hearing Required"}
+              <span className={`text-[10px] ${(data.overallPercentage ?? 0) >= (data.requiredPercentage ?? 75) ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"} px-2 py-0.5 rounded-full font-bold`}>
+                {(data.overallPercentage ?? 0) >= (data.requiredPercentage ?? 75) ? "Eligible for Hall Ticket" : "Condonation Hearing Required"}
               </span>
             </div>
             <h1 className="text-2xl font-extrabold text-foreground">
-              Overall Aggregate: {data.overallPercentage.toFixed(1)}%
+              Overall Aggregate: {(data.overallPercentage ?? 0).toFixed(1)}%
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
               Statutory Requirement: {data.requiredPercentage}% • Total Lectures Held: {data.totalHeld} (Attended: {data.totalAttended})
@@ -99,8 +99,8 @@ export default function StudentAttendancePage() {
             <div className="p-3 rounded-xl bg-card border border-border text-center">
               <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Margin</span>
               <span className={`text-lg font-bold ${data.overallPercentage >= data.requiredPercentage ? "text-emerald-600" : "text-rose-600"}`}>
-                {(data.overallPercentage - data.requiredPercentage) >= 0 ? "+" : ""}
-                {(data.overallPercentage - data.requiredPercentage).toFixed(1)}%
+                {((data.overallPercentage ?? 0) - (data.requiredPercentage ?? 75)) >= 0 ? "+" : ""}
+                {((data.overallPercentage ?? 0) - (data.requiredPercentage ?? 75)).toFixed(1)}%
               </span>
             </div>
           </div>
@@ -135,9 +135,9 @@ export default function StudentAttendancePage() {
                   onChange={(e) => setSelectedSubjectCode(e.target.value)}
                   className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:ring-1 focus:ring-brand-500"
                 >
-                  {data.subjects.map((s) => (
+                  {(data.subjects || []).map((s) => (
                     <option key={s.code} value={s.code}>
-                      {s.code}: {s.name} ({s.percentage.toFixed(1)}%)
+                      {s.code}: {s.name} ({(s.percentage ?? 0).toFixed(1)}%)
                     </option>
                   ))}
                 </select>
@@ -182,7 +182,7 @@ export default function StudentAttendancePage() {
                       isSimSafe ? "text-emerald-600" : "text-rose-600"
                     }`}
                   >
-                    {simPercentage.toFixed(1)}%
+                    {(simPercentage ?? 0).toFixed(1)}%
                   </span>
                   <span className="text-xs text-muted-foreground">
                     ({simAttended} / {simTotal} lectures)
@@ -232,9 +232,9 @@ export default function StudentAttendancePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {data.subjects.map((sub) => {
-              const colors = getAttendanceColor(sub.percentage, sub.requiredPercentage);
-              const isDeficit = sub.percentage < sub.requiredPercentage;
+            {(data.subjects || []).map((sub) => {
+              const colors = getAttendanceColor(sub.percentage ?? 0, sub.requiredPercentage ?? 75);
+              const isDeficit = (sub.percentage ?? 0) < (sub.requiredPercentage ?? 75);
 
               return (
                 <Card key={sub.id} className="relative overflow-hidden hover:shadow-md transition-shadow">
@@ -255,7 +255,7 @@ export default function StudentAttendancePage() {
                       <span
                         className={`text-base font-mono font-extrabold ${colors.text} shrink-0`}
                       >
-                        {sub.percentage.toFixed(1)}%
+                        {(sub.percentage ?? 0).toFixed(1)}%
                       </span>
                     </div>
                   </CardHeader>
@@ -265,7 +265,7 @@ export default function StudentAttendancePage() {
                     <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                       <div
                         className={`h-full ${colors.bar}`}
-                        style={{ width: `${Math.min(sub.percentage, 100)}%` }}
+                        style={{ width: `${Math.min(sub.percentage ?? 0, 100)}%` }}
                       />
                     </div>
 

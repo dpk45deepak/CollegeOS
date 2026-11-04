@@ -109,8 +109,8 @@ export default function AdminDashboardPage() {
 
                   <div className="text-2xl font-extrabold text-foreground font-mono mt-2">
                     {item.category === "Finance"
-                      ? `₹${item.count.toLocaleString("en-IN")}`
-                      : item.count}
+                      ? `₹${(item.count || 0).toLocaleString("en-IN")}`
+                      : (item.count ?? 0)}
                   </div>
 
                   <CardTitle className="text-sm font-bold text-foreground mt-1">

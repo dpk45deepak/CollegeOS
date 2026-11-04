@@ -123,7 +123,7 @@ export default function StudentPlacementsPage() {
                       Required Stack:
                     </span>
                     <div className="flex flex-wrap gap-1">
-                      {item.requiredSkills.map((skill, idx) => (
+                      {((item.requiredSkills || [])).map((skill, idx) => (
                         <span
                           key={idx}
                           className="text-[10px] px-2 py-0.5 rounded bg-muted text-foreground border border-border"
@@ -139,7 +139,7 @@ export default function StudentPlacementsPage() {
                     <span className="font-semibold text-muted-foreground block text-[10px] uppercase">
                       Hiring Process
                     </span>
-                    {item.rounds.map((r, i) => (
+                    {((item.rounds || [])).map((r, i) => (
                       <div key={i} className="flex items-center justify-between text-muted-foreground">
                         <span>{i + 1}. {r.name}</span>
                         <span className="font-mono text-[10px]">{r.date}</span>

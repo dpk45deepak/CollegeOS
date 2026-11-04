@@ -52,7 +52,7 @@ export default function StudentResultsPage() {
               Semester GPA
             </span>
             <span className="text-2xl font-extrabold text-brand-600 font-mono">
-              {resultsData.sgpa.toFixed(2)}
+              {(resultsData.sgpa ?? 0).toFixed(2)}
             </span>
           </div>
           <div className="p-3.5 rounded-2xl bg-card border border-border text-center shadow-xs">
@@ -60,7 +60,7 @@ export default function StudentResultsPage() {
               Cumulative CGPA
             </span>
             <span className="text-2xl font-extrabold text-emerald-600 font-mono">
-              {resultsData.cgpa.toFixed(2)}
+              {(resultsData.cgpa ?? 0).toFixed(2)}
             </span>
           </div>
         </div>
@@ -78,20 +78,20 @@ export default function StudentResultsPage() {
           </span>
         </div>
         <p className="text-xs text-foreground font-medium leading-relaxed">
-          {resultsData.aiInsights.summary}
+          {resultsData.aiInsights?.summary || "Official examination record."}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
           <div className="p-2.5 rounded-lg bg-card border border-border">
             <span className="text-[10px] text-emerald-600 font-bold uppercase block">
               Strongest Subject
             </span>
-            <span className="font-semibold text-foreground">{resultsData.aiInsights.strongestSubject}</span>
+            <span className="font-semibold text-foreground">{resultsData.aiInsights?.strongestSubject || "Core Engineering"}</span>
           </div>
           <div className="p-2.5 rounded-lg bg-card border border-border">
             <span className="text-[10px] text-amber-600 font-bold uppercase block">
               Improvement Target
             </span>
-            <span className="font-semibold text-foreground">{resultsData.aiInsights.needsImprovementSubject}</span>
+            <span className="font-semibold text-foreground">{resultsData.aiInsights?.needsImprovementSubject || "Electives"}</span>
           </div>
         </div>
       </div>
@@ -117,7 +117,7 @@ export default function StudentResultsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {resultsData.results.map((item) => (
+              {(!resultsData.results || resultsData.results.length === 0) ? (<tr><td colSpan={7} className="p-8 text-center text-xs text-muted-foreground">No examination grades published yet for this semester window.</td></tr>) : (resultsData.results || []).map((item) => (
                 <tr key={item.subjectCode} className="hover:bg-muted/20">
                   <td className="p-3 pl-4">
                     <div className="font-semibold text-foreground">{item.subjectName}</div>

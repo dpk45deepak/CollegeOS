@@ -80,7 +80,7 @@ export default function NoticesPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                       <Building className="h-3.5 w-3.5 text-brand-500" />
-                      {notice.department}
+                      {typeof notice.department === "string" ? notice.department : (notice.department as any)?.code || (notice.department as any)?.name || "Campus Administration"}
                     </span>
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -113,7 +113,7 @@ export default function NoticesPage() {
 
                 {notice.attachments && notice.attachments.length > 0 && (
                   <div className="pt-2 flex flex-wrap gap-2">
-                    {notice.attachments.map((file, i) => (
+                    {((notice.attachments || [])).map((file, i) => (
                       <button
                         key={i}
                         onClick={() => alert(`Downloading official PDF: ${file.name}`)}

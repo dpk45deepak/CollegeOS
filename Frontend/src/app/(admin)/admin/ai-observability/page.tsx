@@ -122,10 +122,10 @@ export default function AdminAIObservabilityPage() {
                 <div className="p-2.5 rounded-lg bg-card border border-border">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 mb-1.5">
                     <Terminal className="h-3 w-3 text-brand-500" />
-                    Tools Executed ({log.toolsUsed.length})
+                    Tools Executed ({(log.toolsUsed || []).length})
                   </span>
                   <div className="flex flex-wrap gap-1 font-mono text-[11px]">
-                    {log.toolsUsed.map((tool, i) => (
+                    {((log.toolsUsed || [])).map((tool, i) => (
                       <span key={i} className="px-2 py-0.5 rounded bg-muted text-foreground">
                         {tool}
                       </span>
@@ -137,10 +137,10 @@ export default function AdminAIObservabilityPage() {
                 <div className="p-2.5 rounded-lg bg-card border border-border">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 mb-1.5">
                     <BookOpen className="h-3 w-3 text-emerald-500" />
-                    Knowledge Citations ({log.sourcesRetrieved.length})
+                    Knowledge Citations ({(log.sourcesRetrieved || []).length})
                   </span>
                   <div className="space-y-0.5 text-[11px] text-foreground">
-                    {log.sourcesRetrieved.map((source, i) => (
+                    {((log.sourcesRetrieved || [])).map((source, i) => (
                       <div key={i} className="truncate">
                         • {source}
                       </div>

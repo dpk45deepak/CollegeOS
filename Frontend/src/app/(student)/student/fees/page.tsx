@@ -97,7 +97,7 @@ export default function StudentFeesPage() {
           </CardHeader>
           <CardContent className="p-5 pt-0 space-y-2">
             <div className="divide-y divide-border text-xs">
-              {feeData.breakdown.map((item, idx) => (
+              {((feeData.breakdown || [])).map((item, idx) => (
                 <div key={idx} className="py-2.5 flex items-center justify-between">
                   <span className="text-foreground">{item.head}</span>
                   <span className="font-mono font-semibold text-foreground">
@@ -122,7 +122,7 @@ export default function StudentFeesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5 pt-0 space-y-3">
-            {feeData.transactions.map((tx) => (
+            {(!feeData.transactions || feeData.transactions.length === 0) ? (<div className="p-4 text-center text-xs text-muted-foreground">No online payment transactions recorded yet.</div>) : feeData.transactions.map((tx) => (
               <div
                 key={tx.id}
                 className="p-3 rounded-xl border border-border bg-muted/20 flex items-center justify-between text-xs"

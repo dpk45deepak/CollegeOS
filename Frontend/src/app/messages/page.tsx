@@ -105,12 +105,13 @@ export default function MessagesPage() {
               const name = otherUser
                 ? `${otherUser.firstName} ${otherUser.lastName}`.trim() || otherUser.loginId
                 : conv.name || "Academic Channel";
-              const initials = name
+              const initials = (name || "AC")
                 .split(" ")
+                .filter(Boolean)
                 .map((n) => n[0])
                 .slice(0, 2)
                 .join("")
-                .toUpperCase();
+                .toUpperCase() || "AC";
               const isActive = (activeConv?.id === conv.id) || (activeThreadId === conv.id);
 
               return (
@@ -196,7 +197,7 @@ export default function MessagesPage() {
                   No message history yet. Send a message to initiate communication.
                 </div>
               ) : (
-                activeConv.messages.map((msg) => {
+                ((activeConv.messages || [])).map((msg) => {
                   const isMe = msg.senderId === user?.id;
                   return (
                     <div

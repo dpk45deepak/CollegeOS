@@ -153,7 +153,7 @@ export default function StudentComplaintsPage() {
                   Resolution Timeline
                 </span>
                 <div className="space-y-2 border-l-2 border-brand-500/30 pl-3 ml-1">
-                  {item.timeline.map((step, idx) => (
+                  {((item.timeline || [])).map((step, idx) => (
                     <div key={idx} className="relative text-xs">
                       <div className="absolute -left-[17px] top-1 h-2 w-2 rounded-full bg-brand-600" />
                       <div className="font-semibold text-foreground flex items-center justify-between">
@@ -171,14 +171,14 @@ export default function StudentComplaintsPage() {
               </div>
 
               {/* Student Feedback if resolved */}
-              {item.studentFeedback && (
+              {item.studentFeedback && (item.studentFeedback.rating || 0) > 0 && (
                 <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-xs flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-emerald-800 dark:text-emerald-200">
                       Student Rating:
                     </span>
                     <div className="flex text-amber-500">
-                      {[...Array(item.studentFeedback.rating)].map((_, i) => (
+                      {[...Array(Math.min(5, Math.max(1, item.studentFeedback?.rating || 5)))].map((_, i) => (
                         <Star key={i} className="h-3.5 w-3.5 fill-current" />
                       ))}
                     </div>

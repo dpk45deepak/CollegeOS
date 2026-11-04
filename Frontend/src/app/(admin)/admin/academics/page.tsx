@@ -38,13 +38,13 @@ export default function AdminAcademicsPage() {
         roomId: room || undefined,
       });
       if (res.hasConflict) {
-        setConflict(res.conflicts.map((c) => c.message).join(", "));
+        setConflict((res.conflicts || []).map((c: any) => c.message).join(", "));
       } else {
         setConflict(null);
       }
     } catch (err: any) {
       if (err?.data?.conflicts) {
-        setConflict(err.data.conflicts.map((c: any) => c.message).join(", "));
+        setConflict((err.data?.conflicts || []).map((c: any) => c.message).join(", "));
       } else {
         setConflict(null);
       }

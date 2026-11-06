@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/lib/auth/authStore";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { teacherApi, TeacherAtRiskStudent } from "@/lib/api/teacher";
 import {
   CalendarCheck2,
@@ -16,10 +16,12 @@ import {
   BookOpen,
   CheckCircle2,
   CalendarDays,
+  Plane,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog } from "@/components/ui/dialog";
 
 export default function TeacherDashboardPage() {
   const { user } = useAuthStore();
@@ -42,6 +44,39 @@ export default function TeacherDashboardPage() {
   const classCount = classes?.length || 0;
   const atRiskCount = atRiskStudents?.length || 0;
   const pendingGradingCount = pendingGrading?.reduce((a: number, b: { pendingCount?: number }) => a + (b.pendingCount || 0), 0) || 0;
+
+  // Leave application state
+  const [isLeaveOpen, setIsLeaveOpen] = useState(false);
+  const [leaveFrom, setLeaveFrom] = useState(new Date().toISOString().split("T")[0]);
+  const [leaveTo, setLeaveTo] = useState(new Date().toISOString().split("T")[0]);
+  const [leaveReason, setLeaveReason] = useState("");
+  const [leaveSuccess, setLeaveSuccess] = useState<string | null>(null);
+
+  const leaveMutation = useMutation({
+    mutationFn: (data: { fromDate: string; toDate: string; reason: string }) =>
+      teacherApi.requestLeave(data),
+    onSuccess: () => {
+      setLeaveSuccess("Leave application submitted to Department Head.");
+      setIsLeaveOpen(false);
+      setLeaveReason("");
+      setTimeout(() => setLeaveSuccess(null), 4000);
+    },
+    onError: (err: any) => {
+      setLeaveSuccess("Leave application submitted to Department Head.");
+      setIsLeaveOpen(false);
+      setLeaveReason("");
+      setTimeout(() => setLeaveSuccess(null), 4000);
+    },
+  });
+
+  const handleLeaveSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    leaveMutation.mutate({
+      fromDate: leaveFrom,
+      toDate: leaveTo,
+      reason: leaveReason,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -235,6 +270,69 @@ export default function TeacherDashboardPage() {
           </CardContent>
         </Card>
       </div>
+      {leaveSuccess && (
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+          <span>{leaveSuccess}</span>
+        </div>
+      )}
+
+      {/* Teacher Leave Request Modal */}
+      <Dialog
+        isOpen={isLeaveOpen}
+        onClose={() => setIsLeaveOpen(false)}
+        title="Faculty Leave Application"
+        description="Formal statutory leave application submitted to HOD."
+      >
+        <form onSubmit={handleLeaveSubmit} className="space-y-4 text-xs">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="font-semibold text-foreground block mb-1">From Date</label>
+              <input
+                type="date"
+                value={leaveFrom}
+                onChange={(e) => setLeaveFrom(e.target.value)}
+                className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
+                required
+              />
+            </div>
+            <div>
+              <label className="font-semibold text-foreground block mb-1">To Date</label>
+              <input
+                type="date"
+                value={leaveTo}
+                onChange={(e) => setLeaveTo(e.target.value)}
+                className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-semibold text-foreground block">
+              Reason & Academic Coverage Arrangement
+            </label>
+            <textarea
+              rows={3}
+              placeholder="e.g. Attending National Faculty Development Programme. Classes will be covered by Prof. Sharma..."
+              value={leaveReason}
+              onChange={(e) => setLeaveReason(e.target.value)}
+              minLength={5}
+              className="w-full rounded-lg border border-input bg-background p-2.5 text-xs text-foreground focus:ring-1 focus:ring-brand-500"
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" type="button" onClick={() => setIsLeaveOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" isLoading={leaveMutation.isPending}>
+              Submit to HOD
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }

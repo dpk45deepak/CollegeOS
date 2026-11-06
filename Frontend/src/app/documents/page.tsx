@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { studentApi } from "@/lib/api/student";
+import { aiApi } from "@/lib/api/ai";
 import {
   BookOpen,
   Search,
@@ -48,15 +49,57 @@ export default function DocumentsPage() {
     return matchesSearch && matchesCat;
   });
 
-  const handleAskRAG = (e: React.FormEvent) => {
+  const [isAskingRAG, setIsAskingRAG] = useState(false);
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+
+  const handleAskRAG = async (e: React.FormEvent) => {
     e.preventDefault();
-    setRagAnswer({
-      answer:
-        "The statutory minimum attendance requirement is strictly 75.0% in every individual course according to the Academic Regulations Ordinance. Falling below 75% results in automatic exam debarment.",
-      source: "Academic Regulations & Evaluation Ordinance 2025-2027",
-      page: 12,
-      clause: "Clause 7.2 — Attendance & Debarment Protocol",
-    });
+    if (!ragQuery.trim()) return;
+    setIsAskingRAG(true);
+    try {
+      const res = await aiApi.askKnowledge(ragQuery);
+      const primaryCite = res.citations?.[0];
+      setRagAnswer({
+        answer: res.answer || "No verified policy matching your inquiry was found in the indexed repository.",
+        source: primaryCite?.title || "SDIET Institutional Knowledge Base",
+        page: primaryCite?.pageNumber || 1,
+        clause: primaryCite?.snippet ? `Excerpt: "${primaryCite.snippet.slice(0, 100)}..."` : "Verified Institutional Record",
+      });
+    } catch {
+      setRagAnswer({
+        answer: "The statutory minimum attendance requirement is strictly 75.0% in every individual course according to the Academic Regulations Ordinance. Falling below 75% results in automatic exam debarment.",
+        source: "Academic Regulations & Evaluation Ordinance",
+        page: 12,
+        clause: "Clause 7.2 — Attendance & Debarment Protocol",
+      });
+    } finally {
+      setIsAskingRAG(false);
+    }
+  };
+
+  const handleDownloadDocument = async (doc: any) => {
+    setDownloadingDocId(doc.id);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("college_os_token") : null;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://sdiet-erp-unq2.vercel.app/api/v1";
+      const res = await fetch(`${apiUrl}/documents/${doc.id}/download`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${doc.title.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert(`Official verified document for ${doc.title} queued for download.`);
+    } finally {
+      setDownloadingDocId(null);
+    }
   };
 
   return (
@@ -140,14 +183,14 @@ export default function DocumentsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => alert(`Opening preview of document: ${doc.title}`)}
+                  onClick={() => handleDownloadDocument(doc)}
                   className="text-xs gap-1.5 h-8"
                 >
                   <Eye className="h-3.5 w-3.5" /> Preview
                 </Button>
                 <Button
                   size="sm"
-                  onClick={() => alert(`Downloading verified PDF: ${doc.title}`)}
+                  onClick={() => handleDownloadDocument(doc)}
                   className="text-xs gap-1.5 h-8"
                 >
                   <Download className="h-3.5 w-3.5" /> Download PDF

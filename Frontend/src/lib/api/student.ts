@@ -539,4 +539,18 @@ export const studentApi = {
       return [];
     }
   },
+
+  requestAttendanceCorrection: async (data: {
+    attendanceId: string;
+    newStatus: "PRESENT" | "ABSENT" | "LATE";
+    reason: string;
+  }) => {
+    return apiClient<{ success: boolean; message: string }>(
+      "/attendance/correction-request",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+  },
 };

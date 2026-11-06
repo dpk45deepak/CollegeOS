@@ -120,4 +120,47 @@ export const teacherApi = {
       reason: s.reason || `Attendance below 75% threshold (${s.percentage ?? 0}%)`,
     }));
   },
+
+  createAssignment: async (data: {
+    subjectOfferingId: string;
+    title: string;
+    description?: string;
+    dueAt: string;
+    maxMarks: number;
+  }) => {
+    return apiClient<any>("/assignments", {
+      method: "POST",
+      body: JSON.stringify({
+        subjectOfferingId: data.subjectOfferingId,
+        title: data.title,
+        description: data.description || "Course Assignment Specification",
+        dueAt: new Date(data.dueAt).toISOString(),
+        maxMarks: data.maxMarks,
+      }),
+    });
+  },
+
+  gradeSubmission: async (
+    submissionId: string,
+    data: { marks: number; feedback?: string }
+  ) => {
+    return apiClient<any>(`/assignments/submissions/${submissionId}/grade`, {
+      method: "POST",
+      body: JSON.stringify({
+        marks: data.marks,
+        feedback: data.feedback || "Evaluated by course faculty.",
+      }),
+    });
+  },
+
+  requestLeave: async (data: { fromDate: string; toDate: string; reason: string }) => {
+    return apiClient<any>("/teachers/leave-requests", {
+      method: "POST",
+      body: JSON.stringify({
+        fromDate: new Date(data.fromDate).toISOString(),
+        toDate: new Date(data.toDate).toISOString(),
+        reason: data.reason,
+      }),
+    });
+  },
 };

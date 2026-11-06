@@ -36,10 +36,75 @@ export default function StudentExamsPage() {
 
   const handleDownloadAdmitCard = () => {
     setDownloadingAdmitCard(true);
-    setTimeout(() => {
-      setDownloadingAdmitCard(false);
-      alert(`Official Hall Ticket generated for ${user?.rollNumber || user?.name || "Student"}: AdmitCard-2026.pdf`);
-    }, 1000);
+    const hallTicketHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Official Examination Hall Ticket - ${user?.rollNumber || "Student"}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #111; max-width: 800px; margin: auto; }
+    .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 16px; margin-bottom: 24px; }
+    .title { font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+    .sub { font-size: 13px; color: #555; margin-top: 4px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+    th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+    th { background: #f4f4f4; text-transform: uppercase; font-size: 11px; }
+    .footer { margin-top: 48px; display: flex; justify-content: space-between; font-size: 12px; }
+    .sig { border-top: 1px solid #333; width: 200px; text-align: center; padding-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">Satyug Darshan Institute of Engineering & Technology</div>
+    <div class="sub">Office of the Controller of Examinations • Official Admit Card (Hall Ticket)</div>
+  </div>
+  <div class="grid">
+    <div><strong>Student Name:</strong> ${user?.name || "Verified Student"}</div>
+    <div><strong>Roll Number:</strong> ${user?.rollNumber || "SDIET2026"}</div>
+    <div><strong>Program / Dept:</strong> Bachelor of Technology (CSE)</div>
+    <div><strong>Academic Session:</strong> 2025-2026 (Semester 6)</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Subject Code</th>
+        <th>Course Name</th>
+        <th>Exam Date</th>
+        <th>Time</th>
+        <th>Seating Hall</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${(exams || []).map(e => `
+        <tr>
+          <td><strong>${e.subjectCode}</strong></td>
+          <td>${e.subjectName}</td>
+          <td>${e.date || "Scheduled"}</td>
+          <td>${e.startTime || "10:00 AM"} - ${e.endTime || "01:00 PM"}</td>
+          <td>${formatRoom(e.room)}</td>
+        </tr>
+      `).join("")}
+    </tbody>
+  </table>
+  <div class="footer">
+    <div class="sig">Candidate Signature</div>
+    <div class="sig">Controller of Examinations</div>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([hallTicketHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank");
+    if (!win) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `AdmitCard_${user?.rollNumber || "2026"}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setDownloadingAdmitCard(false);
   };
 
   if (isLoading || !exams) {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { teacherApi } from "@/lib/api/teacher";
 import {
   FileText,
@@ -46,8 +46,34 @@ export default function TeacherAssignmentsPage() {
   const [subject, setSubject] = useState(classes?.[0]?.subjectCode || "Course");
   const [deadline, setDeadline] = useState("");
   const [maxMarks, setMaxMarks] = useState("30");
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const totalPending = pendingAssignments?.reduce((acc, a) => acc + (a.pendingCount || 0), 0) || 0;
+
+  const createMutation = useMutation({
+    mutationFn: (data: { subjectOfferingId: string; title: string; dueAt: string; maxMarks: number }) =>
+      teacherApi.createAssignment(data),
+    onSuccess: () => {
+      setActionSuccess("Assignment published successfully to student portal!");
+      setIsCreateOpen(false);
+      setTitle("");
+      setDeadline("");
+      queryClient.invalidateQueries({ queryKey: ["teacher_pending_assignments"] });
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+  });
+
+  const gradeMutation = useMutation({
+    mutationFn: ({ subId, marks, feedback }: { subId: string; marks: number; feedback: string }) =>
+      teacherApi.gradeSubmission(subId, { marks, feedback }),
+    onSuccess: () => {
+      setActionSuccess(`Evaluation saved for ${activeSubmission?.studentName || "student"}.`);
+      setIsGradeOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["teacher_pending_assignments"] });
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+  });
 
   const handleGrade = (sub: {
     id: string;
@@ -62,8 +88,25 @@ export default function TeacherAssignmentsPage() {
 
   const handleSaveGrade = (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Grade recorded: ${marks}/${maxMarks}`);
-    setIsGradeOpen(false);
+    if (!activeSubmission) return;
+    gradeMutation.mutate({
+      subId: activeSubmission.id,
+      marks: Number(marks) || 0,
+      feedback,
+    });
+  };
+
+  const handlePublishAssignment = (e: React.FormEvent) => {
+    e.preventDefault();
+    const offeringId = subject || classes?.[0]?.id;
+    if (!offeringId || !title || !deadline) return;
+
+    createMutation.mutate({
+      subjectOfferingId: offeringId,
+      title,
+      dueAt: deadline,
+      maxMarks: Number(maxMarks) || 30,
+    });
   };
 
   return (
@@ -86,6 +129,13 @@ export default function TeacherAssignmentsPage() {
           <Plus className="h-4 w-4" /> Create New Assignment
         </Button>
       </div>
+
+      {actionSuccess && (
+        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>{actionSuccess}</span>
+        </div>
+      )}
 
       {/* Submissions Queue Table */}
       <Card>
@@ -175,24 +225,23 @@ export default function TeacherAssignmentsPage() {
         description="Configure rubric, upload question specs, and set submission deadline."
       >
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            alert("Assignment published successfully to student portal!");
-            setIsCreateOpen(false);
-          }}
+          onSubmit={handlePublishAssignment}
           className="space-y-4 text-xs"
         >
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="font-semibold text-foreground block mb-1">Subject</label>
+              <label className="font-semibold text-foreground block mb-1">Subject Offering</label>
               <select
-                value={subject}
+                value={subject || classes?.[0]?.id || ""}
                 onChange={(e) => setSubject(e.target.value)}
                 className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
+                required
               >
-                <option value="CS601">CS601: DBMS</option>
-                <option value="CS606">CS606: DBMS Lab</option>
-                <option value="CS401">CS401: DSA</option>
+                {(classes || []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.subjectCode}: {c.subjectName} (Sec {c.section})
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -237,7 +286,7 @@ export default function TeacherAssignmentsPage() {
             <Button variant="outline" size="sm" onClick={() => setIsCreateOpen(false)}>
               Cancel
             </Button>
-            <Button size="sm" type="submit">
+            <Button size="sm" type="submit" isLoading={createMutation.isPending}>
               Publish to Students
             </Button>
           </div>
@@ -283,7 +332,7 @@ export default function TeacherAssignmentsPage() {
             <Button variant="outline" size="sm" onClick={() => setIsGradeOpen(false)}>
               Cancel
             </Button>
-            <Button size="sm" type="submit">
+            <Button size="sm" type="submit" isLoading={gradeMutation.isPending}>
               Save Grade & Notify Student
             </Button>
           </div>

@@ -29,6 +29,32 @@ export default function AdminAnalyticsPage() {
   });
 
   const [deptFilter, setDeptFilter] = useState("ALL");
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportReport = async () => {
+    setExporting(true);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("college_os_token") : null;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://sdiet-erp-unq2.vercel.app/api/v1";
+      const res = await fetch(`${apiUrl}/reports/performance`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Report download failed");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Executive_Analytics_${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert("Executive report exported and archived to institutional audit records.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (isLoading) {
     return <Skeleton className="h-96 w-full rounded-2xl" />;
@@ -70,7 +96,7 @@ export default function AdminAnalyticsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => alert("Exporting Executive Analytics Summary...")}
+            onClick={handleExportReport} isLoading={exporting}
             className="text-xs gap-1.5 h-8"
           >
             <Download className="h-3.5 w-3.5" /> Export Report

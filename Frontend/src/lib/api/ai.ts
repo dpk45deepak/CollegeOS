@@ -122,4 +122,22 @@ export const aiApi = {
   getAgents: async () => {
     return apiClient<any[]>("/ai/agents");
   },
+
+  askKnowledge: async (
+    question: string,
+    filters?: { documentType?: string; academicYear?: string }
+  ): Promise<{
+    answer: string;
+    citations?: Array<{
+      documentId: string;
+      title: string;
+      pageNumber?: number;
+      snippet: string;
+    }>;
+  }> => {
+    return apiClient<any>("/ai/knowledge/ask", {
+      method: "POST",
+      body: JSON.stringify({ question, ...filters }),
+    });
+  },
 };

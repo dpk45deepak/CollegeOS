@@ -28,6 +28,51 @@ export default function StudentFeesPage() {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
+
+  const handleDownloadReceipt = (tx: any) => {
+    const receiptHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Fee Payment e-Receipt - ${tx.receiptNo}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #111; max-width: 600px; margin: auto; }
+    .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 16px; margin-bottom: 24px; }
+    .title { font-size: 18px; font-weight: 800; text-transform: uppercase; }
+    .sub { font-size: 12px; color: #555; margin-top: 4px; }
+    .box { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 13px; }
+    .row:last-child { border-bottom: none; }
+    .total { font-size: 16px; font-weight: bold; color: #10b981; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">Satyug Darshan Institute of Engineering & Technology</div>
+    <div class="sub">Official Tuition & Academic Fee Payment e-Receipt</div>
+  </div>
+  <div class="box">
+    <div class="row"><span>Receipt Number:</span><strong>${tx.receiptNo}</strong></div>
+    <div class="row"><span>Transaction Date:</span><span>${formatDate(tx.date)}</span></div>
+    <div class="row"><span>Payment Method:</span><span>${tx.method}</span></div>
+    <div class="row"><span>Payment Status:</span><strong style="color:#10b981;">VERIFIED / SUCCESS</strong></div>
+    <div class="row total"><span>Amount Paid:</span><span>₹${Number(tx.amount || 0).toLocaleString("en-IN")}</span></div>
+  </div>
+  <div style="font-size:11px;color:#888;text-align:center;">This is a computer-generated institutional receipt valid for official clearance.</div>
+</body>
+</html>`;
+    const blob = new Blob([receiptHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank");
+    if (!win) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Receipt_${tx.receiptNo}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  };
+
   const payMutation = useMutation({
     mutationFn: (amount: number) => studentApi.payFee(amount),
     onSuccess: () => {
@@ -145,7 +190,7 @@ export default function StudentFeesPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => alert(`Downloading official e-Receipt: ${tx.receiptNo}.pdf`)}
+                  onClick={() => handleDownloadReceipt(tx)}
                   className="text-[11px] gap-1 h-8"
                 >
                   <Download className="h-3 w-3" /> Receipt

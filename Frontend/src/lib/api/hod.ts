@@ -37,4 +37,31 @@ export const hodApi = {
       subjectPassRates: [],
     };
   },
+
+  getAttendanceCorrections: async () => {
+    const raw = await apiClient<any>("/attendance/corrections");
+    return Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
+  },
+
+  reviewAttendanceCorrection: async (
+    id: string,
+    data: { approve: boolean; note?: string }
+  ) => {
+    return apiClient<any>(`/attendance/corrections/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  approveLeave: async (id: string) => {
+    return apiClient<any>(`/teachers/leave-requests/${id}/approve`, {
+      method: "POST",
+    });
+  },
+
+  rejectLeave: async (id: string) => {
+    return apiClient<any>(`/teachers/leave-requests/${id}/reject`, {
+      method: "POST",
+    });
+  },
 };

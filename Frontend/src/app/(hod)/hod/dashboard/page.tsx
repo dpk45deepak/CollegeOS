@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { hodApi } from "@/lib/api/hod";
 import {
   Users,
@@ -12,16 +12,37 @@ import {
   BarChart3,
   CalendarCheck2,
   BookOpen,
+  ShieldCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
+import { Button } from "@/components/ui/button";
 
 export default function HodDashboardPage() {
+  const queryClient = useQueryClient();
+
   const { data: metrics, isLoading, error, refetch } = useQuery({
     queryKey: ["hod_metrics"],
     queryFn: () => hodApi.getDepartmentMetrics(),
   });
+
+  const { data: corrections } = useQuery({
+    queryKey: ["hod_attendance_corrections"],
+    queryFn: () => hodApi.getAttendanceCorrections().catch(() => []),
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: ({ id, approve }: { id: string; approve: boolean }) =>
+      hodApi.reviewAttendanceCorrection(id, { approve }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hod_attendance_corrections"] });
+      refetch();
+    },
+  });
+
+  const pendingCorrections = Array.isArray(corrections) ? corrections : [];
 
   if (isLoading) {
     return <Skeleton className="h-64 w-full rounded-2xl" />;
@@ -165,6 +186,82 @@ export default function HodDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Attendance Dispute & Correction Queue */}
+      <Card>
+        <CardHeader className="p-5 pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-purple-600" />
+              Attendance Dispute & Correction Queue ({pendingCorrections.length})
+            </CardTitle>
+            <span className="text-[10px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 px-2 py-0.5 rounded-full">
+              HOD Authority
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0 overflow-x-auto">
+          {pendingCorrections.length === 0 ? (
+            <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              <p className="font-semibold text-foreground">No pending attendance disputes</p>
+              <p className="text-[11px]">All student attendance correction requests for this department have been adjudicated.</p>
+            </div>
+          ) : (
+            <table className="w-full text-xs text-left">
+              <thead className="bg-muted/50 text-muted-foreground uppercase text-[10px] font-semibold border-y border-border">
+                <tr>
+                  <th className="p-3 pl-4">Student</th>
+                  <th className="p-3">Course / Session</th>
+                  <th className="p-3">Requested Status</th>
+                  <th className="p-3">Reason & Justification</th>
+                  <th className="p-3 pr-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pendingCorrections.map((corr: any) => (
+                  <tr key={corr.id} className="hover:bg-muted/20">
+                    <td className="p-3 pl-4 font-semibold text-foreground">
+                      <div>{corr.student?.user ? `${corr.student.user.firstName} ${corr.student.user.lastName}` : corr.studentId || "Student"}</div>
+                      <div className="text-[10px] font-mono text-muted-foreground">{corr.student?.rollNumber || ""}</div>
+                    </td>
+                    <td className="p-3 font-mono text-muted-foreground">
+                      {corr.attendance?.session?.subjectOffering?.subject?.code || "Course"}
+                    </td>
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                        {corr.newStatus || "PRESENT"}
+                      </span>
+                    </td>
+                    <td className="p-3 text-muted-foreground max-w-xs truncate">
+                      {corr.reason || "Medical / On-duty dispute"}
+                    </td>
+                    <td className="p-3 pr-4 text-right space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => reviewMutation.mutate({ id: corr.id, approve: false })}
+                        className="h-7 text-xs text-rose-600 hover:bg-rose-50"
+                        isLoading={reviewMutation.isPending}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => reviewMutation.mutate({ id: corr.id, approve: true })}
+                        className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                        isLoading={reviewMutation.isPending}
+                      >
+                        Approve
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -13,11 +13,13 @@ import {
   CheckCheck,
   Clock,
   Sparkles,
+  Plus,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog } from "@/components/ui/dialog";
 
 export default function MessagesPage() {
   const { user } = useAuthStore();
@@ -31,6 +33,29 @@ export default function MessagesPage() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [inputText, setInputText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+  const [newRecipient, setNewRecipient] = useState("");
+  const [newFirstMessage, setNewFirstMessage] = useState("");
+
+  const startConvMutation = useMutation({
+    mutationFn: ({ recipientId, text }: { recipientId: string; text: string }) =>
+      messagesApi.startConversation(recipientId, text),
+    onSuccess: (data: any) => {
+      setIsNewModalOpen(false);
+      setNewRecipient("");
+      setNewFirstMessage("");
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      if (data?.id) {
+        setActiveThreadId(data.id);
+      }
+    },
+  });
+
+  const handleStartConversation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRecipient.trim() || !newFirstMessage.trim()) return;
+    startConvMutation.mutate({ recipientId: newRecipient, text: newFirstMessage });
+  };
 
   const activeConv = conversations?.find((c) => c.id === activeThreadId) || conversations?.[0];
 
@@ -78,9 +103,19 @@ export default function MessagesPage() {
         <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Direct Messages</h2>
-            <span className="text-[10px] font-semibold bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 px-2 py-0.5 rounded-full">
-              Encrypted
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 px-2 py-0.5 rounded-full">
+                Encrypted
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsNewModalOpen(true)}
+                className="h-6 px-1.5 text-[10px] gap-1"
+              >
+                <Plus className="h-3 w-3" /> New
+              </Button>
+            </div>
           </div>
           <Input
             placeholder="Filter conversations..."
@@ -245,6 +280,53 @@ export default function MessagesPage() {
           </>
         )}
       </div>
+      {/* Start Direct Conversation Dialog */}
+      <Dialog
+        isOpen={isNewModalOpen}
+        onClose={() => setIsNewModalOpen(false)}
+        title="Start Encrypted Conversation"
+        description="Initiate an official message thread with course faculty or academic mentors."
+      >
+        <form onSubmit={handleStartConversation} className="space-y-4 text-xs">
+          <div className="space-y-1">
+            <label className="font-semibold text-foreground block">
+              Recipient User ID or Login ID
+            </label>
+            <Input
+              placeholder="e.g. FAC001, CSE23002, or HOD_CSE"
+              value={newRecipient}
+              onChange={(e) => setNewRecipient(e.target.value)}
+              required
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Direct messages are strictly restricted to enrolled course instructors, HODs, and ward mentors.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-semibold text-foreground block">
+              First Message
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Write your message here..."
+              value={newFirstMessage}
+              onChange={(e) => setNewFirstMessage(e.target.value)}
+              className="w-full rounded-lg border border-input bg-background p-2.5 text-xs text-foreground focus:ring-1 focus:ring-brand-500"
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setIsNewModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" isLoading={startConvMutation.isPending}>
+              Send Message
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }

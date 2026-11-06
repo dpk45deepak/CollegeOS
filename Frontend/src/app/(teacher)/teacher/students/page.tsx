@@ -86,7 +86,13 @@ export default function TeacherStudentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {atRiskStudents.map((s) => (
+              {(!atRiskStudents || atRiskStudents.length === 0) ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-xs text-muted-foreground">
+                    No students currently flagged below the 75% regulatory attendance threshold.
+                  </td>
+                </tr>
+              ) : atRiskStudents.map((s) => (
                 <tr key={s.id} className="hover:bg-muted/20">
                   <td className="p-3 pl-4 font-mono font-bold text-foreground">
                     {s.rollNumber}

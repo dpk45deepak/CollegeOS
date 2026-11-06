@@ -18,9 +18,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 
 export default function TeacherAssignmentsPage() {
-  const { data: pendingAssignments, isLoading } = useQuery({
+  const { data: pendingAssignments, isLoading, error, refetch } = useQuery({
     queryKey: ["teacher_pending_assignments"],
     queryFn: () => teacherApi.getPendingAssignmentsToGrade(),
   });
@@ -108,6 +109,24 @@ export default function TeacherAssignmentsPage() {
       maxMarks: Number(maxMarks) || 30,
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-16 w-full rounded-2xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        message="Could not load deliverables evaluation queue."
+        onRetry={refetch}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

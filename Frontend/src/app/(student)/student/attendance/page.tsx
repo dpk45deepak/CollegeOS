@@ -383,7 +383,7 @@ export default function StudentAttendancePage() {
             >
               {(data?.subjects || []).map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.code}: {s.name} (Current: {s.percentage.toFixed(1)}%)
+                  {s.code}: {s.name} (Current: {(s.percentage ?? 0).toFixed(1)}%)
                 </option>
               ))}
             </select>

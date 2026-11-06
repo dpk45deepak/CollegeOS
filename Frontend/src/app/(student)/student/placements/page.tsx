@@ -18,13 +18,14 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import { formatDate } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth/authStore";
 
 export default function StudentPlacementsPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const { data: drives, isLoading } = useQuery({
+  const { data: drives, isLoading, error, refetch } = useQuery({
     queryKey: ["student_placements"],
     queryFn: () => studentApi.getPlacements(),
   });
@@ -39,7 +40,25 @@ export default function StudentPlacementsPage() {
     },
   });
 
-  if (isLoading || !drives) {
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-28 w-full rounded-2xl" />
+        <Skeleton className="h-56 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (error || !drives) {
+    return (
+      <ErrorState
+        message="Could not load campus placement drives. Please verify server connection."
+        onRetry={refetch}
+      />
+    );
+  }
+
+  if (false) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-28 w-full rounded-2xl" />

@@ -87,7 +87,11 @@ export default function AdminAIObservabilityPage() {
           Live Execution Traces
         </h3>
 
-        {logs.map((log) => (
+        {(!logs || logs.length === 0) ? (
+          <div className="p-12 text-center border rounded-2xl border-dashed border-border bg-card text-xs text-muted-foreground">
+            No AI agent execution traces logged today.
+          </div>
+        ) : logs.map((log) => (
           <Card key={log.id} className="overflow-hidden">
             <CardHeader className="p-4 pb-2 bg-muted/20 border-b border-border">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">

@@ -205,7 +205,7 @@ export default function AdminAnalyticsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={analytics.feeCollectionStatus}
+                    data={analytics?.feeCollectionStatus || []}
                     cx="50%"
                     cy="50%"
                     outerRadius={75}
@@ -213,7 +213,7 @@ export default function AdminAnalyticsPage() {
                     dataKey="value"
                     label={({ name, percent }) => `${name} (${((percent || 0) * 100).toFixed(0)}%)`}
                   >
-                    {analytics.feeCollectionStatus.map((entry, index) => (
+                    {(analytics?.feeCollectionStatus || []).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
                   </Pie>

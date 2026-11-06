@@ -16,11 +16,12 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function StudentFeesPage() {
   const queryClient = useQueryClient();
-  const { data: feeData, isLoading } = useQuery({
+  const { data: feeData, isLoading, error, refetch } = useQuery({
     queryKey: ["student_fees"],
     queryFn: () => studentApi.getFees(),
   });
@@ -85,12 +86,21 @@ export default function StudentFeesPage() {
     },
   });
 
-  if (isLoading || !feeData) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-32 w-full rounded-2xl" />
         <Skeleton className="h-48 w-full rounded-xl" />
       </div>
+    );
+  }
+
+  if (error || !feeData) {
+    return (
+      <ErrorState
+        message="Could not load fee ledger details. Please verify your connection or contact the accounts office."
+        onRetry={refetch}
+      />
     );
   }
 

@@ -19,11 +19,12 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function StudentScholarshipsPage() {
   const queryClient = useQueryClient();
-  const { data: scholarships, isLoading } = useQuery({
+  const { data: scholarships, isLoading, error, refetch } = useQuery({
     queryKey: ["student_scholarships"],
     queryFn: () => studentApi.getScholarships(),
   });
@@ -40,7 +41,28 @@ export default function StudentScholarshipsPage() {
     },
   });
 
-  if (isLoading || !scholarships) {
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-28 w-full rounded-2xl" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !scholarships) {
+    return (
+      <ErrorState
+        message="Could not load scholarship programs. Please verify server connection."
+        onRetry={refetch}
+      />
+    );
+  }
+
+  if (false) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-28 w-full rounded-2xl" />

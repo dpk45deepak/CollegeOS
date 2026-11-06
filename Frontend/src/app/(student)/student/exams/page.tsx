@@ -22,12 +22,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import { formatDate } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth/authStore";
 
 export default function StudentExamsPage() {
   const { user } = useAuthStore();
-  const { data: exams, isLoading } = useQuery({
+  const { data: exams, isLoading, error, refetch } = useQuery({
     queryKey: ["student_exams"],
     queryFn: () => studentApi.getExams(),
   });
@@ -107,13 +108,22 @@ export default function StudentExamsPage() {
     setDownloadingAdmitCard(false);
   };
 
-  if (isLoading || !exams) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-24 w-full rounded-2xl" />
         <Skeleton className="h-48 w-full rounded-xl" />
         <Skeleton className="h-48 w-full rounded-xl" />
       </div>
+    );
+  }
+
+  if (error || !exams) {
+    return (
+      <ErrorState
+        message="Could not load examination schedule. Please verify server connection."
+        onRetry={refetch}
+      />
     );
   }
 

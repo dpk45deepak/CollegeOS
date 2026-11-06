@@ -119,7 +119,7 @@ export default function HodDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
-            {metrics.facultyWorkloadHours.length === 0 ? (
+            {(!metrics.facultyWorkloadHours || metrics.facultyWorkloadHours.length === 0) ? (
               <div className="p-8 text-center text-xs text-muted-foreground">
                 Workload hours will be aggregated once semester course allocations are locked.
               </div>
@@ -157,7 +157,7 @@ export default function HodDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
-            {metrics.subjectPassRates.length === 0 ? (
+            {(!metrics.subjectPassRates || metrics.subjectPassRates.length === 0) ? (
               <div className="p-8 text-center text-xs text-muted-foreground">
                 Subject pass rate benchmarks will appear after end-term grading publication.
               </div>

@@ -14,19 +14,29 @@ import {
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 
 export default function StudentResultsPage() {
-  const { data: resultsData, isLoading } = useQuery({
+  const { data: resultsData, isLoading, error, refetch } = useQuery({
     queryKey: ["student_results"],
     queryFn: () => studentApi.getResults(),
   });
 
-  if (isLoading || !resultsData) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-32 w-full rounded-2xl" />
         <Skeleton className="h-64 w-full rounded-xl" />
       </div>
+    );
+  }
+
+  if (error || !resultsData) {
+    return (
+      <ErrorState
+        message="Could not load semester examination transcript."
+        onRetry={refetch}
+      />
     );
   }
 

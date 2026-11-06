@@ -20,11 +20,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import { formatDate } from "@/lib/utils";
 
 export default function StudentComplaintsPage() {
   const queryClient = useQueryClient();
-  const { data: complaints, isLoading } = useQuery({
+  const { data: complaints, isLoading, error, refetch } = useQuery({
     queryKey: ["student_complaints"],
     queryFn: () => studentApi.getComplaints(),
   });
@@ -53,7 +54,25 @@ export default function StudentComplaintsPage() {
     },
   });
 
-  if (isLoading || !complaints) {
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-20 w-full rounded-2xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (error || !complaints) {
+    return (
+      <ErrorState
+        message="Could not load grievances ledger. Please verify server connection."
+        onRetry={refetch}
+      />
+    );
+  }
+
+  if (false) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-20 w-full rounded-2xl" />

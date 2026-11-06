@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth/authStore";
-import { messagesApi, MessageConversation } from "@/lib/api/messages";
+import { messagesApi, MessageConversation, MessageItem } from "@/lib/api/messages";
 import {
   MessageSquare,
   Send,
@@ -24,6 +24,7 @@ import { Dialog } from "@/components/ui/dialog";
 export default function MessagesPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: conversations, isLoading } = useQuery({
     queryKey: ["conversations"],
@@ -37,6 +38,20 @@ export default function MessagesPage() {
   const [newRecipient, setNewRecipient] = useState("");
   const [newFirstMessage, setNewFirstMessage] = useState("");
 
+  const activeConv = conversations?.find((c) => c.id === activeThreadId) || conversations?.[0];
+
+  // Fetch live thread messages for the active conversation
+  const { data: threadMessages, isLoading: messagesLoading } = useQuery({
+    queryKey: ["conversation_messages", activeConv?.id],
+    queryFn: () => (activeConv?.id ? messagesApi.getMessages(activeConv.id) : Promise.resolve([])),
+    enabled: !!activeConv?.id,
+    refetchInterval: 10000,
+  });
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [threadMessages]);
+
   const startConvMutation = useMutation({
     mutationFn: ({ recipientId, text }: { recipientId: string; text: string }) =>
       messagesApi.startConversation(recipientId, text),
@@ -47,6 +62,7 @@ export default function MessagesPage() {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       if (data?.id) {
         setActiveThreadId(data.id);
+        queryClient.invalidateQueries({ queryKey: ["conversation_messages", data.id] });
       }
     },
   });
@@ -57,14 +73,15 @@ export default function MessagesPage() {
     startConvMutation.mutate({ recipientId: newRecipient, text: newFirstMessage });
   };
 
-  const activeConv = conversations?.find((c) => c.id === activeThreadId) || conversations?.[0];
-
   const sendMutation = useMutation({
     mutationFn: ({ convId, text }: { convId: string; text: string }) =>
       messagesApi.sendMessage(convId, text),
     onSuccess: () => {
       setInputText("");
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      if (activeConv?.id) {
+        queryClient.invalidateQueries({ queryKey: ["conversation_messages", activeConv.id] });
+      }
     },
   });
 
@@ -76,9 +93,18 @@ export default function MessagesPage() {
 
   const filteredConversations = (conversations || []).filter((c) => {
     const otherUser = c.participants?.find((p) => p.user?.id !== user?.id)?.user;
-    const name = otherUser ? `${otherUser.firstName} ${otherUser.lastName}` : c.name || "Conversation";
+    const name = otherUser
+      ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId
+      : c.name || "Conversation";
     return name.toLowerCase().includes(searchQuery.toLowerCase());
   });
+
+  const displayMessages: MessageItem[] =
+    Array.isArray(threadMessages) && threadMessages.length > 0
+      ? threadMessages
+      : Array.isArray(activeConv?.messages)
+      ? activeConv.messages
+      : [];
 
   if (isLoading) {
     return (
@@ -138,7 +164,7 @@ export default function MessagesPage() {
             filteredConversations.map((conv) => {
               const otherUser = conv.participants?.find((p) => p.user?.id !== user?.id)?.user;
               const name = otherUser
-                ? `${otherUser.firstName} ${otherUser.lastName}`.trim() || otherUser.loginId
+                ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId
                 : conv.name || "Academic Channel";
               const initials = (name || "AC")
                 .split(" ")
@@ -148,6 +174,11 @@ export default function MessagesPage() {
                 .join("")
                 .toUpperCase() || "AC";
               const isActive = (activeConv?.id === conv.id) || (activeThreadId === conv.id);
+
+              const lastMessageText =
+                typeof conv.lastMessage === "string"
+                  ? conv.lastMessage
+                  : (conv.lastMessage as any)?.content || "Click to open conversation";
 
               return (
                 <button
@@ -174,7 +205,7 @@ export default function MessagesPage() {
                       )}
                     </div>
                     <p className="text-[11px] text-muted-foreground truncate mt-1">
-                      {conv.lastMessage || "Click to open conversation"}
+                      {lastMessageText}
                     </p>
                   </div>
                 </button>
@@ -206,7 +237,9 @@ export default function MessagesPage() {
                 <div className="h-9 w-9 rounded-full bg-brand-600 text-white font-bold text-xs flex items-center justify-center">
                   {(() => {
                     const otherUser = activeConv.participants?.find((p) => p.user?.id !== user?.id)?.user;
-                    const name = otherUser ? `${otherUser.firstName} ${otherUser.lastName}` : activeConv.name || "Channel";
+                    const name = otherUser
+                      ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId
+                      : activeConv.name || "Channel";
                     return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase() || "AC";
                   })()}
                 </div>
@@ -214,7 +247,9 @@ export default function MessagesPage() {
                   <h3 className="text-xs font-bold text-foreground">
                     {(() => {
                       const otherUser = activeConv.participants?.find((p) => p.user?.id !== user?.id)?.user;
-                      return otherUser ? `${otherUser.firstName} ${otherUser.lastName}`.trim() : activeConv.name || "Academic Channel";
+                      return otherUser
+                        ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId
+                        : activeConv.name || "Academic Channel";
                     })()}
                   </h3>
                   <p className="text-[10px] text-muted-foreground">Institutional Communication</p>
@@ -227,13 +262,24 @@ export default function MessagesPage() {
 
             {/* Message Bubble History */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {(!activeConv.messages || activeConv.messages.length === 0) ? (
+              {messagesLoading ? (
+                <div className="space-y-3 p-4">
+                  <Skeleton className="h-10 w-48 rounded-xl" />
+                  <Skeleton className="h-12 w-64 rounded-xl ml-auto" />
+                  <Skeleton className="h-10 w-52 rounded-xl" />
+                </div>
+              ) : displayMessages.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
                   No message history yet. Send a message to initiate communication.
                 </div>
               ) : (
-                ((activeConv.messages || [])).map((msg) => {
-                  const isMe = msg.senderId === user?.id;
+                displayMessages.map((msg) => {
+                  const isMe = msg.senderId === user?.id || (user as any)?.userId === msg.senderId;
+                  const messageText =
+                    typeof msg.content === "string"
+                      ? msg.content
+                      : (msg.content as any)?.text || JSON.stringify(msg.content);
+
                   return (
                     <div
                       key={msg.id}
@@ -246,7 +292,7 @@ export default function MessagesPage() {
                             : "bg-card border border-border text-foreground rounded-tl-none shadow-xs"
                         }`}
                       >
-                        {msg.content}
+                        {messageText}
                       </div>
                       <span className="text-[10px] text-muted-foreground font-mono mt-1 px-1">
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -255,6 +301,7 @@ export default function MessagesPage() {
                   );
                 })
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input Bar */}
@@ -280,6 +327,7 @@ export default function MessagesPage() {
           </>
         )}
       </div>
+
       {/* Start Direct Conversation Dialog */}
       <Dialog
         isOpen={isNewModalOpen}

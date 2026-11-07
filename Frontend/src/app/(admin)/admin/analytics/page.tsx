@@ -35,8 +35,9 @@ export default function AdminAnalyticsPage() {
     setExporting(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("college_os_token") : null;
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://sdiet-erp-unq2.vercel.app/api/v1";
-      const res = await fetch(`${apiUrl}/reports/performance`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const targetUrl = apiUrl.startsWith("http") ? `${apiUrl}/reports/performance` : `/api/v1/reports/performance`;
+      const res = await fetch(targetUrl, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error("Report download failed");

@@ -52,7 +52,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
           token: savedToken,
           refreshToken: savedRefreshToken,
           isAuthenticated: !!initialUser,
-          isLoading: true,
+          isLoading: !initialUser,
+          isInitialized: !!initialUser,
         });
 
         // Verify session against real backend /users/me

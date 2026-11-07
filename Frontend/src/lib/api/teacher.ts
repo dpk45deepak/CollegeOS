@@ -77,7 +77,8 @@ export const teacherApi = {
 
   submitAttendance: async (
     classId: string,
-    records: { studentId: string; status: "PRESENT" | "ABSENT" | "LATE" }[]
+    records: { studentId: string; status: "PRESENT" | "ABSENT" | "LATE" }[],
+    date?: string
   ) => {
     return apiClient<{ success: boolean; message: string }>(
       "/attendance",
@@ -85,7 +86,7 @@ export const teacherApi = {
         method: "POST",
         body: JSON.stringify({
           subjectOfferingId: classId,
-          date: new Date().toISOString(),
+          date: date ? new Date(date).toISOString() : new Date().toISOString(),
           records: records.map((r) => ({
             studentId: r.studentId,
             status: r.status,

@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { authApi } from "@/services/api/auth.api";
+import { Lock, AlertCircle } from "lucide-react";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -22,6 +24,40 @@ export default function SettingsPage() {
   const [citationVerbosity, setCitationVerbosity] = useState(true);
   const [attendanceAlerts, setAttendanceAlerts] = useState(true);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [pwdSuccess, setPwdSuccess] = useState(false);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdError(null);
+    setPwdSuccess(false);
+
+    if (newPassword.length < 8) {
+      setPwdError("New password must be at least 8 characters long.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwdError("Passwords do not match.");
+      return;
+    }
+
+    setPwdLoading(true);
+    try {
+      await authApi.changePassword(oldPassword, newPassword);
+      setPwdSuccess(true);
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      setPwdError(err.message || "Failed to update password. Please check your current password.");
+    } finally {
+      setPwdLoading(false);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);

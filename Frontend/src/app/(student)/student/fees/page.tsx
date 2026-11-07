@@ -75,7 +75,7 @@ export default function StudentFeesPage() {
   };
 
   const payMutation = useMutation({
-    mutationFn: (amount: number) => studentApi.payFee(amount),
+    mutationFn: (amount: number) => studentApi.payFee(amount, feeData?.id),
     onSuccess: () => {
       setPaymentSuccess(true);
       setTimeout(() => {
@@ -262,7 +262,7 @@ export default function StudentFeesPage() {
                   isLoading={payMutation.isPending}
                   onClick={() => payMutation.mutate(feeData.pendingAmount)}
                 >
-                  Confirm ₹12,500 Payment
+                  Confirm {formatCurrency(feeData.pendingAmount)} Payment
                 </Button>
               </div>
             </>

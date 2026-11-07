@@ -54,13 +54,13 @@ export const hodApi = {
   },
 
   approveLeave: async (id: string) => {
-    return apiClient<any>(`/teachers/leave-requests/${id}/approve`, {
+    return apiClient<any>(`/leave-requests/${id}/approve`, {
       method: "POST",
     });
   },
 
   rejectLeave: async (id: string) => {
-    return apiClient<any>(`/teachers/leave-requests/${id}/reject`, {
+    return apiClient<any>(`/leave-requests/${id}/reject`, {
       method: "POST",
     });
   },

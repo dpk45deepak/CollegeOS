@@ -163,9 +163,20 @@ export const adminApi = {
     subjectOfferingId: string;
   }): Promise<TimetableConflictCheck> => {
     try {
+      const parseMin = (str: string) => {
+        const [h, m] = str.split(":").map(Number);
+        return (h || 0) * 60 + (m || 0);
+      };
       const res = await apiClient<any>("/timetable/check", {
         method: "POST",
-        body: JSON.stringify(dto),
+        body: JSON.stringify({
+          dayOfWeek: dto.dayOfWeek,
+          startMinute: parseMin(dto.startTime),
+          endMinute: parseMin(dto.endTime),
+          subjectOfferingId: dto.subjectOfferingId,
+          roomId: dto.roomId || undefined,
+          validFrom: new Date().toISOString(),
+        }),
       });
 
       const conflicts = Array.isArray(res) ? res : res?.conflicts || [];

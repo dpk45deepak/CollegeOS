@@ -112,11 +112,11 @@ export const aiApi = {
   },
 
   confirmDraft: async (draftId: string) => {
-    return apiClient<any>(`/ai/complaint-draft/${draftId}/confirm`, { method: "POST" });
+    return apiClient<any>(`/ai/grievance/drafts/${draftId}/confirm`, { method: "POST" });
   },
 
   cancelDraft: async (draftId: string) => {
-    return apiClient<any>(`/ai/complaint-draft/${draftId}/cancel`, { method: "POST" });
+    return apiClient<any>(`/ai/grievance/drafts/${draftId}`, { method: "DELETE" });
   },
 
   getAgents: async () => {

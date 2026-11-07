@@ -1,0 +1,226 @@
+[
+  {
+    "file": "lib\\api\\admin.ts",
+    "endpoint": "/analytics/attention"
+  },
+  {
+    "file": "lib\\api\\admin.ts",
+    "endpoint": "/analytics/overview"
+  },
+  {
+    "file": "lib\\api\\admin.ts",
+    "endpoint": "/analytics/departments"
+  },
+  {
+    "file": "lib\\api\\admin.ts",
+    "endpoint": "/users"
+  },
+  {
+    "file": "lib\\api\\admin.ts",
+    "endpoint": "/users"
+  },
+  {
+    "file": "lib\\api\\admin.ts",
+    "endpoint": "/timetable/check"
+  },
+  {
+    "file": "lib\\api\\admin.ts",
+    "endpoint": "/ai/admin/usage"
+  },
+  {
+    "file": "lib\\api\\ai.ts",
+    "endpoint": "/ai/chat"
+  },
+  {
+    "file": "lib\\api\\ai.ts",
+    "endpoint": "/ai/advisor"
+  },
+  {
+    "file": "lib\\api\\ai.ts",
+    "endpoint": "/ai/complaint-draft/${draftId}/confirm"
+  },
+  {
+    "file": "lib\\api\\ai.ts",
+    "endpoint": "/ai/complaint-draft/${draftId}/cancel"
+  },
+  {
+    "file": "lib\\api\\ai.ts",
+    "endpoint": "/ai/agents"
+  },
+  {
+    "file": "lib\\api\\ai.ts",
+    "endpoint": "/ai/knowledge/ask"
+  },
+  {
+    "file": "lib\\api\\auth.ts",
+    "endpoint": "/auth/login"
+  },
+  {
+    "file": "lib\\api\\auth.ts",
+    "endpoint": "/users/me"
+  },
+  {
+    "file": "lib\\api\\auth.ts",
+    "endpoint": "/users/me"
+  },
+  {
+    "file": "lib\\api\\auth.ts",
+    "endpoint": "/auth/refresh"
+  },
+  {
+    "file": "lib\\api\\auth.ts",
+    "endpoint": "/auth/logout"
+  },
+  {
+    "file": "lib\\api\\hod.ts",
+    "endpoint": "/analytics/overview"
+  },
+  {
+    "file": "lib\\api\\hod.ts",
+    "endpoint": "/teachers"
+  },
+  {
+    "file": "lib\\api\\hod.ts",
+    "endpoint": "/attendance/corrections"
+  },
+  {
+    "file": "lib\\api\\hod.ts",
+    "endpoint": "/attendance/corrections/${id}/review"
+  },
+  {
+    "file": "lib\\api\\hod.ts",
+    "endpoint": "/teachers/leave-requests/${id}/approve"
+  },
+  {
+    "file": "lib\\api\\hod.ts",
+    "endpoint": "/teachers/leave-requests/${id}/reject"
+  },
+  {
+    "file": "lib\\api\\messages.ts",
+    "endpoint": "/messages/conversations"
+  },
+  {
+    "file": "lib\\api\\messages.ts",
+    "endpoint": "/messages/conversations/${conversationId}"
+  },
+  {
+    "file": "lib\\api\\messages.ts",
+    "endpoint": "/messages/conversations/${conversationId}"
+  },
+  {
+    "file": "lib\\api\\messages.ts",
+    "endpoint": "/messages/conversations"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/students/me/dashboard"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/students/me/attendance"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/students/me/timetable"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/students/me/assignments"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/assignments/${assignmentId}/submit"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/students/me/exams"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/students/me/results"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/students/me/fees"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/fees/pay"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/scholarships"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/scholarships/${scholarshipId}/apply"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/placements/jobs"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/placements/jobs/${placementId}/apply"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/complaints/my"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/complaints"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/campus/notices"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/documents"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/notifications"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/attendance/correction-request"
+  },
+  {
+    "file": "lib\\api\\teacher.ts",
+    "endpoint": "/subject-offerings"
+  },
+  {
+    "file": "lib\\api\\teacher.ts",
+    "endpoint": "/subject-offerings/${classId}/students"
+  },
+  {
+    "file": "lib\\api\\teacher.ts",
+    "endpoint": "/attendance"
+  },
+  {
+    "file": "lib\\api\\teacher.ts",
+    "endpoint": "/assignments"
+  },
+  {
+    "file": "lib\\api\\teacher.ts",
+    "endpoint": "/attendance/analytics/shortage"
+  },
+  {
+    "file": "lib\\api\\teacher.ts",
+    "endpoint": "/assignments"
+  },
+  {
+    "file": "lib\\api\\teacher.ts",
+    "endpoint": "/assignments/submissions/${submissionId}/grade"
+  },
+  {
+    "file": "lib\\api\\teacher.ts",
+    "endpoint": "/teachers/leave-requests"
+  },
+  {
+    "file": "__tests__\\auth-session.test.ts",
+    "endpoint": "/students/me/dashboard"
+  }
+]

@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useAuthStore } from "@/lib/auth/authStore";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { studentApi } from "@/lib/api/student";
+import { studentsApi } from "@/services/api/students.api";
 import {
   User,
   GraduationCap,
@@ -15,17 +16,59 @@ import {
   Laptop,
   CheckCircle2,
   Building,
+  Plus,
+  Trash2,
+  Edit2,
+  Sparkles,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function ProfilePage() {
   const { user } = useAuthStore();
+  const queryClient = useQueryClient();
 
   const { data: dashboard } = useQuery({
     queryKey: ["profile_student_dashboard"],
     queryFn: () => studentApi.getDashboard(),
     enabled: user?.role === "STUDENT",
+  });
+
+  const { data: studentMe, refetch: refetchMe } = useQuery({
+    queryKey: ["students_me_profile"],
+    queryFn: () => studentsApi.getMe(),
+    enabled: user?.role === "STUDENT",
+  });
+
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [newSkillName, setNewSkillName] = useState("");
+  const [newSkillLevel, setNewSkillLevel] = useState(3);
+  const [skillMsg, setSkillMsg] = useState<string | null>(null);
+
+  const updatePhoneMutation = useMutation({
+    mutationFn: (phone: string) => studentsApi.updateMe({ phone }),
+    onSuccess: () => {
+      setIsEditingPhone(false);
+      refetchMe();
+    },
+  });
+
+  const addSkillMutation = useMutation({
+    mutationFn: (dto: { name: string; level: number }) => studentsApi.addSkill(dto),
+    onSuccess: () => {
+      setNewSkillName("");
+      setSkillMsg("Skill added successfully!");
+      setTimeout(() => setSkillMsg(null), 3000);
+      refetchMe();
+    },
+  });
+
+  const removeSkillMutation = useMutation({
+    mutationFn: (name: string) => studentsApi.removeSkill(name),
+    onSuccess: () => {
+      refetchMe();
+    },
   });
 
   return (
@@ -44,8 +87,8 @@ export default function ProfilePage() {
         <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white font-bold text-2xl flex items-center justify-center shrink-0 shadow-lg shadow-brand-500/25">
           {user?.name?.charAt(0) || "U"}
         </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
+        <div className="space-y-1 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-lg font-bold text-foreground">{user?.name || "Institutional User"}</h2>
             <span className="text-[10px] font-mono font-bold bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 px-2 py-0.5 rounded">
               {user?.role}
@@ -55,15 +98,52 @@ export default function ProfilePage() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            {user?.department || "Academic Department"} • Institutional Identifier: {user?.rollNumber || user?.id}
+            {user?.department || studentMe?.department?.name || "Academic Department"} • Identifier: {studentMe?.rollNumber || user?.rollNumber || user?.id}
           </p>
           <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-1">
             <span className="flex items-center gap-1.5">
-              <Mail className="h-3.5 w-3.5" /> {user?.email || "Email on File"}
+              <Mail className="h-3.5 w-3.5" /> {studentMe?.user?.email || user?.email || "Email on File"}
             </span>
-            {user?.phone && (
+            {isEditingPhone ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  placeholder="Enter phone number"
+                  defaultValue={studentMe?.user?.phone || user?.phone || ""}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="h-6 w-36 px-2 text-xs border rounded bg-background"
+                />
+                <Button
+                  size="sm"
+                  className="h-6 px-2 text-[10px]"
+                  isLoading={updatePhoneMutation.isPending}
+                  onClick={() => updatePhoneMutation.mutate(phoneNumber)}
+                >
+                  Save
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-1.5 text-[10px]"
+                  onClick={() => setIsEditingPhone(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
               <span className="flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5" /> {user.phone}
+                <Phone className="h-3.5 w-3.5" /> {studentMe?.user?.phone || user?.phone || "No phone linked"}
+                {user?.role === "STUDENT" && (
+                  <button
+                    onClick={() => {
+                      setPhoneNumber(studentMe?.user?.phone || user?.phone || "");
+                      setIsEditingPhone(true);
+                    }}
+                    className="text-brand-600 hover:text-brand-700 text-[10px] underline ml-1"
+                  >
+                    Edit
+                  </button>
+                )}
               </span>
             )}
           </div>
@@ -82,15 +162,25 @@ export default function ProfilePage() {
           <CardContent className="p-5 pt-0 space-y-3 text-xs">
             <div className="flex justify-between py-1.5 border-b border-border">
               <span className="text-muted-foreground">Primary Department:</span>
-              <span className="font-semibold text-foreground">Computer Science & Engineering</span>
+              <span className="font-semibold text-foreground">
+                {studentMe?.department?.name || user?.department || "Computer Science & Engineering"}
+              </span>
             </div>
+            {studentMe?.program && (
+              <div className="flex justify-between py-1.5 border-b border-border">
+                <span className="text-muted-foreground">Degree Program:</span>
+                <span className="font-semibold text-foreground">{studentMe.program.name}</span>
+              </div>
+            )}
+            {studentMe?.batch && (
+              <div className="flex justify-between py-1.5 border-b border-border">
+                <span className="text-muted-foreground">Academic Batch:</span>
+                <span className="font-semibold text-foreground">{studentMe.batch.name}</span>
+              </div>
+            )}
             <div className="flex justify-between py-1.5 border-b border-border">
               <span className="text-muted-foreground">Assigned Role:</span>
               <span className="font-semibold text-foreground">{user?.role}</span>
-            </div>
-            <div className="flex justify-between py-1.5 border-b border-border">
-              <span className="text-muted-foreground">Institutional Short Code:</span>
-              <span className="font-mono font-semibold text-foreground">SDIET</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">Attendance Status:</span>
@@ -145,6 +235,86 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Student Skills & Portfolio (If Student) */}
+      {user?.role === "STUDENT" && (
+        <Card>
+          <CardHeader className="p-5 pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-purple-600" />
+              Skills & Placement Registry
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 pt-0 space-y-4 text-xs">
+            <p className="text-muted-foreground text-[11px]">
+              Skills registered here are autonomously matched by the AI Placement & Career Engine for campus drive recommendations.
+            </p>
+
+            {skillMsg && (
+              <div className="p-2 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-xs">
+                {skillMsg}
+              </div>
+            )}
+
+            {/* List existing skills */}
+            <div className="flex flex-wrap gap-2">
+              {(studentMe?.skills || []).length === 0 ? (
+                <span className="text-muted-foreground italic text-xs">No skills registered yet. Add your core competencies below.</span>
+              ) : (
+                (studentMe?.skills || []).map((sk, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 font-medium text-xs border border-brand-200 dark:border-brand-800"
+                  >
+                    <span>{sk.name}</span>
+                    {sk.level && <span className="text-[10px] text-muted-foreground">★{sk.level}</span>}
+                    <button
+                      onClick={() => removeSkillMutation.mutate(sk.name)}
+                      className="text-red-500 hover:text-red-700 ml-1"
+                      title="Remove skill"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+
+            {/* Add skill form */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (newSkillName.trim()) {
+                  addSkillMutation.mutate({ name: newSkillName.trim(), level: Number(newSkillLevel) });
+                }
+              }}
+              className="flex items-center gap-2 pt-2 border-t border-border"
+            >
+              <input
+                type="text"
+                placeholder="Skill name (e.g., Python, Docker, Next.js)"
+                value={newSkillName}
+                onChange={(e) => setNewSkillName(e.target.value)}
+                className="h-8 flex-1 rounded-lg border border-input bg-background px-3 text-xs"
+              />
+              <select
+                value={newSkillLevel}
+                onChange={(e) => setNewSkillLevel(Number(e.target.value))}
+                className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
+              >
+                <option value={1}>Beginner (1★)</option>
+                <option value={2}>Elementary (2★)</option>
+                <option value={3}>Intermediate (3★)</option>
+                <option value={4}>Advanced (4★)</option>
+                <option value={5}>Expert (5★)</option>
+              </select>
+              <Button type="submit" size="sm" isLoading={addSkillMutation.isPending} className="text-xs h-8 gap-1">
+                <Plus className="h-3.5 w-3.5" /> Add Skill
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Active Device Sessions */}
       <Card>

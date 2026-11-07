@@ -1,18 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { studentApi } from "@/lib/api/student";
 import { aiApi } from "@/lib/api/ai";
+import { documentsApi, DocumentType, DocumentVisibility } from "@/services/api/documents.api";
+import { useDepartments } from "@/hooks/useAcademic";
+import { useAuthStore } from "@/lib/auth/authStore";
 import {
-  BookOpen,
   Search,
   Sparkles,
   Download,
-  FileText,
-  Filter,
   Eye,
-  CheckCircle2,
+  Plus,
+  Upload,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,14 +22,21 @@ import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DocumentsPage() {
+  const { user } = useAuthStore();
+  const queryClient = useQueryClient();
+  const canUpload = user?.role === "ADMIN" || user?.role === "TEACHER" || user?.role === "HOD";
+
   const { data: documents, isLoading } = useQuery({
     queryKey: ["college_documents"],
     queryFn: () => studentApi.getDocuments(),
   });
 
+  const { data: departments } = useDepartments();
+
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [isRAGOpen, setIsRAGOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [ragQuery, setRagQuery] = useState("What is the minimum attendance requirement?");
   const [ragAnswer, setRagAnswer] = useState<{
     answer: string;
@@ -36,21 +44,33 @@ export default function DocumentsPage() {
     page: number;
     clause: string;
   } | null>(null);
-
-  if (isLoading || !documents) {
-    return <Skeleton className="h-64 w-full rounded-2xl" />;
-  }
-
-  const filtered = documents.filter((doc) => {
-    const matchesSearch =
-      doc.title.toLowerCase().includes(search.toLowerCase()) ||
-      doc.summary.toLowerCase().includes(search.toLowerCase());
-    const matchesCat = categoryFilter === "ALL" || doc.category === categoryFilter;
-    return matchesSearch && matchesCat;
-  });
-
   const [isAskingRAG, setIsAskingRAG] = useState(false);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+
+  // Upload Form State
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadType, setUploadType] = useState<DocumentType>("POLICY");
+  const [uploadVisibility, setUploadVisibility] = useState<DocumentVisibility>("PUBLIC");
+  const [uploadDeptId, setUploadDeptId] = useState("");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+
+  const uploadMutation = useMutation({
+    mutationFn: async () => {
+      if (!uploadFile || !uploadTitle.trim()) return;
+      return documentsApi.upload(uploadFile, {
+        title: uploadTitle,
+        documentType: uploadType,
+        visibility: uploadVisibility,
+        departmentId: uploadDeptId || undefined,
+      });
+    },
+    onSuccess: () => {
+      setIsUploadOpen(false);
+      setUploadTitle("");
+      setUploadFile(null);
+      queryClient.invalidateQueries({ queryKey: ["college_documents"] });
+    },
+  });
 
   const handleAskRAG = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +101,7 @@ export default function DocumentsPage() {
     setDownloadingDocId(doc.id);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("college_os_token") : null;
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://sdiet-erp-unq2.vercel.app/api/v1";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
       const res = await fetch(`${apiUrl}/documents/${doc.id}/download`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -102,6 +122,22 @@ export default function DocumentsPage() {
     }
   };
 
+  if (isLoading || !documents) {
+    return <Skeleton className="h-64 w-full rounded-2xl" />;
+  }
+
+  const filtered = (documents || []).filter((doc) => {
+    const title = doc?.title || "";
+    const summary = doc?.summary || "";
+    const matchesSearch =
+      title.toLowerCase().includes(search.toLowerCase()) ||
+      summary.toLowerCase().includes(search.toLowerCase());
+    const matchesCat =
+      categoryFilter === "ALL" ||
+      doc?.category?.toLowerCase() === categoryFilter.toLowerCase();
+    return matchesSearch && matchesCat;
+  });
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -115,16 +151,23 @@ export default function DocumentsPage() {
           </p>
         </div>
 
-        <Button
-          size="sm"
-          onClick={() => {
-            setIsRAGOpen(true);
-            setRagAnswer(null);
-          }}
-          className="text-xs gap-1.5 bg-gradient-to-r from-purple-600 to-brand-600 text-white shadow-md shadow-brand-500/20"
-        >
-          <Sparkles className="h-4 w-4" /> Ask College Knowledge (RAG)
-        </Button>
+        <div className="flex items-center gap-2">
+          {canUpload && (
+            <Button size="sm" variant="outline" onClick={() => setIsUploadOpen(true)} className="text-xs gap-1.5 h-8">
+              <Upload className="h-3.5 w-3.5" /> Upload Document
+            </Button>
+          )}
+          <Button
+            size="sm"
+            onClick={() => {
+              setIsRAGOpen(true);
+              setRagAnswer(null);
+            }}
+            className="text-xs gap-1.5 bg-gradient-to-r from-purple-600 to-brand-600 text-white shadow-md shadow-brand-500/20 h-8"
+          >
+            <Sparkles className="h-4 w-4" /> Ask College Knowledge (RAG)
+          </Button>
+        </div>
       </div>
 
       {/* Search & Category Filter */}
@@ -140,6 +183,8 @@ export default function DocumentsPage() {
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <select
+            id="categoryFilter"
+            aria-label="Filter documents by category"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="h-9 rounded-lg border border-input bg-background px-3 text-xs w-full sm:w-auto font-medium"
@@ -185,6 +230,7 @@ export default function DocumentsPage() {
                   size="sm"
                   onClick={() => handleDownloadDocument(doc)}
                   className="text-xs gap-1.5 h-8"
+                  disabled={downloadingDocId === doc.id}
                 >
                   <Eye className="h-3.5 w-3.5" /> Preview
                 </Button>
@@ -192,14 +238,109 @@ export default function DocumentsPage() {
                   size="sm"
                   onClick={() => handleDownloadDocument(doc)}
                   className="text-xs gap-1.5 h-8"
+                  disabled={downloadingDocId === doc.id}
                 >
-                  <Download className="h-3.5 w-3.5" /> Download PDF
+                  <Download className="h-3.5 w-3.5" /> {downloadingDocId === doc.id ? "Downloading..." : "Download PDF"}
                 </Button>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Upload Document Modal */}
+      <Dialog
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        title="Upload Knowledge Document"
+        description="Uploaded documents are scanned, stored, and ingested into the vector RAG database for AI retrieval."
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            uploadMutation.mutate();
+          }}
+          className="space-y-3 text-xs"
+        >
+          <div>
+            <label className="font-semibold block mb-1">Document Title</label>
+            <Input
+              placeholder="e.g. Academic Ordinance & Examination Rules 2026-27"
+              value={uploadTitle}
+              onChange={(e) => setUploadTitle(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="font-semibold block mb-1">Document Type</label>
+              <select
+                value={uploadType}
+                onChange={(e) => setUploadType(e.target.value as DocumentType)}
+                className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs"
+              >
+                <option value="POLICY">Policy</option>
+                <option value="SYLLABUS">Syllabus</option>
+                <option value="CURRICULUM">Curriculum</option>
+                <option value="CIRCULAR">Circular</option>
+                <option value="PREVIOUS_EXAM">Previous Exam</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="font-semibold block mb-1">Visibility</label>
+              <select
+                value={uploadVisibility}
+                onChange={(e) => setUploadVisibility(e.target.value as DocumentVisibility)}
+                className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs"
+              >
+                <option value="PUBLIC">Public</option>
+                <option value="STUDENT_ONLY">Students Only</option>
+                <option value="FACULTY_ONLY">Faculty Only</option>
+                <option value="ADMIN_ONLY">Admin Only</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="font-semibold block mb-1">Department (Optional)</label>
+            <select
+              value={uploadDeptId}
+              onChange={(e) => setUploadDeptId(e.target.value)}
+              className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs"
+            >
+              <option value="">General / College-Wide</option>
+              {(departments || []).map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="font-semibold block mb-1">File (PDF, DOCX, TXT)</label>
+            <Input
+              type="file"
+              accept=".pdf,.docx,.txt"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  setUploadFile(e.target.files[0]);
+                }
+              }}
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsUploadOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" isLoading={uploadMutation.isPending} disabled={!uploadFile}>
+              Upload Document
+            </Button>
+          </div>
+        </form>
+      </Dialog>
 
       {/* "Ask College Knowledge" RAG Dialog */}
       <Dialog
@@ -215,8 +356,8 @@ export default function DocumentsPage() {
               onChange={(e) => setRagQuery(e.target.value)}
               placeholder="e.g. What is the minimum attendance requirement?"
             />
-            <Button type="submit" size="sm" className="w-full text-xs gap-1.5">
-              <Sparkles className="h-3.5 w-3.5" /> Query Knowledge Base
+            <Button type="submit" size="sm" className="w-full text-xs gap-1.5" disabled={isAskingRAG}>
+              <Sparkles className="h-3.5 w-3.5" /> {isAskingRAG ? "Searching Vector Embeddings..." : "Query Knowledge Base"}
             </Button>
           </form>
 

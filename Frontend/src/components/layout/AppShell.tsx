@@ -67,7 +67,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, isAuthenticated, isInitialized } = useAuthStore();
 
-  const isPublicPage = PUBLIC_ROUTES.includes(pathname);
+  const isPublicPage =
+    !pathname ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    PUBLIC_ROUTES.includes(pathname);
 
   // If unauthenticated user tries to visit a protected route, stop them and redirect to /login
   useEffect(() => {

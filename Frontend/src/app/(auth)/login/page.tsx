@@ -23,11 +23,19 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault();
     setError(null);
     try {
-      const user = await login(loginId, password);
+      const idVal = loginId.trim() || (typeof document !== "undefined" ? (document.getElementById("loginId") as HTMLInputElement)?.value?.trim() : "") || "";
+      const passVal = password || (typeof document !== "undefined" ? (document.getElementById("password") as HTMLInputElement)?.value : "") || "";
+
+      if (!idVal || !passVal) {
+        setError("Please enter your College ID and password.");
+        return;
+      }
+
+      const user = await login(idVal, passVal);
       const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
       const redirectUrl = params?.get("redirect");
       if (redirectUrl && redirectUrl.startsWith("/")) {
@@ -112,13 +120,14 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); handleSubmit(e); }} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold font-display text-[var(--text)]">
+              <label htmlFor="loginId" className="text-xs font-bold font-display text-[var(--text)]">
                 College ID / Roll Number
               </label>
               <Input
                 type="text"
+                id="loginId"
                 placeholder="e.g. CSE23001, CSE-T01, or ADMIN001"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
@@ -129,7 +138,7 @@ export default function LoginPage() {
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold font-display text-[var(--text)]">
+                <label htmlFor="password" className="text-xs font-bold font-display text-[var(--text)]">
                   Password
                 </label>
                 <Link
@@ -141,10 +150,17 @@ export default function LoginPage() {
               </div>
               <Input
                 type="password"
+                id="password"
                 placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSubmit(e);
+                  }
+                }}
                 icon={<Lock className="h-4 w-4" />}
               />
             </div>
@@ -162,7 +178,8 @@ export default function LoginPage() {
             </div>
 
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={isLoading}
               className="btn-primary w-full text-sm py-3 mt-2"
             >

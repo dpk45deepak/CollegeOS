@@ -195,14 +195,14 @@ export const studentApi = {
     return Array.isArray(items) ? (items as Assignment[]) : [];
   },
 
-  submitAssignment: async (assignmentId: string, fileData: { fileName: string; size: string }) => {
+  submitAssignment: async (assignmentId: string, fileData: { fileName: string; size: string; key?: string }) => {
     return apiClient<{ success: boolean; message: string }>(
       `/assignments/${assignmentId}/submit`,
       {
         method: "POST",
         body: JSON.stringify({
-          fileName: fileData.fileName,
-          fileUrl: `https://storage.college.os/assignments/${assignmentId}/${fileData.fileName}`,
+          fileKeys: fileData.key ? [fileData.key] : [],
+          text: `Submitted attachment: ${fileData.fileName} (${fileData.size})`,
         }),
       }
     );
@@ -363,13 +363,25 @@ export const studentApi = {
     };
   },
 
-  payFee: async (amount: number) => {
+  payFee: async (amount: number, studentFeeId?: string) => {
+    let feeId = studentFeeId;
+    if (!feeId) {
+      try {
+        const currentFees = await apiClient<any>("/students/me/fees");
+        const items = Array.isArray(currentFees) ? currentFees : currentFees?.items || currentFees?.data || [];
+        if (items.length > 0) {
+          feeId = items[0].id;
+        }
+      } catch {
+        feeId = "default_fee";
+      }
+    }
     return apiClient<{ success: boolean; transactionId: string }>(
-      "/fees/pay",
+      `/fees/${feeId}/payments`,
       {
         method: "POST",
         body: JSON.stringify({
-          gateway: "RAZORPAY",
+          gateway: "mock",
           amount,
         }),
       }
@@ -500,16 +512,16 @@ export const studentApi = {
       {
         method: "POST",
         body: JSON.stringify({
-          title: data.subject,
+          subject: data.subject,
           description: data.description,
-          category: data.category,
+          category: data.category?.toUpperCase() || "ACADEMIC",
         }),
       }
     );
   },
 
   getNotices: async (): Promise<Notice[]> => {
-    const raw = await apiClient<any>("/campus/notices");
+    const raw = await apiClient<any>("/notices");
     const items = Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
     return items as Notice[];
   },
@@ -517,7 +529,18 @@ export const studentApi = {
   getDocuments: async (): Promise<CollegeDocument[]> => {
     const raw = await apiClient<any>("/documents");
     const items = Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
-    return items as CollegeDocument[];
+    return items.map((doc: any) => ({
+      id: doc.id,
+      title: doc.title || "Institutional Document",
+      category: doc.category || (doc.documentType ? doc.documentType.charAt(0).toUpperCase() + doc.documentType.slice(1).toLowerCase() : "Policy"),
+      department: typeof doc.department === "string" ? doc.department : doc.department?.code || doc.department?.name || "Academic Affairs",
+      academicYear: doc.academicYear || "2024-25",
+      uploadedAt: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : "Recent",
+      fileSize: doc.fileSize || `${doc.pageCount ? `${doc.pageCount} pages` : "Official PDF"}`,
+      fileType: doc.fileType || "pdf",
+      url: doc.url || `/api/v1/documents/${doc.id}/download`,
+      summary: doc.summary || doc.description || `Official institutional document for ${doc.title || "academic records"} filed under ${doc.documentType || "Academic Affairs"}.`,
+    })) as CollegeDocument[];
   },
 
   getNotifications: async (): Promise<NotificationItem[]> => {

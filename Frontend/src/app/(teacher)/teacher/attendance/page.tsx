@@ -73,7 +73,8 @@ export default function TeacherAttendancePage() {
     mutationFn: () =>
       teacherApi.submitAttendance(
         selectedClass,
-        roster.map((s) => ({ studentId: s.id, status: s.status }))
+        roster.map((s) => ({ studentId: s.id, status: s.status })),
+        selectedDate
       ),
     onSuccess: (data) => {
       setIsConfirmOpen(false);

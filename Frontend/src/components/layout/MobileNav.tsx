@@ -9,6 +9,8 @@ import {
   LayoutDashboard,
   CalendarCheck2,
   CalendarDays,
+  Users,
+  BarChart3,
   Sparkles,
   Menu,
 } from "lucide-react";
@@ -21,19 +23,62 @@ export function MobileNav() {
 
   const role = user?.role || "STUDENT";
 
-  const getBasePath = () => {
-    if (role === "TEACHER") return "/teacher";
-    if (role === "HOD") return "/hod";
-    if (role === "ADMIN") return "/admin";
-    return "/student";
+  const getNavConfig = () => {
+    switch (role) {
+      case "ADMIN":
+        return {
+          hubPath: "/admin/dashboard",
+          hubLabel: "Hub",
+          secondPath: "/admin/users",
+          secondLabel: "Users",
+          SecondIcon: Users,
+          fourthPath: "/admin/analytics",
+          fourthLabel: "Analytics",
+          FourthIcon: BarChart3,
+        };
+      case "HOD":
+        return {
+          hubPath: "/hod/dashboard",
+          hubLabel: "Hub",
+          secondPath: "/teacher/attendance",
+          secondLabel: "Attend",
+          SecondIcon: CalendarCheck2,
+          fourthPath: "/teacher/assignments",
+          fourthLabel: "Tasks",
+          FourthIcon: CalendarDays,
+        };
+      case "TEACHER":
+        return {
+          hubPath: "/teacher/dashboard",
+          hubLabel: "Hub",
+          secondPath: "/teacher/attendance",
+          secondLabel: "Attend",
+          SecondIcon: CalendarCheck2,
+          fourthPath: "/teacher/assignments",
+          fourthLabel: "Tasks",
+          FourthIcon: CalendarDays,
+        };
+      case "STUDENT":
+      default:
+        return {
+          hubPath: "/student/dashboard",
+          hubLabel: "Hub",
+          secondPath: "/student/attendance",
+          secondLabel: "Attend",
+          SecondIcon: CalendarCheck2,
+          fourthPath: "/student/timetable",
+          fourthLabel: "Schedule",
+          FourthIcon: CalendarDays,
+        };
+    }
   };
 
-  const basePath = getBasePath();
+  const nav = getNavConfig();
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 border-t-3 border-border bg-card z-40 px-2 flex items-center justify-around select-none">
       <Link
-        href={`${basePath}/dashboard`}
+        href={nav.hubPath}
         className={cn(
           "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display transition-colors rounded-xl",
           pathname.includes("dashboard")
@@ -42,20 +87,20 @@ export function MobileNav() {
         )}
       >
         <LayoutDashboard className="h-5 w-5 mb-0.5" />
-        <span>Hub</span>
+        <span>{nav.hubLabel}</span>
       </Link>
 
       <Link
-        href={role === "STUDENT" ? "/student/attendance" : "/teacher/attendance"}
+        href={nav.secondPath}
         className={cn(
           "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display transition-colors rounded-xl",
-          pathname.includes("attendance")
+          pathname.includes(nav.secondPath)
             ? "text-slate-900 bg-[var(--primary)] border-2 border-[var(--edu-border)] shadow-[1px_1px_0_var(--edu-border)]"
             : "text-muted-foreground hover:text-foreground"
         )}
       >
-        <CalendarCheck2 className="h-5 w-5 mb-0.5" />
-        <span>Attend</span>
+        <nav.SecondIcon className="h-5 w-5 mb-0.5" />
+        <span>{nav.secondLabel}</span>
       </Link>
 
       {/* Floating Center AI Copilot Action */}
@@ -68,16 +113,16 @@ export function MobileNav() {
       </button>
 
       <Link
-        href={role === "STUDENT" ? "/student/timetable" : "/teacher/assignments"}
+        href={nav.fourthPath}
         className={cn(
           "flex flex-col items-center justify-center w-14 py-1 text-[10px] font-bold font-display transition-colors rounded-xl",
-          pathname.includes("timetable") || pathname.includes("assignments")
+          pathname.includes(nav.fourthPath)
             ? "text-slate-900 bg-[var(--accent-mint)] border-2 border-[var(--edu-border)] shadow-[1px_1px_0_var(--edu-border)]"
             : "text-muted-foreground hover:text-foreground"
         )}
       >
-        <CalendarDays className="h-5 w-5 mb-0.5" />
-        <span>{role === "STUDENT" ? "Schedule" : "Tasks"}</span>
+        <nav.FourthIcon className="h-5 w-5 mb-0.5" />
+        <span>{nav.fourthLabel}</span>
       </Link>
 
       <button

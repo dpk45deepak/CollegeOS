@@ -14,6 +14,8 @@ import {
   BookOpen,
   ShieldCheck,
   CheckCircle2,
+  Plane,
+  FileCheck,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +33,19 @@ export default function HodDashboardPage() {
   const { data: corrections } = useQuery({
     queryKey: ["hod_attendance_corrections"],
     queryFn: () => hodApi.getAttendanceCorrections().catch(() => []),
+  });
+
+  const { data: leaveRequests, refetch: refetchLeaves } = useQuery({
+    queryKey: ["hod_leave_requests"],
+    queryFn: () => hodApi.getLeaveRequests().catch(() => []),
+  });
+
+  const leaveReviewMutation = useMutation({
+    mutationFn: ({ id, approve }: { id: string; approve: boolean }) =>
+      approve ? hodApi.approveLeave(id) : hodApi.rejectLeave(id),
+    onSuccess: () => {
+      refetchLeaves();
+    },
   });
 
   const reviewMutation = useMutation({
@@ -186,6 +201,103 @@ export default function HodDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Faculty Leave Applications & Approvals Queue */}
+      <Card>
+        <CardHeader className="p-5 pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Plane className="h-4 w-4 text-brand-600" />
+              Faculty Leave Applications & Approvals ({Array.isArray(leaveRequests) ? leaveRequests.length : 0})
+            </CardTitle>
+            <span className="text-[10px] font-bold bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 px-2 py-0.5 rounded-full">
+              HOD Authority
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0 overflow-x-auto">
+          {(!leaveRequests || leaveRequests.length === 0) ? (
+            <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              <p className="font-semibold text-foreground">No pending faculty leave applications</p>
+              <p className="text-[11px]">All department faculty leave requests have been reviewed.</p>
+            </div>
+          ) : (
+            <table className="w-full text-xs text-left">
+              <thead className="bg-muted/50 text-muted-foreground uppercase text-[10px] font-semibold border-y border-border">
+                <tr>
+                  <th className="p-3 pl-4">Faculty Member</th>
+                  <th className="p-3">Department</th>
+                  <th className="p-3">Leave Duration</th>
+                  <th className="p-3">Reason</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 pr-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {leaveRequests.map((leave: any) => (
+                  <tr key={leave.id} className="hover:bg-muted/20">
+                    <td className="p-3 pl-4 font-semibold text-foreground">
+                      {leave.teacher?.user
+                        ? `${leave.teacher.user.firstName} ${leave.teacher.user.lastName}`
+                        : "Faculty Member"}
+                      <div className="text-[10px] font-mono text-muted-foreground">
+                        {leave.teacher?.user?.email || ""}
+                      </div>
+                    </td>
+                    <td className="p-3 text-muted-foreground">
+                      {leave.teacher?.department?.name || "Academic Department"}
+                    </td>
+                    <td className="p-3 font-mono text-xs">
+                      {leave.fromDate ? new Date(leave.fromDate).toISOString().split("T")[0] : ""} to{" "}
+                      {leave.toDate ? new Date(leave.toDate).toISOString().split("T")[0] : ""}
+                    </td>
+                    <td className="p-3 text-muted-foreground max-w-xs truncate">
+                      {leave.reason || "Personal Leave"}
+                    </td>
+                    <td className="p-3">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          leave.status === "APPROVED"
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                            : leave.status === "REJECTED"
+                            ? "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                            : "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                        }`}
+                      >
+                        {leave.status || "PENDING"}
+                      </span>
+                    </td>
+                    <td className="p-3 pr-4 text-right space-x-2">
+                      {leave.status === "PENDING" && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => leaveReviewMutation.mutate({ id: leave.id, approve: false })}
+                            className="h-7 text-xs text-rose-600 hover:bg-rose-50"
+                            isLoading={leaveReviewMutation.isPending}
+                          >
+                            Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => leaveReviewMutation.mutate({ id: leave.id, approve: true })}
+                            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                            isLoading={leaveReviewMutation.isPending}
+                          >
+                            Approve
+                          </Button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Attendance Dispute & Correction Queue */}
       <Card>

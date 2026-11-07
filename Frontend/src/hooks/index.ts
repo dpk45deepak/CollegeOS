@@ -16,3 +16,4 @@ export * from "./useAI";
 export * from "./useNotifications";
 export * from "./useMessaging";
 export * from "./useAnalytics";
+export * from "./useSearch";

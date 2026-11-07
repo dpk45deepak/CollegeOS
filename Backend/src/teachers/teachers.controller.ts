@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { P } from '../auth/permissions';
 import { CurrentUser, RequirePermissions, Tenant } from '../common/decorators/auth.decorators';
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
+import { LeaveStatus } from '@prisma/client';
 import { Principal } from '../common/types/principal';
 import * as D from './dto/teachers.dto';
 import { TeachersService } from './teachers.service';
@@ -56,6 +57,16 @@ export class TeachersController {
   @RequirePermissions(P.STUDENT_VIEW)
   roster(@CurrentUser() u: Principal, @Tenant() t: string, @Param('id') id: string) {
     return this.svc.roster(u, t, id);
+  }
+
+  @Get('leave-requests')
+  @RequirePermissions(P.LEAVE_REQUEST)
+  listLeaves(
+    @CurrentUser() u: Principal,
+    @Tenant() t: string,
+    @Query('status') s?: LeaveStatus,
+  ) {
+    return this.svc.listLeaveRequests(u, t, s);
   }
 
   @Post('leave-requests')

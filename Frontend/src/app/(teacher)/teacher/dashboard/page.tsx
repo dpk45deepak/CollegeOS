@@ -3,8 +3,9 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/lib/auth/authStore";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { teacherApi, TeacherAtRiskStudent } from "@/lib/api/teacher";
+import { examsApi, ExamItem, ExamResultItem } from "@/services/api/exams.api";
 import {
   CalendarCheck2,
   Users,
@@ -17,14 +18,23 @@ import {
   CheckCircle2,
   CalendarDays,
   Plane,
+  Award,
+  Edit3,
+  Send,
+  Plus,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog } from "@/components/ui/dialog";
+import { formatDate } from "@/lib/utils";
+import { toast } from "sonner";
 
 export default function TeacherDashboardPage() {
   const { user } = useAuthStore();
+  const queryClient = useQueryClient();
+
   const { data: classes, isLoading: classesLoading } = useQuery({
     queryKey: ["teacher_classes"],
     queryFn: () => teacherApi.getTodayClasses(),
@@ -38,6 +48,12 @@ export default function TeacherDashboardPage() {
   const { data: pendingGrading } = useQuery({
     queryKey: ["teacher_pending_grading"],
     queryFn: () => teacherApi.getPendingAssignmentsToGrade(),
+  });
+
+  // Scheduled / Conducted Exams
+  const { data: exams, isLoading: examsLoading, refetch: refetchExams } = useQuery({
+    queryKey: ["teacher_exams"],
+    queryFn: () => examsApi.list(),
   });
 
   const facultyLastName = user?.name ? user.name.split(" ").slice(-1)[0] : "Faculty";
@@ -62,10 +78,55 @@ export default function TeacherDashboardPage() {
       setTimeout(() => setLeaveSuccess(null), 4000);
     },
     onError: (err: any) => {
-      setLeaveSuccess("Leave application submitted to Department Head.");
-      setIsLeaveOpen(false);
-      setLeaveReason("");
-      setTimeout(() => setLeaveSuccess(null), 4000);
+      toast.error(err?.message || "Failed to submit leave application. Please check dates.");
+    },
+  });
+
+  // Marks Entry State
+  const [selectedExam, setSelectedExam] = useState<ExamItem | null>(null);
+  const [marksSheet, setMarksSheet] = useState<Array<{ studentId: string; rollNumber: string; studentName: string; marksObtained: number }>>([]);
+  const [marksReason, setMarksReason] = useState("");
+
+  const { isLoading: resultsLoading, refetch: refetchResults } = useQuery({
+    queryKey: ["exam_results", selectedExam?.id],
+    queryFn: async () => {
+      if (!selectedExam) return [];
+      const res = await examsApi.getResults(selectedExam.id);
+      if (Array.isArray(res) && res.length > 0) {
+        setMarksSheet(
+          res.map((r) => ({
+            studentId: r.studentId,
+            rollNumber: r.student?.rollNumber || "ID",
+            studentName: r.student?.user ? `${r.student.user.firstName} ${r.student.user.lastName}` : "Student",
+            marksObtained: r.marksObtained ?? 0,
+          }))
+        );
+      }
+      return res;
+    },
+    enabled: !!selectedExam,
+  });
+
+  const saveResultsMutation = useMutation({
+    mutationFn: (publish: boolean) => {
+      if (!selectedExam) throw new Error("No exam selected");
+      return examsApi.enterResults(
+        selectedExam.id,
+        marksSheet.map((m) => ({ studentId: m.studentId, marksObtained: Number(m.marksObtained) })),
+        marksReason || undefined
+      ).then(async () => {
+        if (publish) {
+          await examsApi.publishResults(selectedExam.id);
+        }
+      });
+    },
+    onSuccess: (_, publish) => {
+      toast.success(publish ? "Exam results published & notified to students!" : "Draft marks saved successfully!");
+      if (publish) setSelectedExam(null);
+      refetchExams();
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to save marks");
     },
   });
 
@@ -90,7 +151,7 @@ export default function TeacherDashboardPage() {
             Faculty Academic Portal • {classCount} course offering{classCount === 1 ? "" : "s"} assigned in current scope.
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <Link href="/teacher/attendance">
             <Button size="sm" className="text-xs gap-1.5 shadow-md shadow-brand-500/20">
               <CalendarCheck2 className="h-4 w-4" /> Mark Daily Attendance
@@ -101,6 +162,14 @@ export default function TeacherDashboardPage() {
               <FileCheck className="h-4 w-4" /> Grade Queue ({pendingGradingCount})
             </Button>
           </Link>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsLeaveOpen(true)}
+            className="text-xs gap-1.5"
+          >
+            <Plane className="h-4 w-4" /> Apply Leave
+          </Button>
         </div>
       </div>
 
@@ -270,6 +339,78 @@ export default function TeacherDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* EXAMINATIONS & MARKS EVALUATION CONSOLE */}
+      <Card>
+        <CardHeader className="p-5 pb-3 flex flex-row items-center justify-between border-b border-border">
+          <div>
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Award className="h-4 w-4 text-brand-600" />
+              Examination Evaluation & Marks Publishing Console
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Enter mid-term, practical, and internal exam marks with automated letter-grade computation and SGPA sync.
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {examsLoading ? (
+            <div className="p-6 space-y-2">
+              <Skeleton className="h-12 w-full rounded-lg" />
+              <Skeleton className="h-12 w-full rounded-lg" />
+            </div>
+          ) : !exams || exams.length === 0 ? (
+            <div className="p-8 text-center text-xs text-muted-foreground">
+              No examinations currently scheduled or pending marks entry for your courses.
+            </div>
+          ) : (
+            <div className="divide-y divide-border text-xs">
+              {exams.map((exam) => (
+                <div
+                  key={exam.id}
+                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/30 transition-colors"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-foreground text-sm">{exam.title}</span>
+                      <span className="text-[10px] bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 px-2 py-0.5 rounded font-mono font-semibold">
+                        {exam.type}
+                      </span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                        exam.status === "PUBLISHED"
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 text-emerald-400"
+                          : "bg-amber-50 text-amber-700 dark:bg-amber-950 text-amber-400"
+                      }`}>
+                        {exam.status}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-3">
+                      <span>Scheduled: {formatDate(exam.scheduledAt)}</span>
+                      <span>•</span>
+                      <span>Max Marks: {exam.maxMarks}</span>
+                      <span>•</span>
+                      <span>Pass Marks: {exam.passMarks}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSelectedExam(exam)}
+                      className="text-xs h-8 gap-1"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" /> Enter / Edit Marks
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Leave Application Feedback Banner */}
       {leaveSuccess && (
         <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
@@ -332,6 +473,98 @@ export default function TeacherDashboardPage() {
             </Button>
           </div>
         </form>
+      </Dialog>
+
+      {/* Marks Entry Spreadsheet Modal */}
+      <Dialog
+        isOpen={!!selectedExam}
+        onClose={() => setSelectedExam(null)}
+        title={`Marks Entry: ${selectedExam?.title || "Examination"}`}
+        description={`Input marks obtained by students (0 - ${selectedExam?.maxMarks || 100}). Draft marks can be saved or immediately published.`}
+      >
+        <div className="space-y-4 text-xs max-h-[70vh] overflow-y-auto">
+          {resultsLoading ? (
+            <div className="p-4 space-y-2">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+          ) : marksSheet.length === 0 ? (
+            <div className="p-6 text-center text-muted-foreground border border-dashed rounded-xl">
+              No students enrolled in this offering or marks sheet pending initialization.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-12 gap-2 font-bold px-2 text-[11px] text-muted-foreground">
+                <span className="col-span-3">Roll Number</span>
+                <span className="col-span-5">Candidate Name</span>
+                <span className="col-span-4 text-right">Marks (/{selectedExam?.maxMarks})</span>
+              </div>
+              <div className="divide-y divide-border border rounded-xl overflow-hidden">
+                {marksSheet.map((student, idx) => (
+                  <div key={student.studentId} className="grid grid-cols-12 gap-2 items-center p-2.5 bg-card">
+                    <span className="col-span-3 font-mono font-bold text-foreground truncate">
+                      {student.rollNumber}
+                    </span>
+                    <span className="col-span-5 text-foreground truncate">
+                      {student.studentName}
+                    </span>
+                    <div className="col-span-4 flex justify-end">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={selectedExam?.maxMarks || 100}
+                        value={student.marksObtained}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setMarksSheet((prev) =>
+                            prev.map((item, i) => (i === idx ? { ...item, marksObtained: val } : item))
+                          );
+                        }}
+                        className="h-7 w-20 text-right font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="font-semibold text-foreground block mb-1">
+              Audit Justification / Moderation Note (Required if updating published marks)
+            </label>
+            <Input
+              type="text"
+              placeholder="e.g. Regular mid-term evaluation scores"
+              value={marksReason}
+              onChange={(e) => setMarksReason(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-between items-center pt-2 border-t border-border">
+            <Button variant="outline" size="sm" onClick={() => setSelectedExam(null)}>
+              Cancel
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={saveResultsMutation.isPending || marksSheet.length === 0}
+                onClick={() => saveResultsMutation.mutate(false)}
+              >
+                Save Draft
+              </Button>
+              <Button
+                size="sm"
+                disabled={saveResultsMutation.isPending || marksSheet.length === 0}
+                isLoading={saveResultsMutation.isPending}
+                onClick={() => saveResultsMutation.mutate(true)}
+              >
+                Publish Results
+              </Button>
+            </div>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

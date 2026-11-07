@@ -19,4 +19,5 @@ export * from "./messaging.api";
 export * from "./analytics.api";
 export * from "./reports.api";
 export * from "./storage.api";
+export * from "./search.api";
 

@@ -55,6 +55,15 @@ function isAuthorizedForPath(pathname: string, role?: UserRole): boolean {
     return role === "TEACHER" || role === "HOD" || role === "ADMIN";
   }
   if (pathname.startsWith("/student")) {
+    if (pathname.startsWith("/student/placements")) {
+      return role === "STUDENT" || role === "ADMIN" || role === "PLACEMENT_OFFICER";
+    }
+    if (pathname.startsWith("/student/fees")) {
+      return role === "STUDENT" || role === "ADMIN" || role === "ACCOUNTANT";
+    }
+    if (pathname.startsWith("/student/complaints")) {
+      return role === "STUDENT" || role === "ADMIN" || role === "HOD" || role === "TEACHER";
+    }
     return role === "STUDENT" || role === "ADMIN";
   }
 

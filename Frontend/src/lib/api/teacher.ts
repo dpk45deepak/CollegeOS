@@ -155,7 +155,7 @@ export const teacherApi = {
   },
 
   requestLeave: async (data: { fromDate: string; toDate: string; reason: string }) => {
-    return apiClient<any>("/teachers/leave-requests", {
+    return apiClient<any>("/leave-requests", {
       method: "POST",
       body: JSON.stringify({
         fromDate: new Date(data.fromDate).toISOString(),

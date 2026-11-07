@@ -53,6 +53,13 @@ export const hodApi = {
     });
   },
 
+  getLeaveRequests: async (status?: string) => {
+    const raw = await apiClient<any>("/leave-requests", {
+      params: status ? { status } : undefined,
+    });
+    return Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
+  },
+
   approveLeave: async (id: string) => {
     return apiClient<any>(`/leave-requests/${id}/approve`, {
       method: "POST",

@@ -213,4 +213,26 @@ export class TeachersService {
       data: { status: approve ? LeaveStatus.APPROVED : LeaveStatus.REJECTED, reviewedById: p.userId },
     });
   }
+
+  async listLeaveRequests(p: Principal, c: string, status?: LeaveStatus) {
+    const where: Prisma.LeaveRequestWhereInput = { collegeId: c };
+    if (status) where.status = status;
+    if (p.teacherId && !p.permissions.includes('LEAVE_APPROVE')) {
+      where.teacherId = p.teacherId;
+    }
+    return this.prisma.leaveRequest.findMany({
+      where,
+      include: {
+        teacher: {
+          include: {
+            user: { select: { firstName: true, lastName: true, email: true } },
+            department: { select: { id: true, code: true, name: true } },
+          },
+        },
+        reviewedBy: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  }
 }

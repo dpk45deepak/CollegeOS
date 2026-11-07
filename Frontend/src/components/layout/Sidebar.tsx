@@ -74,10 +74,25 @@ export function Sidebar() {
           { href: "/admin/analytics", label: "Executive Analytics", icon: BarChart3 },
           { href: "/admin/users", label: "User Directory", icon: Users },
           { href: "/admin/academics", label: "Timetable Builder", icon: CalendarDays },
+          { href: "/student/complaints", label: "Grievances & SLA Triage", icon: AlertCircle },
           { href: "/admin/ai-observability", label: "AI Observability", icon: Cpu },
           { href: "/documents", label: "College Knowledge", icon: BookOpen },
           { href: "/notices", label: "Campus Broadcasts", icon: Bell },
           { href: "/settings", label: "System Config", icon: Settings },
+        ];
+      case "PLACEMENT_OFFICER":
+        return [
+          { href: "/student/placements", label: "Placements & Drives", icon: Briefcase },
+          { href: "/notices", label: "Placement Notices", icon: Bell },
+          { href: "/messages", label: "Student Messages", icon: MessageSquare },
+          { href: "/documents", label: "Company Profiles", icon: BookOpen },
+        ];
+      case "ACCOUNTANT":
+        return [
+          { href: "/student/fees", label: "Fee Ledger & Dues", icon: CreditCard },
+          { href: "/admin/analytics", label: "Financial Analytics", icon: BarChart3 },
+          { href: "/notices", label: "Financial Circulars", icon: Bell },
+          { href: "/documents", label: "Audits & Receipts", icon: BookOpen },
         ];
       case "STUDENT":
       default:

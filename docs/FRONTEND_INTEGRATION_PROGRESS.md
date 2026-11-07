@@ -6,10 +6,10 @@ This document records completed features, verified implementations, test outcome
 
 ## 1. Overall Integration Summary
 - **Backend Modules Discovered:** 28 controllers across all academic and enterprise administrative domains.
-- **Backend Endpoints Discovered:** 192 endpoints.
+- **Backend Endpoints Discovered:** 193 endpoints (including added `GET /leave-requests`).
 - **Prisma Database Models:** 63 models.
 - **Frontend Pages Discovered & Integrated:** 31 App Router pages across role groups `(admin)`, `(teacher)`, `(student)`, `(hod)`, `(auth)`, `documents`, `notices`, `messages`, `profile`, `settings`.
-- **API Contracts Mismatches Identified & Resolved:**
+- **API Contracts Mismatches & Disconnections Resolved:**
   1. `studentApi.getNotices`: Aligned route from `/campus/notices` to `/notices`.
   2. `studentApi.payFee`: Aligned route from `/fees/pay` to `/fees/:studentFeeId/payments` with real student fee ID.
   3. `studentApi.submitAssignment`: Aligned payload from `{ fileName, fileUrl }` to `{ fileKeys: [key], text }`.
@@ -18,6 +18,22 @@ This document records completed features, verified implementations, test outcome
   6. `hodApi.approveLeave` & `rejectLeave`: Aligned routes to `/leave-requests/:id/approve` and `/leave-requests/:id/reject`.
   7. `adminApi.checkTimetableConflict`: Aligned payload to integer minutes `startMinute`, `endMinute`, and `validFrom`.
   8. `teacherApi.submitAttendance`: Aligned payload to include required `selectedDate`.
+  9. `teacherApi.requestLeave`: Aligned route from `/teachers/leave-requests` to `/leave-requests`.
+  10. `(auth)/forgot-password`: Connected form to `authApi.forgotPassword(collegeCode, email)` with loading, error, and success states.
+  11. `(auth)/reset-password`: Connected form to `authApi.resetPassword(token, password)` with query param token parsing and Suspense boundary.
+  12. `(auth)/verify-email`: Connected to `authApi.verifyEmail(token)` and added resend code trigger calling `POST /auth/resend-verification`.
+  13. `(hod)/hod/dashboard`: Integrated live "Faculty Leave Applications & Approvals Queue" with approve and reject actions.
+  14. `(admin)/admin/analytics`: Integrated live "System Audit Trail & Security Ledger" (`GET /audit`) and "Platform Background Job Queues" (`GET /admin/queues`).
+  15. `AppShell` & `Sidebar`: Unblocked `PLACEMENT_OFFICER` and `ACCOUNTANT` roles with dedicated navigations and access rules.
+  16. `(student)/student/attendance`: Re-routed dispute form to official academic grievance ticket flow (`studentApi.createComplaint`).
+  17. Landing Page: Removed broken dead link `/student/gatepass` and linked to `/student/complaints`.
+  18. Global Search: Wired `CommandPalette.tsx` to live backend `GET /search` via `search.api.ts` and `useSearch.ts`.
+  19. Staff Grievance Triage Desk: Added dual role-based view to `/student/complaints` with status transitions, assignment, and notes.
+  20. Accountant Counter Desk: Added cashier desk to `/student/fees` supporting manual payments, fee adjustments, and fee structure creations.
+  21. Placement Officer Console: Added recruitment management to `/student/placements` supporting company creation, job postings, and drive planning.
+  22. Faculty Marks Evaluation: Added exam grading & results publishing console to `/teacher/dashboard`.
+  23. Extracurriculars Hub: Built `/campus-life` with active clubs and upcoming campus events from `GET /clubs` and `GET /events`.
+  24. Public Institutional Pages: Implemented `/about`, `/academics`, `/admissions`, `/contact`, and `/research` eliminating 404s.
 
 ---
 
@@ -36,7 +52,7 @@ This document records completed features, verified implementations, test outcome
 | **Phase 9** | AI Copilot, RAG & Realtime WebSockets | COMPLETED | Supervisor routing, knowledge retrieval, observability audit, push notifications |
 | **Phase 10** | UI Polish, Loading/Error/Empty States | COMPLETED | Responsive layouts, accessible dialogs, skeletons, error states |
 | **Phase 11** | Unit, Component & Integration Testing | COMPLETED | Vitest 18/18 tests passed across 4 test suites |
-| **Phase 12** | Production Builds & Verification | COMPLETED | Zero TypeScript errors (`tsc --noEmit` exit code 0 in Frontend and Backend) |
+| **Phase 12** | Production Builds & Verification | COMPLETED | Zero TypeScript errors (`tsc --noEmit` exit code 0 in Frontend and Backend), Next.js build 40/40 pages static/prerendered |
 
 ---
 
@@ -44,11 +60,11 @@ This document records completed features, verified implementations, test outcome
 
 | Service File | Domain | Operations Covered |
 |---|---|---|
-| `auth.api.ts` | Authentication & Identity | Login, Refresh, Logout, LogoutAll, Sessions, Password Reset, Password Change |
+| `auth.api.ts` | Authentication & Identity | Login, Refresh, Logout, LogoutAll, Sessions, Password Reset, Password Change, Resend Verification |
 | `users.api.ts` | User Directory & RBAC | List users (paginated), User details, Create user, Update roles, Update status |
 | `academic.api.ts` | Institutional Structure | Campuses, Departments, Programs, Batches, Semesters, Sections, Subjects, College Settings |
 | `students.api.ts` | Student Management & Portal | Me, UpdateMe, Skills, Portfolio, Directory list, Create student, Detail, Portal aggregations |
-| `faculty.api.ts` | Faculty Management & Teaching | Teachers directory, Create teacher, Offerings, Student roster, Leave requests |
+| `faculty.api.ts` | Faculty Management & Teaching | Teachers directory, Create teacher, Offerings, Student roster, Leave requests, Leave approval/rejection |
 | `attendance.api.ts` | Attendance Engine | Mark session, Session records, Correction requests, Correction review, Shortage analytics |
 | `timetable.api.ts` | Timetable & Conflicts | Create slot, Autonomous conflict check (dry-run), Delete slot, Section & Teacher schedules, Rooms |
 | `assignments.api.ts` | Coursework & Submissions | Create assignment, List, Multipart submit, Submissions list, Grade submission, Missing |

@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { studentApi } from "@/lib/api/student";
+import { feesApi, FeeStructure } from "@/services/api/fees.api";
+import { useAuthStore } from "@/lib/auth/authStore";
 import {
   CreditCard,
   CheckCircle2,
@@ -11,24 +13,146 @@ import {
   Receipt,
   ShieldCheck,
   Calendar,
+  DollarSign,
+  Plus,
+  Layers,
+  FileCheck,
+  Building2,
+  UserCheck,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { toast } from "sonner";
 
 export default function StudentFeesPage() {
+  const { user } = useAuthStore();
   const queryClient = useQueryClient();
+
+  const isAccountantOrAdmin = user?.role === "ACCOUNTANT" || user?.role === "ADMIN";
+  const [activeTab, setActiveTab] = useState<"student" | "accountant">(isAccountantOrAdmin ? "accountant" : "student");
+
+  // Student's personal fees
   const { data: feeData, isLoading, error, refetch } = useQuery({
     queryKey: ["student_fees"],
     queryFn: () => studentApi.getFees(),
   });
 
+  // Accountant: List of Fee Structures
+  const { data: feeStructures, isLoading: structuresLoading, refetch: refetchStructures } = useQuery({
+    queryKey: ["accountant_fee_structures"],
+    queryFn: () => feesApi.listStructures(),
+    enabled: isAccountantOrAdmin && activeTab === "accountant",
+  });
+
+  // Accountant Desk Modals
+  const [isManualPayOpen, setIsManualPayOpen] = useState(false);
+  const [manualFeeId, setManualFeeId] = useState("");
+  const [manualAmount, setManualAmount] = useState<number>(0);
+  const [manualMode, setManualMode] = useState("CASH");
+  const [manualRef, setManualRef] = useState("");
+
+  const [isAdjustOpen, setIsAdjustOpen] = useState(false);
+  const [adjustFeeId, setAdjustFeeId] = useState("");
+  const [adjustDiscount, setAdjustDiscount] = useState<number>(0);
+  const [adjustReason, setAdjustReason] = useState("");
+
+  const [isCreateStructureOpen, setIsCreateStructureOpen] = useState(false);
+  const [newStructName, setNewStructName] = useState("");
+  const [newStructYear, setNewStructYear] = useState("2026-2027");
+  const [tuitionFee, setTuitionFee] = useState<number>(45000);
+  const [labFee, setLabFee] = useState<number>(10000);
+  const [libraryFee, setLibraryFee] = useState<number>(5000);
+
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [assignStructureId, setAssignStructureId] = useState("");
+  const [assignBatchId, setAssignBatchId] = useState("");
+  const [assignDueDate, setAssignDueDate] = useState("2026-12-31");
+
+  // Mutations
+  const manualPayMutation = useMutation({
+    mutationFn: () =>
+      feesApi.recordManualPayment(manualFeeId, {
+        amount: Number(manualAmount),
+        mode: manualMode,
+        reference: manualRef.trim() || undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Counter payment recorded & receipt issued successfully!");
+      setIsManualPayOpen(false);
+      setManualFeeId("");
+      setManualAmount(0);
+      setManualRef("");
+      queryClient.invalidateQueries({ queryKey: ["student_fees"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to record counter payment");
+    },
+  });
+
+  const adjustMutation = useMutation({
+    mutationFn: () =>
+      feesApi.adjustFee(adjustFeeId, {
+        discount: Number(adjustDiscount),
+        reason: adjustReason.trim(),
+      }),
+    onSuccess: () => {
+      toast.success("Fee adjustment applied with audit ledger trail!");
+      setIsAdjustOpen(false);
+      setAdjustFeeId("");
+      setAdjustDiscount(0);
+      setAdjustReason("");
+      queryClient.invalidateQueries({ queryKey: ["student_fees"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to adjust fee record");
+    },
+  });
+
+  const createStructureMutation = useMutation({
+    mutationFn: () =>
+      feesApi.createStructure({
+        name: newStructName,
+        academicYear: newStructYear,
+        components: [
+          { name: "Tuition Fee", amount: Number(tuitionFee) },
+          { name: "Lab & Practical", amount: Number(labFee) },
+          { name: "Library & Development", amount: Number(libraryFee) },
+        ],
+      }),
+    onSuccess: () => {
+      toast.success("Fee structure defined successfully!");
+      setIsCreateStructureOpen(false);
+      setNewStructName("");
+      refetchStructures();
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to create fee structure");
+    },
+  });
+
+  const assignStructureMutation = useMutation({
+    mutationFn: () =>
+      feesApi.assignStructure(assignStructureId, {
+        batchId: assignBatchId || undefined,
+        dueDate: assignDueDate,
+      }),
+    onSuccess: () => {
+      toast.success("Fee structure assigned to students successfully!");
+      setIsAssignOpen(false);
+      setAssignBatchId("");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to assign fee structure");
+    },
+  });
+
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
-
 
   const handleDownloadReceipt = (tx: any) => {
     const receiptHtml = `<!DOCTYPE html>
@@ -86,132 +210,594 @@ export default function StudentFeesPage() {
     },
   });
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-32 w-full rounded-2xl" />
-        <Skeleton className="h-48 w-full rounded-xl" />
-      </div>
-    );
-  }
-
-  if (error || !feeData) {
-    return (
-      <ErrorState
-        message="Could not load fee ledger details. Please verify your connection or contact the accounts office."
-        onRetry={refetch}
-      />
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* Fee Status Banner */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header & Tab Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border">
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Bursar & Accounts Office
-          </span>
-          <h1 className="text-2xl font-extrabold text-foreground mt-0.5">
-            Semester {feeData.semester} Fee Ledger
+          <h1 className="text-xl font-bold text-foreground">
+            Bursar & Campus Fee Operations
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Academic Session: {feeData.academicYear} • Next Due Date: <strong>{formatDate(feeData.dueDate)}</strong>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Transparent institutional billing, offline counter cashiering, scholarship adjustments, and receipt auditing.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="p-3.5 rounded-2xl bg-muted/40 border border-border text-left">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold block">
-              Pending Balance
-            </span>
-            <span className="text-xl font-extrabold text-amber-600 font-mono">
-              {formatCurrency(feeData.pendingAmount)}
-            </span>
+        {isAccountantOrAdmin && (
+          <div className="flex items-center bg-muted/60 p-1 rounded-xl border border-border">
+            <button
+              onClick={() => setActiveTab("accountant")}
+              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                activeTab === "accountant"
+                  ? "bg-background text-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Accountant Counter Desk
+            </button>
+            <button
+              onClick={() => setActiveTab("student")}
+              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                activeTab === "student"
+                  ? "bg-background text-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Student Fee Ledger
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ACCOUNTANT CONSOLE VIEW */}
+      {isAccountantOrAdmin && activeTab === "accountant" && (
+        <div className="space-y-6">
+          {/* Quick Action Buttons Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="p-4 border border-border hover:border-brand-500/50 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950 flex items-center justify-center shrink-0">
+                  <Receipt className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Record Counter Payment</h3>
+                  <p className="text-[11px] text-muted-foreground">Cash, Cheque, DD, NEFT payments</p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                className="w-full mt-3 text-xs gap-1"
+                onClick={() => setIsManualPayOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" /> Log Payment
+              </Button>
+            </Card>
+
+            <Card className="p-4 border border-border hover:border-brand-500/50 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950 flex items-center justify-center shrink-0">
+                  <DollarSign className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Adjust Fee / Waiver</h3>
+                  <p className="text-[11px] text-muted-foreground">Apply discount or scholarship credit</p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-3 text-xs gap-1"
+                onClick={() => setIsAdjustOpen(true)}
+              >
+                <DollarSign className="h-3.5 w-3.5" /> Apply Adjustment
+              </Button>
+            </Card>
+
+            <Card className="p-4 border border-border hover:border-brand-500/50 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950 flex items-center justify-center shrink-0">
+                  <Layers className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Fee Structures</h3>
+                  <p className="text-[11px] text-muted-foreground">Define semester academic billing</p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-3 text-xs gap-1"
+                onClick={() => setIsCreateStructureOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" /> New Structure
+              </Button>
+            </Card>
           </div>
 
-          {feeData.pendingAmount > 0 && (
-            <Button
-              onClick={() => setIsPayModalOpen(true)}
-              className="text-xs gap-1.5 shadow-md shadow-brand-500/20 py-5"
-            >
-              <CreditCard className="h-4 w-4" /> Pay Balance Now
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Fee Breakdown & Transaction History Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Breakdown Card */}
-        <Card>
-          <CardHeader className="p-5 pb-3">
-            <CardTitle className="text-sm font-bold">
-              Fee Structure Breakdown
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-5 pt-0 space-y-2">
-            <div className="divide-y divide-border text-xs">
-              {((feeData.breakdown || [])).map((item, idx) => (
-                <div key={idx} className="py-2.5 flex items-center justify-between">
-                  <span className="text-foreground">{item.head}</span>
-                  <span className="font-mono font-semibold text-foreground">
-                    {formatCurrency(item.amount)}
-                  </span>
-                </div>
-              ))}
-              <div className="pt-3 flex items-center justify-between font-bold text-sm">
-                <span>Total Semester Fee</span>
-                <span className="font-mono">{formatCurrency(feeData.totalAmount)}</span>
+          {/* Institutional Fee Structures Table */}
+          <Card>
+            <CardHeader className="p-5 pb-3 flex flex-row items-center justify-between border-b border-border">
+              <div>
+                <CardTitle className="text-sm font-bold">Active Institutional Fee Structures</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Pre-configured billing templates assigned across batches and academic years.
+                </p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="p-0">
+              {structuresLoading ? (
+                <div className="p-6 space-y-2">
+                  <Skeleton className="h-12 w-full rounded-lg" />
+                  <Skeleton className="h-12 w-full rounded-lg" />
+                </div>
+              ) : !feeStructures || feeStructures.length === 0 ? (
+                <div className="p-8 text-center text-xs text-muted-foreground">
+                  No fee structures created yet. Click &quot;New Structure&quot; above to configure semester tuition.
+                </div>
+              ) : (
+                <div className="divide-y divide-border text-xs">
+                  {feeStructures.map((struct) => {
+                    const total = struct.components.reduce((acc, c) => acc + (c.amount || 0), 0);
+                    return (
+                      <div key={struct.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/30 transition-colors">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-foreground text-sm">{struct.name}</span>
+                            <span className="text-[10px] bg-muted px-2 py-0.5 rounded font-mono text-muted-foreground">
+                              {struct.academicYear}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-3">
+                            <span>Components: {struct.components.map((c) => `${c.name}: ₹${c.amount}`).join(", ")}</span>
+                          </div>
+                        </div>
 
-        {/* Transactions & Receipts */}
-        <Card>
-          <CardHeader className="p-5 pb-3">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-brand-600" />
-              Payment History & Official Receipts
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-5 pt-0 space-y-3">
-            {(!feeData.transactions || feeData.transactions.length === 0) ? (<div className="p-4 text-center text-xs text-muted-foreground">No online payment transactions recorded yet.</div>) : feeData.transactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="p-3 rounded-xl border border-border bg-muted/20 flex items-center justify-between text-xs"
-              >
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <span className="text-[10px] text-muted-foreground block">Total Amount</span>
+                            <span className="font-mono font-bold text-foreground text-sm">
+                              {formatCurrency(total)}
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-8"
+                            onClick={() => {
+                              setAssignStructureId(struct.id);
+                              setIsAssignOpen(true);
+                            }}
+                          >
+                            Assign to Batch
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* STUDENT FEE LEDGER VIEW */}
+      {(!isAccountantOrAdmin || activeTab === "student") && (
+        <div className="space-y-6">
+          {isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-32 w-full rounded-2xl" />
+              <Skeleton className="h-48 w-full rounded-xl" />
+            </div>
+          ) : error || !feeData ? (
+            <ErrorState
+              message="Could not load fee ledger details. Please verify your connection or contact the accounts office."
+              onRetry={refetch}
+            />
+          ) : (
+            <>
+              {/* Fee Status Banner */}
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <div className="font-semibold text-foreground flex items-center gap-2">
-                    <span>{formatCurrency(tx.amount)}</span>
-                    <span className="text-[10px] text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.2 rounded font-bold">
-                      {tx.status}
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Bursar & Accounts Office
+                  </span>
+                  <h1 className="text-2xl font-extrabold text-foreground mt-0.5">
+                    Semester {feeData.semester} Fee Ledger
+                  </h1>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Academic Session: {feeData.academicYear} • Next Due Date: <strong>{formatDate(feeData.dueDate)}</strong>
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="p-3.5 rounded-2xl bg-muted/40 border border-border text-left">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold block">
+                      Pending Balance
+                    </span>
+                    <span className="text-xl font-extrabold text-amber-600 font-mono">
+                      {formatCurrency(feeData.pendingAmount)}
                     </span>
                   </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
-                    {tx.method} • {formatDate(tx.date)}
-                  </div>
-                  <div className="text-[10px] font-mono text-muted-foreground">
-                    Receipt: {tx.receiptNo}
-                  </div>
+
+                  {feeData.pendingAmount > 0 && (
+                    <Button
+                      onClick={() => setIsPayModalOpen(true)}
+                      className="text-xs gap-1.5 shadow-md shadow-brand-500/20 py-5"
+                    >
+                      <CreditCard className="h-4 w-4" /> Pay Balance Now
+                    </Button>
+                  )}
                 </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownloadReceipt(tx)}
-                  className="text-[11px] gap-1 h-8"
-                >
-                  <Download className="h-3 w-3" /> Receipt
-                </Button>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Pay Modal Dialog */}
+              {/* Fee Breakdown & Transaction History Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Breakdown Card */}
+                <Card>
+                  <CardHeader className="p-5 pb-3">
+                    <CardTitle className="text-sm font-bold">
+                      Fee Structure Breakdown
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 pt-0 space-y-2">
+                    <div className="divide-y divide-border text-xs">
+                      {((feeData.breakdown || [])).map((item, idx) => (
+                        <div key={idx} className="py-2.5 flex items-center justify-between">
+                          <span className="text-foreground">{item.head}</span>
+                          <span className="font-mono font-semibold text-foreground">
+                            {formatCurrency(item.amount)}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="pt-3 flex items-center justify-between font-bold text-sm">
+                        <span>Total Semester Fee</span>
+                        <span className="font-mono">{formatCurrency(feeData.totalAmount)}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Transactions & Receipts */}
+                <Card>
+                  <CardHeader className="p-5 pb-3">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <Receipt className="h-4 w-4 text-brand-600" />
+                      Payment History & Official Receipts
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 pt-0 space-y-3">
+                    {(!feeData.transactions || feeData.transactions.length === 0) ? (
+                      <div className="p-4 text-center text-xs text-muted-foreground">
+                        No online payment transactions recorded yet.
+                      </div>
+                    ) : (
+                      feeData.transactions.map((tx) => (
+                        <div
+                          key={tx.id}
+                          className="p-3 rounded-xl border border-border bg-muted/20 flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <div className="font-semibold text-foreground flex items-center gap-2">
+                              <span>{formatCurrency(tx.amount)}</span>
+                              <span className="text-[10px] text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.2 rounded font-bold">
+                                {tx.status}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground mt-0.5">
+                              {tx.method} • {formatDate(tx.date)}
+                            </div>
+                            <div className="text-[10px] font-mono text-muted-foreground">
+                              Receipt: {tx.receiptNo}
+                            </div>
+                          </div>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadReceipt(tx)}
+                            className="text-[11px] gap-1 h-8"
+                          >
+                            <Download className="h-3 w-3" /> Receipt
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* MODAL 1: MANUAL COUNTER PAYMENT */}
+      <Dialog
+        isOpen={isManualPayOpen}
+        onClose={() => setIsManualPayOpen(false)}
+        title="Record Counter Payment (Cash / DD / Cheque)"
+        description="Issue an official university fee clearance receipt for in-person cashier transactions."
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            manualPayMutation.mutate();
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="text-xs font-medium text-foreground block mb-1">Student Fee Record ID</label>
+            <Input
+              type="text"
+              placeholder="e.g. fee_rec_uuid or student roll no"
+              value={manualFeeId}
+              onChange={(e) => setManualFeeId(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-foreground block mb-1">Amount Collected (₹)</label>
+              <Input
+                type="number"
+                placeholder="45000"
+                value={manualAmount || ""}
+                onChange={(e) => setManualAmount(Number(e.target.value))}
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-foreground block mb-1">Payment Mode</label>
+              <select
+                value={manualMode}
+                onChange={(e) => setManualMode(e.target.value)}
+                className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
+              >
+                <option value="CASH">CASH (Physical Counter)</option>
+                <option value="DEMAND_DRAFT">Demand Draft (DD)</option>
+                <option value="CHEQUE">Cheque</option>
+                <option value="BANK_TRANSFER">NEFT / RTGS</option>
+                <option value="POS_MACHINE">Campus POS Debit/Credit</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-foreground block mb-1">Transaction / Reference Number</label>
+            <Input
+              type="text"
+              placeholder="e.g. DD-991204 or UTR-20261102"
+              value={manualRef}
+              onChange={(e) => setManualRef(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsManualPayOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={manualPayMutation.isPending || !manualFeeId || manualAmount <= 0}
+              isLoading={manualPayMutation.isPending}
+            >
+              Issue Receipt
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* MODAL 2: ADJUST FEE / WAIVER */}
+      <Dialog
+        isOpen={isAdjustOpen}
+        onClose={() => setIsAdjustOpen(false)}
+        title="Fee Ledger Adjustment & Scholarship Credit"
+        description="Apply an audited concession or waiver with official justification."
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            adjustMutation.mutate();
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="text-xs font-medium text-foreground block mb-1">Student Fee Record ID</label>
+            <Input
+              type="text"
+              placeholder="e.g. fee_rec_uuid"
+              value={adjustFeeId}
+              onChange={(e) => setAdjustFeeId(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-foreground block mb-1">Concession / Discount Amount (₹)</label>
+            <Input
+              type="number"
+              placeholder="10000"
+              value={adjustDiscount || ""}
+              onChange={(e) => setAdjustDiscount(Number(e.target.value))}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-foreground block mb-1">Audit Justification / Reason</label>
+            <textarea
+              rows={3}
+              placeholder="e.g. Merit-cum-means 50% tuition waiver approved by Director; Ref: ORDER/2026/MM-14"
+              value={adjustReason}
+              onChange={(e) => setAdjustReason(e.target.value)}
+              required
+              className="w-full rounded-lg border border-input bg-background p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-brand-500"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsAdjustOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={adjustMutation.isPending || !adjustFeeId || adjustDiscount <= 0 || !adjustReason.trim()}
+              isLoading={adjustMutation.isPending}
+            >
+              Apply Adjustment
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* MODAL 3: CREATE FEE STRUCTURE */}
+      <Dialog
+        isOpen={isCreateStructureOpen}
+        onClose={() => setIsCreateStructureOpen(false)}
+        title="Define New Institutional Fee Structure"
+        description="Create standard fee components for an academic semester."
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            createStructureMutation.mutate();
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-foreground block mb-1">Structure Name</label>
+              <Input
+                type="text"
+                placeholder="e.g. B.Tech CSE Semester 5 Regular"
+                value={newStructName}
+                onChange={(e) => setNewStructName(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-foreground block mb-1">Academic Year</label>
+              <Input
+                type="text"
+                placeholder="2026-2027"
+                value={newStructYear}
+                onChange={(e) => setNewStructYear(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <span className="text-xs font-bold text-foreground">Standard Fee Components</span>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-[11px] text-muted-foreground block mb-1">Tuition Fee (₹)</label>
+                <Input
+                  type="number"
+                  value={tuitionFee}
+                  onChange={(e) => setTuitionFee(Number(e.target.value))}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground block mb-1">Lab / Practical (₹)</label>
+                <Input
+                  type="number"
+                  value={labFee}
+                  onChange={(e) => setLabFee(Number(e.target.value))}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground block mb-1">Library (₹)</label>
+                <Input
+                  type="number"
+                  value={libraryFee}
+                  onChange={(e) => setLibraryFee(Number(e.target.value))}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 bg-muted/40 rounded-xl flex items-center justify-between text-xs">
+            <span>Total Calculated Semester Fee:</span>
+            <strong className="font-mono text-sm text-foreground">
+              {formatCurrency(Number(tuitionFee) + Number(labFee) + Number(libraryFee))}
+            </strong>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateStructureOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={createStructureMutation.isPending || !newStructName.trim()}
+              isLoading={createStructureMutation.isPending}
+            >
+              Save Structure
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* MODAL 4: ASSIGN FEE STRUCTURE */}
+      <Dialog
+        isOpen={isAssignOpen}
+        onClose={() => setIsAssignOpen(false)}
+        title="Assign Fee Structure to Student Batch"
+        description="Bulk generate student ledger records for an upcoming academic term."
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            assignStructureMutation.mutate();
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="text-xs font-medium text-foreground block mb-1">Target Batch ID</label>
+            <Input
+              type="text"
+              placeholder="e.g. batch_cse_2024_2028"
+              value={assignBatchId}
+              onChange={(e) => setAssignBatchId(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-foreground block mb-1">Payment Due Date</label>
+            <Input
+              type="date"
+              value={assignDueDate}
+              onChange={(e) => setAssignDueDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsAssignOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={assignStructureMutation.isPending || !assignBatchId.trim()}
+              isLoading={assignStructureMutation.isPending}
+            >
+              Assign to Students
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Pay Online Modal Dialog (Student) */}
       <Dialog
         isOpen={isPayModalOpen}
         onClose={() => setIsPayModalOpen(false)}
@@ -232,7 +818,7 @@ export default function StudentFeesPage() {
               <div className="p-4 rounded-xl bg-brand-50/50 dark:bg-brand-950/20 border border-brand-200 dark:border-brand-800 flex items-center justify-between text-xs">
                 <span>Amount to Pay:</span>
                 <span className="text-lg font-extrabold text-foreground font-mono">
-                  {formatCurrency(feeData.pendingAmount)}
+                  {formatCurrency(feeData?.pendingAmount || 0)}
                 </span>
               </div>
 
@@ -260,9 +846,9 @@ export default function StudentFeesPage() {
                 <Button
                   size="sm"
                   isLoading={payMutation.isPending}
-                  onClick={() => payMutation.mutate(feeData.pendingAmount)}
+                  onClick={() => payMutation.mutate(feeData?.pendingAmount || 0)}
                 >
-                  Confirm {formatCurrency(feeData.pendingAmount)} Payment
+                  Confirm {formatCurrency(feeData?.pendingAmount || 0)} Payment
                 </Button>
               </div>
             </>

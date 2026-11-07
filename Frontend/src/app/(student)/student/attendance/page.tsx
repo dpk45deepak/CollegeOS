@@ -41,29 +41,30 @@ export default function StudentAttendancePage() {
   const queryClient = useQueryClient();
 
   const disputeMutation = useMutation({
-    mutationFn: (data: { attendanceId: string; newStatus: "PRESENT" | "ABSENT" | "LATE"; reason: string }) =>
-      studentApi.requestAttendanceCorrection(data),
+    mutationFn: async (data: { subjectName: string; requestedStatus: string; reason: string }) => {
+      return studentApi.createComplaint({
+        category: "Academic",
+        subject: `Attendance Dispute: ${data.subjectName} (${data.requestedStatus})`,
+        description: `Official student attendance dispute for ${data.subjectName}. Requested status: ${data.requestedStatus}. Justification: ${data.reason}`,
+      });
+    },
     onSuccess: () => {
-      setDisputeSuccess("Attendance correction dispute submitted to department HOD.");
+      setDisputeSuccess("Attendance dispute ticket successfully submitted to Department Grievance Desk.");
       setIsDisputeOpen(false);
       setDisputeReason("");
       setTimeout(() => setDisputeSuccess(null), 4000);
     },
-    onError: () => {
-      // Graceful fallback for UI demonstration
-      setDisputeSuccess("Attendance correction ticket logged with Department Administrator.");
-      setIsDisputeOpen(false);
-      setDisputeReason("");
-      setTimeout(() => setDisputeSuccess(null), 4000);
+    onError: (err: any) => {
+      alert(err?.message || "Failed to submit attendance dispute.");
     },
   });
 
   const handleDisputeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const subj = disputeSubject || data?.subjects?.[0]?.id || "SUBJ_GEN";
+    const subjName = disputeSubject || data?.subjects?.[0]?.name || "Class Lecture";
     disputeMutation.mutate({
-      attendanceId: subj,
-      newStatus: disputeStatus,
+      subjectName: subjName,
+      requestedStatus: disputeStatus,
       reason: disputeReason,
     });
   };

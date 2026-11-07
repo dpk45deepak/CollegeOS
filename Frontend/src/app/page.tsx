@@ -119,7 +119,7 @@ export default function LandingPage() {
       badge: "Campus Life",
       bgClass: "bg-[var(--primary)]",
       icon: QrCode,
-      link: "/student/gatepass",
+      link: "/student/complaints",
     },
   ];
 
@@ -1119,8 +1119,8 @@ export default function LandingPage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/student/gatepass" className="hover:text-[var(--text)] transition-colors">
-                    QR Gate Passes
+                  <Link href="/student/complaints" className="hover:text-[var(--text)] transition-colors">
+                    Student Grievances
                   </Link>
                 </li>
               </ul>

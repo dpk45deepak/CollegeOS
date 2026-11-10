@@ -41,7 +41,7 @@ export function useUpdateUserRoles() {
 export function useUpdateUserStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: "ACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION" }) =>
+    mutationFn: ({ id, status }: { id: string; status: "ACTIVE" | "INACTIVE" | "LOCKED" | "PENDING_VERIFICATION" | "SUSPENDED" }) =>
       usersApi.updateStatus(id, status),
     onSuccess: () => qc.invalidateQueries({ queryKey: userKeys.all }),
   });

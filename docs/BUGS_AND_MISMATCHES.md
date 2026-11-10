@@ -283,3 +283,4 @@ This document provides the definitive, evidence-backed register of all architect
 - **Test case:** Navigating to `/admin/ai-observability` queries backend telemetry and renders live model distribution and tool execution cards.
 - **Verification evidence:** Frontend Next.js build compiled successfully (`/admin/ai-observability` size: 5.91 kB); clean TypeScript execution.
 - **Status:** VERIFIED
+

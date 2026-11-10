@@ -2,24 +2,35 @@ import { apiClient } from "@/lib/api/client";
 
 export type ComplaintCategory =
   | "ACADEMIC"
-  | "FACILITY"
+  | "FACULTY"
+  | "INFRASTRUCTURE"
   | "HOSTEL"
+  | "TRANSPORT"
+  | "IT"
+  | "FEES"
+  | "SCHOLARSHIP"
+  | "EXAMINATION"
+  | "ATTENDANCE"
+  | "OTHER"
+  | "FACILITY"
   | "FINANCE"
   | "DISCIPLINE"
-  | "HARASSMENT"
-  | "EXAMINATION"
-  | "OTHER";
+  | "HARASSMENT";
 
-export type ComplaintPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type ComplaintPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT" | "CRITICAL";
 
 export type ComplaintStatus =
+  | "OPEN"
+  | "ASSIGNED"
+  | "INVESTIGATING"
+  | "RESOLVED"
+  | "AWAITING_FEEDBACK"
+  | "CLOSED"
+  | "ESCALATED"
+  | "REOPENED"
   | "SUBMITTED"
   | "UNDER_REVIEW"
-  | "ASSIGNED"
-  | "IN_PROGRESS"
-  | "RESOLVED"
-  | "REOPENED"
-  | "CLOSED";
+  | "IN_PROGRESS";
 
 export interface ComplaintItem {
   id: string;

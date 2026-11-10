@@ -1,6 +1,6 @@
 import { apiClient } from "@/lib/api/client";
 
-export type ExamType = "MID_TERM" | "END_TERM" | "INTERNAL" | "PRACTICAL" | "VIVA";
+export type ExamType = "INTERNAL" | "MID_SEM" | "END_SEM" | "PRACTICAL" | "VIVA" | "MID_TERM" | "END_TERM";
 
 export interface ExamItem {
   id: string;
@@ -66,9 +66,14 @@ export interface CreateExamDto {
 
 export const examsApi = {
   create: async (dto: CreateExamDto): Promise<ExamItem> => {
+    const normalizedType =
+      dto.type === "MID_TERM" ? "MID_SEM" : dto.type === "END_TERM" ? "END_SEM" : dto.type;
     return apiClient<ExamItem>("/exams", {
       method: "POST",
-      body: JSON.stringify(dto),
+      body: JSON.stringify({
+        ...dto,
+        type: normalizedType,
+      }),
     });
   },
 

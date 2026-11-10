@@ -203,3 +203,4 @@ NEXT_PUBLIC_API_URL="http://localhost:4000/api/v1"
 2. **Zero Defect Backlog:** No open blocking bugs, missing routes, broken buttons, or mock fallback hacks remain in the repository.
 3. **Architectural Soundness:** Clean separation of concerns between Next.js App Router presentation, TanStack Query data fetching, centralized API client envelope unwrapping, NestJS controller routing, DTO validation, and Prisma ORM transactional queries.
 4. **Comprehensive Documentation:** Full audit, bug register, feature completion matrix, API contract matrix, repair record, and testing evidence authored and checked into `docs/`.
+

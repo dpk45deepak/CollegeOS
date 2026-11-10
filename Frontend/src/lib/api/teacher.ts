@@ -93,7 +93,8 @@ export const teacherApi = {
   submitAttendance: async (
     classId: string,
     records: { studentId: string; status: "PRESENT" | "ABSENT" | "LATE" }[],
-    date?: string
+    date?: string,
+    periodKey?: string
   ) => {
     return apiClient<{ success: boolean; message: string }>(
       "/attendance",
@@ -102,6 +103,7 @@ export const teacherApi = {
         body: JSON.stringify({
           subjectOfferingId: classId,
           date: date ? new Date(date).toISOString() : new Date().toISOString(),
+          periodKey: periodKey || "LEC_1",
           records: records.map((r) => ({
             studentId: r.studentId,
             status: r.status,
@@ -156,7 +158,7 @@ export const teacherApi = {
         title: data.title,
         description: data.description || "Course Assignment Specification",
         dueAt: new Date(data.dueAt).toISOString(),
-        maxMarks: data.maxMarks,
+        maxMarks: Number(data.maxMarks) || 30,
       }),
     });
   },

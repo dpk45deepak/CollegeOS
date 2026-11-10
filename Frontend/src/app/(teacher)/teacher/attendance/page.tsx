@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 export default function TeacherAttendancePage() {
   const { data: classes, isLoading: classesLoading } = useQuery({
@@ -30,6 +31,7 @@ export default function TeacherAttendancePage() {
 
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [selectedPeriod, setSelectedPeriod] = useState("LEC_1");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Select first class when offerings load
@@ -74,12 +76,17 @@ export default function TeacherAttendancePage() {
       teacherApi.submitAttendance(
         selectedClass,
         roster.map((s) => ({ studentId: s.id, status: s.status })),
-        selectedDate
+        selectedDate,
+        selectedPeriod
       ),
     onSuccess: (data) => {
       setIsConfirmOpen(false);
       setSubmittedMessage(data.message || "Attendance records submitted successfully.");
+      toast.success(data.message || "Attendance registered successfully!");
       setTimeout(() => setSubmittedMessage(null), 4000);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to submit attendance records");
     },
   });
 

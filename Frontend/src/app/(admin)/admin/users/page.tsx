@@ -62,7 +62,7 @@ export default function AdminUsersPage() {
   const [userEmail, setUserEmail] = useState("");
   const [userFirstName, setUserFirstName] = useState("");
   const [userLastName, setUserLastName] = useState("");
-  const [userRole, setUserRole] = useState("ADMIN");
+  const [userRole, setUserRole] = useState("COLLEGE_ADMIN");
   const [userDeptId, setUserDeptId] = useState("");
   const [userPassword, setUserPassword] = useState("");
 
@@ -181,7 +181,7 @@ export default function AdminUsersPage() {
   };
 
   const handleToggleStatus = async (user: UserItem) => {
-    const nextStatus = user.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+    const nextStatus = user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
     await updateStatusMutation.mutateAsync({
       id: user.id,
       status: nextStatus,
@@ -556,11 +556,11 @@ export default function AdminUsersPage() {
             <div>
               <label className="font-semibold block mb-1">Role</label>
               <select value={userRole} onChange={(e) => setUserRole(e.target.value)} className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs">
-                <option value="ADMIN">Administrator</option>
+                <option value="COLLEGE_ADMIN">Administrator</option>
                 <option value="ACCOUNTANT">Accountant</option>
                 <option value="PLACEMENT_OFFICER">Placement Officer</option>
-                <option value="EXAM_OFFICER">Examination Officer</option>
-                <option value="LIBRARIAN">Librarian</option>
+                <option value="EXAM_CONTROLLER">Examination Officer</option>
+                <option value="LIBRARY_STAFF">Librarian</option>
               </select>
             </div>
             <div>

@@ -8,7 +8,7 @@ export interface UserItem {
   firstName: string;
   lastName: string;
   phone?: string | null;
-  status: "ACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION";
+  status: "ACTIVE" | "INACTIVE" | "LOCKED" | "SUSPENDED" | "PENDING_VERIFICATION";
   createdAt: string;
   userRoles?: Array<{
     id: string;
@@ -46,9 +46,19 @@ export const usersApi = {
   },
 
   create: async (dto: CreateUserDto): Promise<UserItem> => {
+    const normalizedRoles = (dto.roles || []).map((r) => {
+      if (r === "ADMIN") return "COLLEGE_ADMIN";
+      if (r === "EXAM_OFFICER") return "EXAM_CONTROLLER";
+      if (r === "LIBRARIAN") return "LIBRARY_STAFF";
+      return r;
+    });
+
     return apiClient<UserItem>("/users", {
       method: "POST",
-      body: JSON.stringify(dto),
+      body: JSON.stringify({
+        ...dto,
+        roles: normalizedRoles,
+      }),
     });
   },
 
@@ -59,10 +69,11 @@ export const usersApi = {
     });
   },
 
-  updateStatus: async (id: string, status: "ACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION"): Promise<UserItem> => {
+  updateStatus: async (id: string, status: "ACTIVE" | "INACTIVE" | "LOCKED" | "PENDING_VERIFICATION" | "SUSPENDED"): Promise<UserItem> => {
+    const normalized = status === "SUSPENDED" ? "INACTIVE" : status;
     return apiClient<UserItem>(`/users/${id}/status`, {
       method: "PATCH",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status: normalized }),
     });
   },
 };

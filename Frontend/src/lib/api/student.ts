@@ -508,6 +508,17 @@ export const studentApi = {
     description: string;
     priority?: string;
   }) => {
+    let cat = (data.category || "").toUpperCase();
+    if (cat === "FEE" || cat === "FINANCE") cat = "FEES";
+    else if (cat === "FACILITY" || cat === "INFRASTRUCTURE") cat = "INFRASTRUCTURE";
+    else if (cat === "RAGGING/HARASSMENT" || cat === "HARASSMENT" || cat === "DISCIPLINE") cat = "OTHER";
+    else if (!["ACADEMIC", "FACULTY", "INFRASTRUCTURE", "HOSTEL", "TRANSPORT", "IT", "FEES", "SCHOLARSHIP", "EXAMINATION", "ATTENDANCE", "OTHER"].includes(cat)) {
+      cat = "OTHER";
+    }
+
+    let pri = (data.priority || "MEDIUM").toUpperCase();
+    if (pri === "CRITICAL") pri = "URGENT";
+
     return apiClient<Complaint>(
       "/complaints",
       {
@@ -515,8 +526,8 @@ export const studentApi = {
         body: JSON.stringify({
           subject: data.subject,
           description: data.description,
-          category: data.category?.toUpperCase() || "ACADEMIC",
-          priority: data.priority?.toUpperCase() || "MEDIUM",
+          category: cat,
+          priority: pri,
         }),
       }
     );

@@ -87,7 +87,7 @@ export default function StudentComplaintsPage() {
 
   // Staff Action: Update Status
   const [statusModalTicket, setStatusModalTicket] = useState<ComplaintItem | null>(null);
-  const [newStatus, setNewStatus] = useState<ComplaintStatus>("IN_PROGRESS");
+  const [newStatus, setNewStatus] = useState<ComplaintStatus>("INVESTIGATING");
   const [statusNote, setStatusNote] = useState("");
 
   const updateStatusMutation = useMutation({
@@ -126,13 +126,24 @@ export default function StudentComplaintsPage() {
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subject.trim() || !description.trim()) return;
+    if (!subject.trim() || !description.trim()) {
+      toast.error("Please fill in subject and description");
+      return;
+    }
+    if (subject.trim().length < 5) {
+      toast.error("Subject must be at least 5 characters long");
+      return;
+    }
+    if (description.trim().length < 10) {
+      toast.error("Description must be at least 10 characters long");
+      return;
+    }
     createMutation.mutate({
       category,
       priority,
-      subject,
-      description,
-      location,
+      subject: subject.trim(),
+      description: description.trim(),
+      location: location.trim() || undefined,
     });
   };
 
@@ -592,12 +603,16 @@ export default function StudentComplaintsPage() {
                 onChange={(e) => setCategory(e.target.value as Complaint["category"])}
                 className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
               >
-                <option value="Infrastructure">Infrastructure</option>
-                <option value="Academic">Academic</option>
-                <option value="Hostel">Hostel</option>
-                <option value="Library">Library</option>
-                <option value="Fee">Fee / Accounts</option>
-                <option value="Ragging/Harassment">Ragging / Anti-Harassment</option>
+                <option value="INFRASTRUCTURE">Infrastructure & Campus Facilities</option>
+                <option value="ACADEMIC">Academic & Curriculum</option>
+                <option value="FACULTY">Faculty & Instruction</option>
+                <option value="HOSTEL">Hostel & Accommodation</option>
+                <option value="FEES">Fees & Financial Accounts</option>
+                <option value="EXAMINATION">Examinations & Seating</option>
+                <option value="ATTENDANCE">Attendance & Debarment Dispute</option>
+                <option value="IT">IT & Lab Systems</option>
+                <option value="TRANSPORT">Campus Transport</option>
+                <option value="OTHER">Other / General Grievance</option>
               </select>
             </div>
 

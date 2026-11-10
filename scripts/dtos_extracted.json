@@ -1,0 +1,1339 @@
+{
+  "CreateCampusDto": {
+    "file": "Backend\\src\\academic\\dto\\academic.dto.ts",
+    "fields": [
+      {
+        "name": "code",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @Matches(CODE) code!: string;"
+      },
+      {
+        "name": "name",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @IsNotEmpty() @MaxLength(120) name!: string;"
+      },
+      {
+        "name": "address",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(255) address?: string;"
+      }
+    ]
+  },
+  "CreateDepartmentDto": {
+    "file": "Backend\\src\\academic\\dto\\academic.dto.ts",
+    "fields": []
+  },
+  "CreateProgramDto": {
+    "file": "Backend\\src\\academic\\dto\\academic.dto.ts",
+    "fields": []
+  },
+  "CreateBatchDto": {
+    "file": "Backend\\src\\academic\\dto\\academic.dto.ts",
+    "fields": [
+      {
+        "name": "programId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() programId!: string;"
+      },
+      {
+        "name": "departmentId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() departmentId!: string;"
+      },
+      {
+        "name": "startYear",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsInt() @Min(1990) @Max(2100) startYear!: number;"
+      },
+      {
+        "name": "endYear",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsInt() @Min(1990) @Max(2100) endYear!: number;"
+      }
+    ]
+  },
+  "CreateSemesterDto": {
+    "file": "Backend\\src\\academic\\dto\\academic.dto.ts",
+    "fields": [
+      {
+        "name": "batchId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() batchId!: string;"
+      },
+      {
+        "name": "number",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsInt() @Min(1) @Max(16) number!: number;"
+      }
+    ]
+  },
+  "CreateSectionDto": {
+    "file": "Backend\\src\\academic\\dto\\academic.dto.ts",
+    "fields": [
+      {
+        "name": "semesterId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() semesterId!: string;"
+      }
+    ]
+  },
+  "CreateSubjectDto": {
+    "file": "Backend\\src\\academic\\dto\\academic.dto.ts",
+    "fields": [
+      {
+        "name": "departmentId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() departmentId!: string;"
+      }
+    ]
+  },
+  "CreateCollegeDto": {
+    "file": "Backend\\src\\academic\\dto\\academic.dto.ts",
+    "fields": []
+  },
+  "UpdateCollegeSettingsDto": {
+    "file": "Backend\\src\\academic\\dto\\academic.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "AttendanceMode",
+        "line": "@ApiPropertyOptional({ enum: AttendanceMode"
+      }
+    ]
+  },
+  "ChatDto": {
+    "file": "Backend\\src\\ai\\chat\\dto\\chat.dto.ts",
+    "fields": []
+  },
+  "RubricItemDto": {
+    "file": "Backend\\src\\assignments\\dto\\assignments.dto.ts",
+    "fields": [
+      {
+        "name": "criterion",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(120) criterion!: string;"
+      },
+      {
+        "name": "maxMarks",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsNumber() @Min(0) maxMarks!: number;"
+      }
+    ]
+  },
+  "CreateAssignmentDto": {
+    "file": "Backend\\src\\assignments\\dto\\assignments.dto.ts",
+    "fields": [
+      {
+        "name": "subjectOfferingId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() subjectOfferingId!: string;"
+      },
+      {
+        "name": "title",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(160) title!: string;"
+      },
+      {
+        "name": "description",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(5000) description?: string;"
+      },
+      {
+        "name": "dueAt",
+        "isOptional": false,
+        "type": "Date",
+        "line": "@ApiProperty() @Type(() => Date) @IsDate() dueAt!: Date;"
+      },
+      {
+        "name": "maxMarks",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsNumber() @Min(1) maxMarks!: number;"
+      },
+      {
+        "name": "type",
+        "isOptional": false,
+        "type": "[RubricItemDto]",
+        "line": "@ApiPropertyOptional({ type: [RubricItemDto]"
+      }
+    ]
+  },
+  "SubmitDto": {
+    "file": "Backend\\src\\assignments\\dto\\assignments.dto.ts",
+    "fields": [
+      {
+        "name": "text",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(10000) text?: string;"
+      },
+      {
+        "name": "each",
+        "isOptional": true,
+        "type": "true",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsArray() @ArrayMaxSize(10) @IsString({ each: true"
+      }
+    ]
+  },
+  "GradeDto": {
+    "file": "Backend\\src\\assignments\\dto\\assignments.dto.ts",
+    "fields": [
+      {
+        "name": "marks",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsNumber() @Min(0) marks!: number;"
+      },
+      {
+        "name": "feedback",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) feedback?: string;"
+      }
+    ]
+  },
+  "AssignmentListQueryDto": {
+    "file": "Backend\\src\\assignments\\dto\\assignments.dto.ts",
+    "fields": [
+      {
+        "name": "subjectOfferingId",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() subjectOfferingId?: string;"
+      }
+    ]
+  },
+  "AttendanceRecordDto": {
+    "file": "Backend\\src\\attendance\\dto\\attendance.dto.ts",
+    "fields": [
+      {
+        "name": "studentId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() studentId!: string;"
+      },
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "AttendanceStatus",
+        "line": "@ApiProperty({ enum: AttendanceStatus"
+      }
+    ]
+  },
+  "MarkAttendanceDto": {
+    "file": "Backend\\src\\attendance\\dto\\attendance.dto.ts",
+    "fields": [
+      {
+        "name": "subjectOfferingId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() subjectOfferingId!: string;"
+      }
+    ]
+  },
+  "CorrectionRequestDto": {
+    "file": "Backend\\src\\attendance\\dto\\attendance.dto.ts",
+    "fields": [
+      {
+        "name": "attendanceId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() attendanceId!: string;"
+      },
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "AttendanceStatus",
+        "line": "@ApiProperty({ enum: AttendanceStatus"
+      }
+    ]
+  },
+  "ReviewCorrectionDto": {
+    "file": "Backend\\src\\attendance\\dto\\attendance.dto.ts",
+    "fields": [
+      {
+        "name": "approve",
+        "isOptional": false,
+        "type": "boolean",
+        "line": "@ApiProperty() @IsBoolean() approve!: boolean;"
+      },
+      {
+        "name": "note",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500) note?: string;"
+      }
+    ]
+  },
+  "CorrectionListQueryDto": {
+    "file": "Backend\\src\\attendance\\dto\\attendance.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "CorrectionStatus",
+        "line": "@ApiPropertyOptional({ enum: CorrectionStatus"
+      }
+    ]
+  },
+  "AttendanceQueryDto": {
+    "file": "Backend\\src\\attendance\\dto\\attendance.dto.ts",
+    "fields": [
+      {
+        "name": "subjectId",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() subjectId?: string;"
+      },
+      {
+        "name": "from",
+        "isOptional": true,
+        "type": "Date",
+        "line": "@ApiPropertyOptional() @IsOptional() @Type(() => Date) @IsDate() from?: Date;"
+      },
+      {
+        "name": "to",
+        "isOptional": true,
+        "type": "Date",
+        "line": "@ApiPropertyOptional() @IsOptional() @Type(() => Date) @IsDate() to?: Date;"
+      }
+    ]
+  },
+  "LoginDto": {
+    "file": "Backend\\src\\auth\\dto\\auth.dto.ts",
+    "fields": []
+  },
+  "RefreshDto": {
+    "file": "Backend\\src\\auth\\dto\\auth.dto.ts",
+    "fields": [
+      {
+        "name": "refreshToken",
+        "isOptional": false,
+        "type": "string",
+        "line": "refreshToken!: string;"
+      }
+    ]
+  },
+  "ForgotPasswordDto": {
+    "file": "Backend\\src\\auth\\dto\\auth.dto.ts",
+    "fields": [
+      {
+        "name": "collegeCode",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @IsNotEmpty() collegeCode!: string;"
+      },
+      {
+        "name": "email",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsEmail() email!: string;"
+      }
+    ]
+  },
+  "ResetPasswordDto": {
+    "file": "Backend\\src\\auth\\dto\\auth.dto.ts",
+    "fields": [
+      {
+        "name": "token",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MinLength(20) @MaxLength(256) token!: string;"
+      },
+      {
+        "name": "message",
+        "isOptional": false,
+        "type": "PASSWORD_MSG",
+        "line": "@ApiProperty() @Matches(PASSWORD_RULE, { message: PASSWORD_MSG"
+      }
+    ]
+  },
+  "VerifyEmailDto": {
+    "file": "Backend\\src\\auth\\dto\\auth.dto.ts",
+    "fields": [
+      {
+        "name": "token",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MinLength(20) @MaxLength(256) token!: string;"
+      }
+    ]
+  },
+  "ChangePasswordDto": {
+    "file": "Backend\\src\\auth\\dto\\auth.dto.ts",
+    "fields": [
+      {
+        "name": "currentPassword",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @IsNotEmpty() currentPassword!: string;"
+      },
+      {
+        "name": "message",
+        "isOptional": false,
+        "type": "PASSWORD_MSG",
+        "line": "@ApiProperty() @Matches(PASSWORD_RULE, { message: PASSWORD_MSG"
+      }
+    ]
+  },
+  "CreateNoticeDto": {
+    "file": "Backend\\src\\campus\\dto\\campus.dto.ts",
+    "fields": [
+      {
+        "name": "title",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(200) title!: string;"
+      },
+      {
+        "name": "body",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(10000) body!: string;"
+      }
+    ]
+  },
+  "CreateClubDto": {
+    "file": "Backend\\src\\campus\\dto\\campus.dto.ts",
+    "fields": [
+      {
+        "name": "name",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(120) name!: string;"
+      },
+      {
+        "name": "description",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() description?: string;"
+      }
+    ]
+  },
+  "CreateEventDto": {
+    "file": "Backend\\src\\campus\\dto\\campus.dto.ts",
+    "fields": [
+      {
+        "name": "title",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(200) title!: string;"
+      },
+      {
+        "name": "description",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() description?: string;"
+      },
+      {
+        "name": "venue",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() venue?: string;"
+      },
+      {
+        "name": "clubId",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() clubId?: string;"
+      },
+      {
+        "name": "startsAt",
+        "isOptional": false,
+        "type": "Date",
+        "line": "@ApiProperty() @Type(() => Date) @IsDate() startsAt!: Date;"
+      },
+      {
+        "name": "endsAt",
+        "isOptional": true,
+        "type": "Date",
+        "line": "@ApiPropertyOptional() @IsOptional() @Type(() => Date) @IsDate() endsAt?: Date;"
+      }
+    ]
+  },
+  "PaginationQueryDto": {
+    "file": "Backend\\src\\common\\dto\\pagination.dto.ts",
+    "fields": [
+      {
+        "name": "default",
+        "isOptional": false,
+        "type": "1",
+        "line": "@ApiPropertyOptional({ default: 1, minimum: 1"
+      }
+    ]
+  },
+  "CreateComplaintDto": {
+    "file": "Backend\\src\\complaints\\dto\\complaints.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "ComplaintCategory",
+        "line": "@ApiPropertyOptional({ enum: ComplaintCategory, description: 'Omit to auto-classify'"
+      }
+    ]
+  },
+  "RoutePreviewDto": {
+    "file": "Backend\\src\\complaints\\dto\\complaints.dto.ts",
+    "fields": []
+  },
+  "ChangeStatusDto": {
+    "file": "Backend\\src\\complaints\\dto\\complaints.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "ComplaintStatus",
+        "line": "@ApiProperty({ enum: ComplaintStatus"
+      }
+    ]
+  },
+  "AssignComplaintDto": {
+    "file": "Backend\\src\\complaints\\dto\\complaints.dto.ts",
+    "fields": [
+      {
+        "name": "userId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() userId!: string;"
+      },
+      {
+        "name": "note",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() note?: string;"
+      }
+    ]
+  },
+  "CommentDto": {
+    "file": "Backend\\src\\complaints\\dto\\complaints.dto.ts",
+    "fields": [
+      {
+        "name": "note",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MinLength(1) @MaxLength(2000) note!: string;"
+      }
+    ]
+  },
+  "FeedbackDto": {
+    "file": "Backend\\src\\complaints\\dto\\complaints.dto.ts",
+    "fields": [
+      {
+        "name": "minimum",
+        "isOptional": false,
+        "type": "1",
+        "line": "@ApiProperty({ minimum: 1, maximum: 5"
+      }
+    ]
+  },
+  "ComplaintQueryDto": {
+    "file": "Backend\\src\\complaints\\dto\\complaints.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "ComplaintStatus",
+        "line": "@ApiPropertyOptional({ enum: ComplaintStatus"
+      }
+    ]
+  },
+  "UploadDocumentDto": {
+    "file": "Backend\\src\\documents\\dto\\documents.dto.ts",
+    "fields": [
+      {
+        "name": "title",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(200) title!: string;"
+      },
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "DocumentType",
+        "line": "@ApiProperty({ enum: DocumentType"
+      }
+    ]
+  },
+  "UpdateVisibilityDto": {
+    "file": "Backend\\src\\documents\\dto\\documents.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "DocumentVisibility",
+        "line": "@ApiProperty({ enum: DocumentVisibility"
+      }
+    ]
+  },
+  "DocumentQueryDto": {
+    "file": "Backend\\src\\documents\\dto\\documents.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "DocumentType",
+        "line": "@ApiPropertyOptional({ enum: DocumentType"
+      }
+    ]
+  },
+  "CreateExamDto": {
+    "file": "Backend\\src\\examinations\\dto\\exams.dto.ts",
+    "fields": [
+      {
+        "name": "subjectOfferingId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() subjectOfferingId!: string;"
+      },
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "ExamType",
+        "line": "@ApiProperty({ enum: ExamType"
+      }
+    ]
+  },
+  "ResultEntryDto": {
+    "file": "Backend\\src\\examinations\\dto\\exams.dto.ts",
+    "fields": [
+      {
+        "name": "studentId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() studentId!: string;"
+      },
+      {
+        "name": "marksObtained",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsNumber() @Min(0) marksObtained!: number;"
+      }
+    ]
+  },
+  "EnterResultsDto": {
+    "file": "Backend\\src\\examinations\\dto\\exams.dto.ts",
+    "fields": [
+      {
+        "name": "type",
+        "isOptional": false,
+        "type": "[ResultEntryDto]",
+        "line": "@ApiProperty({ type: [ResultEntryDto]"
+      }
+    ]
+  },
+  "BandDto": {
+    "file": "Backend\\src\\examinations\\dto\\exams.dto.ts",
+    "fields": [
+      {
+        "name": "min",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsNumber() min!: number;"
+      },
+      {
+        "name": "max",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsNumber() max!: number;"
+      },
+      {
+        "name": "grade",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() grade!: string;"
+      },
+      {
+        "name": "points",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsNumber() points!: number;"
+      }
+    ]
+  },
+  "CreateGradingSchemeDto": {
+    "file": "Backend\\src\\examinations\\dto\\exams.dto.ts",
+    "fields": [
+      {
+        "name": "name",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() name!: string;"
+      },
+      {
+        "name": "type",
+        "isOptional": false,
+        "type": "[BandDto]",
+        "line": "@ApiProperty({ type: [BandDto]"
+      }
+    ]
+  },
+  "ExamListQueryDto": {
+    "file": "Backend\\src\\examinations\\dto\\exams.dto.ts",
+    "fields": [
+      {
+        "name": "upcoming",
+        "isOptional": true,
+        "type": "boolean",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsBoolean() @Type(() => Boolean) upcoming?: boolean;"
+      },
+      {
+        "name": "subjectOfferingId",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() subjectOfferingId?: string;"
+      }
+    ]
+  },
+  "FeeComponentDto": {
+    "file": "Backend\\src\\fees\\dto\\fees.dto.ts",
+    "fields": [
+      {
+        "name": "name",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() name!: string;"
+      },
+      {
+        "name": "amount",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsNumber() @Min(0) amount!: number;"
+      }
+    ]
+  },
+  "CreateFeeStructureDto": {
+    "file": "Backend\\src\\fees\\dto\\fees.dto.ts",
+    "fields": [
+      {
+        "name": "name",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() name!: string;"
+      }
+    ]
+  },
+  "AssignFeeDto": {
+    "file": "Backend\\src\\fees\\dto\\fees.dto.ts",
+    "fields": [
+      {
+        "name": "each",
+        "isOptional": true,
+        "type": "true",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsArray() @ArrayMaxSize(1000) @IsString({ each: true"
+      }
+    ]
+  },
+  "AdjustFeeDto": {
+    "file": "Backend\\src\\fees\\dto\\fees.dto.ts",
+    "fields": [
+      {
+        "name": "discount",
+        "isOptional": true,
+        "type": "number",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discount?: number;"
+      },
+      {
+        "name": "scholarshipAdjustment",
+        "isOptional": true,
+        "type": "number",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) scholarshipAdjustment?: number;"
+      },
+      {
+        "name": "reason",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MinLength(5) @MaxLength(300) reason!: string;"
+      }
+    ]
+  },
+  "StartPaymentDto": {
+    "file": "Backend\\src\\fees\\dto\\fees.dto.ts",
+    "fields": []
+  },
+  "ManualPaymentDto": {
+    "file": "Backend\\src\\fees\\dto\\fees.dto.ts",
+    "fields": [
+      {
+        "name": "amount",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsNumber() @Min(1) amount!: number;"
+      }
+    ]
+  },
+  "RefundDto": {
+    "file": "Backend\\src\\fees\\dto\\fees.dto.ts",
+    "fields": [
+      {
+        "name": "amount",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsNumber() @Min(1) amount!: number;"
+      },
+      {
+        "name": "reason",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MinLength(5) @MaxLength(300) reason!: string;"
+      }
+    ]
+  },
+  "FeeListQueryDto": {
+    "file": "Backend\\src\\fees\\dto\\fees.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "FeeStatus",
+        "line": "@ApiPropertyOptional({ enum: FeeStatus"
+      }
+    ]
+  },
+  "StartConversationDto": {
+    "file": "Backend\\src\\messaging\\dto\\messaging.dto.ts",
+    "fields": []
+  },
+  "SendMessageDto": {
+    "file": "Backend\\src\\messaging\\dto\\messaging.dto.ts",
+    "fields": [
+      {
+        "name": "content",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MinLength(1) @MaxLength(4000) content!: string;"
+      }
+    ]
+  },
+  "AnnouncementDto": {
+    "file": "Backend\\src\\messaging\\dto\\messaging.dto.ts",
+    "fields": [
+      {
+        "name": "departmentId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() departmentId!: string;"
+      },
+      {
+        "name": "content",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MinLength(1) @MaxLength(4000) content!: string;"
+      },
+      {
+        "name": "title",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(160) title?: string;"
+      }
+    ]
+  },
+  "CreateCompanyDto": {
+    "file": "Backend\\src\\placements\\dto\\placements.dto.ts",
+    "fields": [
+      {
+        "name": "name",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(160) name!: string;"
+      },
+      {
+        "name": "website",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsUrl() website?: string;"
+      },
+      {
+        "name": "industry",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() industry?: string;"
+      }
+    ]
+  },
+  "CreateJobDto": {
+    "file": "Backend\\src\\placements\\dto\\placements.dto.ts",
+    "fields": [
+      {
+        "name": "companyId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() companyId!: string;"
+      },
+      {
+        "name": "title",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(160) title!: string;"
+      },
+      {
+        "name": "description",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(5000) description?: string;"
+      },
+      {
+        "name": "type",
+        "isOptional": false,
+        "type": "[String]",
+        "line": "@ApiProperty({ type: [String]"
+      }
+    ]
+  },
+  "CreateDriveDto": {
+    "file": "Backend\\src\\placements\\dto\\placements.dto.ts",
+    "fields": [
+      {
+        "name": "jobId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() jobId!: string;"
+      },
+      {
+        "name": "driveDate",
+        "isOptional": false,
+        "type": "Date",
+        "line": "@ApiProperty() @Type(() => Date) @IsDate() driveDate!: Date;"
+      },
+      {
+        "name": "venue",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() venue?: string;"
+      }
+    ]
+  },
+  "UpdateApplicationDto": {
+    "file": "Backend\\src\\placements\\dto\\placements.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "JobApplicationStatus",
+        "line": "@ApiProperty({ enum: JobApplicationStatus"
+      }
+    ]
+  },
+  "ScheduleInterviewDto": {
+    "file": "Backend\\src\\placements\\dto\\placements.dto.ts",
+    "fields": [
+      {
+        "name": "scheduledAt",
+        "isOptional": false,
+        "type": "Date",
+        "line": "@ApiProperty() @Type(() => Date) @IsDate() scheduledAt!: Date;"
+      },
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "InterviewMode",
+        "line": "@ApiProperty({ enum: InterviewMode"
+      }
+    ]
+  },
+  "IssueOfferDto": {
+    "file": "Backend\\src\\placements\\dto\\placements.dto.ts",
+    "fields": [
+      {
+        "name": "ctc",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsNumber() @Min(0) ctc!: number;"
+      }
+    ]
+  },
+  "JobQueryDto": {
+    "file": "Backend\\src\\placements\\dto\\placements.dto.ts",
+    "fields": [
+      {
+        "name": "search",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() search?: string;"
+      }
+    ]
+  },
+  "CreateScholarshipDto": {
+    "file": "Backend\\src\\scholarships\\dto\\scholarships.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "ScholarshipType",
+        "line": "@ApiProperty({ enum: ScholarshipType"
+      }
+    ]
+  },
+  "ScholarshipQueryDto": {
+    "file": "Backend\\src\\scholarships\\dto\\scholarships.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "ScholarshipType",
+        "line": "@ApiPropertyOptional({ enum: ScholarshipType"
+      }
+    ]
+  },
+  "GuardianDto": {
+    "file": "Backend\\src\\students\\dto\\students.dto.ts",
+    "fields": [
+      {
+        "name": "name",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(120) name!: string;"
+      },
+      {
+        "name": "relation",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(40) relation!: string;"
+      },
+      {
+        "name": "phone",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(20) phone?: string;"
+      },
+      {
+        "name": "email",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;"
+      }
+    ]
+  },
+  "CreateStudentDto": {
+    "file": "Backend\\src\\students\\dto\\students.dto.ts",
+    "fields": []
+  },
+  "UpdateMyProfileDto": {
+    "file": "Backend\\src\\students\\dto\\students.dto.ts",
+    "fields": [
+      {
+        "name": "phone",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(20) phone?: string;"
+      },
+      {
+        "name": "address",
+        "isOptional": true,
+        "type": "Record<string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsObject() address?: Record<string, string>;"
+      }
+    ]
+  },
+  "AddSkillDto": {
+    "file": "Backend\\src\\students\\dto\\students.dto.ts",
+    "fields": [
+      {
+        "name": "name",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(60) name!: string;"
+      },
+      {
+        "name": "minimum",
+        "isOptional": false,
+        "type": "1",
+        "line": "@ApiPropertyOptional({ minimum: 1, maximum: 5"
+      }
+    ]
+  },
+  "AddPortfolioItemDto": {
+    "file": "Backend\\src\\students\\dto\\students.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "PortfolioItemType",
+        "line": "@ApiProperty({ enum: PortfolioItemType"
+      }
+    ]
+  },
+  "StudentListQueryDto": {
+    "file": "Backend\\src\\students\\dto\\students.dto.ts",
+    "fields": [
+      {
+        "name": "departmentId",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() departmentId?: string;"
+      },
+      {
+        "name": "programId",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() programId?: string;"
+      },
+      {
+        "name": "batchId",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() batchId?: string;"
+      },
+      {
+        "name": "sectionId",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() sectionId?: string;"
+      },
+      {
+        "name": "search",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() search?: string;"
+      }
+    ]
+  },
+  "CreateTeacherDto": {
+    "file": "Backend\\src\\teachers\\dto\\teachers.dto.ts",
+    "fields": [
+      {
+        "name": "employeeId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(64) employeeId!: string;"
+      },
+      {
+        "name": "email",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsEmail() email!: string;"
+      },
+      {
+        "name": "firstName",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(80) firstName!: string;"
+      },
+      {
+        "name": "lastName",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(80) lastName!: string;"
+      },
+      {
+        "name": "phone",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() phone?: string;"
+      },
+      {
+        "name": "departmentId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() departmentId!: string;"
+      },
+      {
+        "name": "designation",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() designation?: string;"
+      },
+      {
+        "name": "qualifications",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() qualifications?: string;"
+      }
+    ]
+  },
+  "CreateOfferingDto": {
+    "file": "Backend\\src\\teachers\\dto\\teachers.dto.ts",
+    "fields": [
+      {
+        "name": "subjectId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() subjectId!: string;"
+      },
+      {
+        "name": "semesterId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() semesterId!: string;"
+      },
+      {
+        "name": "sectionId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() sectionId!: string;"
+      },
+      {
+        "name": "teacherId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() teacherId!: string;"
+      },
+      {
+        "name": "default",
+        "isOptional": false,
+        "type": "true",
+        "line": "@ApiPropertyOptional({ description: 'Enrol every student of the section immediately', default: true"
+      }
+    ]
+  },
+  "EnrollDto": {
+    "file": "Backend\\src\\teachers\\dto\\teachers.dto.ts",
+    "fields": [
+      {
+        "name": "each",
+        "isOptional": false,
+        "type": "true",
+        "line": "@ApiProperty() @IsArray() @ArrayNotEmpty() @ArrayMaxSize(500) @IsString({ each: true"
+      }
+    ]
+  },
+  "LeaveRequestDto": {
+    "file": "Backend\\src\\teachers\\dto\\teachers.dto.ts",
+    "fields": [
+      {
+        "name": "fromDate",
+        "isOptional": false,
+        "type": "Date",
+        "line": "@ApiProperty() @Type(() => Date) @IsDate() fromDate!: Date;"
+      },
+      {
+        "name": "toDate",
+        "isOptional": false,
+        "type": "Date",
+        "line": "@ApiProperty() @Type(() => Date) @IsDate() toDate!: Date;"
+      },
+      {
+        "name": "reason",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(500) reason!: string;"
+      }
+    ]
+  },
+  "CreateSlotDto": {
+    "file": "Backend\\src\\timetable\\dto\\timetable.dto.ts",
+    "fields": [
+      {
+        "name": "subjectOfferingId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() subjectOfferingId!: string;"
+      },
+      {
+        "name": "roomId",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() roomId?: string;"
+      },
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "DayOfWeek",
+        "line": "@ApiProperty({ enum: DayOfWeek"
+      }
+    ]
+  },
+  "AvailabilityDto": {
+    "file": "Backend\\src\\timetable\\dto\\timetable.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "DayOfWeek",
+        "line": "@ApiProperty({ enum: DayOfWeek"
+      }
+    ]
+  },
+  "CreateRoomDto": {
+    "file": "Backend\\src\\timetable\\dto\\timetable.dto.ts",
+    "fields": [
+      {
+        "name": "campusId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() campusId!: string;"
+      },
+      {
+        "name": "code",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() code!: string;"
+      },
+      {
+        "name": "capacity",
+        "isOptional": false,
+        "type": "number",
+        "line": "@ApiProperty() @IsInt() @Min(1) capacity!: number;"
+      }
+    ]
+  },
+  "CreateUserDto": {
+    "file": "Backend\\src\\users\\dto\\users.dto.ts",
+    "fields": [
+      {
+        "name": "loginId",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(64) loginId!: string;"
+      },
+      {
+        "name": "email",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsEmail() email!: string;"
+      },
+      {
+        "name": "firstName",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(80) firstName!: string;"
+      },
+      {
+        "name": "lastName",
+        "isOptional": false,
+        "type": "string",
+        "line": "@ApiProperty() @IsString() @MaxLength(80) lastName!: string;"
+      },
+      {
+        "name": "phone",
+        "isOptional": true,
+        "type": "string",
+        "line": "@ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(20) phone?: string;"
+      },
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "ASSIGNABLE",
+        "line": "@ApiProperty({ enum: ASSIGNABLE, isArray: true"
+      }
+    ]
+  },
+  "AssignRolesDto": {
+    "file": "Backend\\src\\users\\dto\\users.dto.ts",
+    "fields": [
+      {
+        "name": "enum",
+        "isOptional": false,
+        "type": "ASSIGNABLE",
+        "line": "@ApiProperty({ enum: ASSIGNABLE, isArray: true"
+      }
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+[
+  {
+    "file": "Backend\\src\\auth\\auth.controller.ts",
+    "method": "POST",
+    "subPath": "login",
+    "handler": "login",
+    "dtoName": "LoginDto",
+    "required": [],
+    "optional": []
+  },
+  {
+    "file": "Backend\\src\\auth\\auth.controller.ts",
+    "method": "POST",
+    "subPath": "refresh",
+    "handler": "refresh",
+    "dtoName": "RefreshDto",
+    "required": [
+      "refreshToken"
+    ],
+    "optional": []
+  },
+  {
+    "file": "Backend\\src\\auth\\auth.controller.ts",
+    "method": "POST",
+    "subPath": "logout",
+    "handler": "forgot",
+    "dtoName": "ForgotPasswordDto",
+    "required": [
+      "collegeCode",
+      "email"
+    ],
+    "optional": []
+  },
+  {
+    "file": "Backend\\src\\auth\\auth.controller.ts",
+    "method": "POST",
+    "subPath": "reset-password",
+    "handler": "reset",
+    "dtoName": "ResetPasswordDto",
+    "required": [
+      "token",
+      "message"
+    ],
+    "optional": []
+  },
+  {
+    "file": "Backend\\src\\auth\\auth.controller.ts",
+    "method": "POST",
+    "subPath": "verify-email",
+    "handler": "verify",
+    "dtoName": "VerifyEmailDto",
+    "required": [
+      "token"
+    ],
+    "optional": []
+  }
+]

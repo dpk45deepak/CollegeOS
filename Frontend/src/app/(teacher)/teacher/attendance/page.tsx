@@ -94,17 +94,20 @@ export default function TeacherAttendancePage() {
     );
   }
 
-  const selectedClassObject = classes?.find((c) => c.id === selectedClass) || classes?.[0];
+  const selectedClassObject = classes?.find((c) => c && c.id === selectedClass) || classes?.[0];
 
-  const filteredRoster = roster.filter(
-    (s) =>
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.rollNumber.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const q = (searchQuery || "").toLowerCase().trim();
+  const filteredRoster = (roster || []).filter((s) => {
+    if (!s) return false;
+    if (!q) return true;
+    const name = String(s.name || "").toLowerCase();
+    const roll = String(s.rollNumber || "").toLowerCase();
+    return name.includes(q) || roll.includes(q);
+  });
 
-  const presentCount = roster.filter((s) => s.status === "PRESENT").length;
-  const absentCount = roster.filter((s) => s.status === "ABSENT").length;
-  const lateCount = roster.filter((s) => s.status === "LATE").length;
+  const presentCount = (roster || []).filter((s) => s && s.status === "PRESENT").length;
+  const absentCount = (roster || []).filter((s) => s && s.status === "ABSENT").length;
+  const lateCount = (roster || []).filter((s) => s && s.status === "LATE").length;
 
   return (
     <div className="space-y-6">

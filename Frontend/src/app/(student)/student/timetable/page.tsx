@@ -66,7 +66,7 @@ export default function StudentTimetablePage() {
     );
   }
 
-  const todaySlots = slots.filter((s) => s.day === defaultDay);
+  const todaySlots = (slots || []).filter((s) => s && s.day === defaultDay);
   const nextSlot = todaySlots[0];
 
   return (
@@ -123,7 +123,7 @@ export default function StudentTimetablePage() {
       {/* Desktop Weekly Schedule Grid (Hidden on Mobile) */}
       <div className="hidden md:grid md:grid-cols-5 gap-3">
         {DAYS.map((day) => {
-          const daySlots = slots.filter((s) => s.day === day);
+          const daySlots = (slots || []).filter((s) => s && s.day === day);
           const isToday = day === defaultDay;
 
           return (
@@ -204,13 +204,13 @@ export default function StudentTimetablePage() {
         <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           {activeDay}&apos;s Timeline
         </h3>
-        {slots.filter((s) => s.day === activeDay).length === 0 ? (
+        {(slots || []).filter((s) => s && s.day === activeDay).length === 0 ? (
           <div className="p-8 text-center border rounded-xl border-dashed border-border text-muted-foreground text-xs">
             No classes scheduled for {activeDay}.
           </div>
         ) : (
-          slots
-            .filter((s) => s.day === activeDay)
+          (slots || [])
+            .filter((s) => s && s.day === activeDay)
             .map((slot, index) => {
               return (
                 <div

@@ -110,13 +110,13 @@ export default function DocumentsPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${doc.title.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+      a.download = `${String(doc?.title || "document").replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch {
-      alert(`Official verified document for ${doc.title} queued for download.`);
+      alert(`Official verified document for ${doc?.title || "document"} queued for download.`);
     } finally {
       setDownloadingDocId(null);
     }
@@ -126,15 +126,15 @@ export default function DocumentsPage() {
     return <Skeleton className="h-64 w-full rounded-2xl" />;
   }
 
+  const q = (search || "").toLowerCase().trim();
+  const cat = (categoryFilter || "ALL").toLowerCase();
   const filtered = (documents || []).filter((doc) => {
-    const title = doc?.title || "";
-    const summary = doc?.summary || "";
-    const matchesSearch =
-      title.toLowerCase().includes(search.toLowerCase()) ||
-      summary.toLowerCase().includes(search.toLowerCase());
-    const matchesCat =
-      categoryFilter === "ALL" ||
-      doc?.category?.toLowerCase() === categoryFilter.toLowerCase();
+    if (!doc) return false;
+    const title = String(doc.title || "").toLowerCase();
+    const summary = String(doc.summary || (doc as any).description || "").toLowerCase();
+    const docCat = String(doc.category || (doc as any).documentType || "").toLowerCase();
+    const matchesSearch = !q || title.includes(q) || summary.includes(q);
+    const matchesCat = cat === "all" || docCat === cat;
     return matchesSearch && matchesCat;
   });
 

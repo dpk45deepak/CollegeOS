@@ -180,9 +180,9 @@ export const studentApi = {
         title: a.title,
         description: a.description || "",
         teacherName: a.subjectOffering?.teacher?.user
-          ? `${a.subjectOffering.teacher.user.firstName} ${a.subjectOffering.teacher.user.lastName}`.trim()
+          ? `${a.subjectOffering.teacher.user.firstName || ""} ${a.subjectOffering.teacher.user.lastName || ""}`.trim()
           : a.offering?.teacher?.user
-          ? `${a.offering.teacher.user.firstName} ${a.offering.teacher.user.lastName}`.trim()
+          ? `${a.offering.teacher.user.firstName || ""} ${a.offering.teacher.user.lastName || ""}`.trim()
           : a.teacherName || "Faculty Instructor",
         dueDate: a.dueAt ? new Date(a.dueAt).toISOString().split("T")[0] : a.dueDate || "",
         totalMarks: a.maxMarks || a.maxScore || a.totalMarks || 100,
@@ -532,7 +532,11 @@ export const studentApi = {
     return items.map((doc: any) => ({
       id: doc.id,
       title: doc.title || "Institutional Document",
-      category: doc.category || (doc.documentType ? doc.documentType.charAt(0).toUpperCase() + doc.documentType.slice(1).toLowerCase() : "Policy"),
+      category:
+        doc.category ||
+        (typeof doc.documentType === "string" && doc.documentType
+          ? doc.documentType.charAt(0).toUpperCase() + doc.documentType.slice(1).toLowerCase()
+          : "Policy"),
       department: typeof doc.department === "string" ? doc.department : doc.department?.code || doc.department?.name || "Academic Affairs",
       academicYear: doc.academicYear || "2024-25",
       uploadedAt: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : "Recent",

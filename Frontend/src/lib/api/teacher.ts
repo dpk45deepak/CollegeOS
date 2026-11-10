@@ -40,39 +40,54 @@ export const teacherApi = {
     const raw = await apiClient<any[]>("/subject-offerings");
     const items = Array.isArray(raw) ? raw : (raw as any)?.items || (raw as any)?.data || [];
 
-    if (items.length > 0 && ("subject" in items[0] || "section" in items[0])) {
+    if (Array.isArray(items)) {
       return items.map((offering: any) => ({
-        id: offering.id,
-        subjectCode: offering.subject?.code || "Course",
-        subjectName: offering.subject?.name || "Subject Lecture",
-        section: offering.section?.name || "A",
+        id: offering.id || "",
+        subjectCode: offering.subject?.code || offering.subjectCode || "Course",
+        subjectName: offering.subject?.name || offering.subjectName || "Subject Lecture",
+        section: offering.section?.name || offering.section || "A",
         room: offering.defaultRoom?.code || offering.defaultRoom?.number || (typeof offering.defaultRoom === "string" ? offering.defaultRoom : "Room Assigned"),
-        time: "Scheduled Session",
-        enrolledStudents: offering._count?.enrollments || 0,
-        attendanceMarked: false,
+        time: offering.time || "Scheduled Session",
+        enrolledStudents: offering._count?.enrollments || offering.enrolledStudents || 0,
+        attendanceMarked: !!offering.attendanceMarked,
       }));
     }
 
-    return Array.isArray(items) ? (items as TeacherClass[]) : [];
+    return [];
   },
 
   getClassRoster: async (classId: string): Promise<StudentRosterItem[]> => {
     const raw = await apiClient<any[]>(`/subject-offerings/${classId}/students`);
     const items = Array.isArray(raw) ? raw : (raw as any)?.items || (raw as any)?.data || [];
 
-    if (Array.isArray(items) && items.length > 0 && "student" in items[0]) {
-      return items.map((item: any) => ({
-        id: item.student?.id || item.id,
-        rollNumber: item.student?.rollNumber || item.student?.user?.loginId || item.rollNumber || "",
-        name: item.student?.user
-          ? `${item.student.user.firstName} ${item.student.user.lastName}`.trim()
-          : item.name || "Student",
-        status: "PRESENT",
-        currentAttendancePercent: 100,
-      }));
-    }
+    if (!Array.isArray(items)) return [];
 
-    return Array.isArray(items) ? (items as StudentRosterItem[]) : [];
+    return items.map((item: any) => {
+      if (!item) {
+        return {
+          id: "",
+          rollNumber: "",
+          name: "Student",
+          status: "PRESENT",
+          currentAttendancePercent: 100,
+        };
+      }
+      const st = item.student || item;
+      const usr = st.user || item.user;
+      const firstName = usr?.firstName || "";
+      const lastName = usr?.lastName || "";
+      const fullName = `${firstName} ${lastName}`.trim();
+      const name = fullName || st.name || item.name || usr?.loginId || st.rollNumber || "Student";
+      const rollNumber = String(st.rollNumber || item.rollNumber || usr?.loginId || st.collegeStudentId || item.collegeStudentId || "");
+
+      return {
+        id: st.id || item.id || "",
+        rollNumber,
+        name,
+        status: (item.status as any) || "PRESENT",
+        currentAttendancePercent: typeof item.currentAttendancePercent === "number" ? item.currentAttendancePercent : 100,
+      };
+    });
   },
 
   submitAttendance: async (

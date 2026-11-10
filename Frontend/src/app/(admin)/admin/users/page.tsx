@@ -100,7 +100,8 @@ export default function AdminUsersPage() {
   const [editDeptId, setEditDeptId] = useState<string>("");
 
   const rawUsers = Array.isArray(usersData) ? usersData : (usersData as any)?.items || [];
-  const filtered = rawUsers.filter((u: UserItem) => {
+  const filtered = (rawUsers || []).filter((u: UserItem) => {
+    if (!u) return false;
     const roleKey = u.userRoles?.[0]?.role?.key || "STUDENT";
     const matchesRole = roleFilter === "ALL" || roleKey === roleFilter;
     return matchesRole;

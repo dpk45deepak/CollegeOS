@@ -103,7 +103,7 @@ export default function StudentPlacementsPage() {
         title: jobTitle,
         ctc: Number(jobCtc),
         location: jobLocation,
-        requiredSkills: jobSkills.split(",").map((s) => s.trim()).filter(Boolean),
+        requiredSkills: (jobSkills || "").split(",").map((s) => s.trim()).filter(Boolean),
         minCgpa: Number(jobMinCgpa),
         maxBacklogs: 0,
         deadline: new Date(Date.now() + 14 * 86400000).toISOString(),

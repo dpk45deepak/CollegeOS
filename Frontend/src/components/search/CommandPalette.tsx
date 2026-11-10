@@ -80,8 +80,8 @@ const allSearchDatabase: StaticCategory[] = [
   },
 ];
 
-function getHitMetadata(type: string) {
-  switch (type.toLowerCase()) {
+function getHitMetadata(type?: string) {
+  switch ((type || "").toLowerCase()) {
     case "student":
       return { icon: GraduationCap, href: "/admin/users", badge: "Student" };
     case "teacher":
@@ -100,7 +100,7 @@ function getHitMetadata(type: string) {
     case "event":
       return { icon: Calendar, href: "/campus-life", badge: "Campus Event" };
     default:
-      return { icon: Search, href: "/student/dashboard", badge: type };
+      return { icon: Search, href: "/student/dashboard", badge: type || "Result" };
   }
 }
 
@@ -134,17 +134,20 @@ export function CommandPalette() {
 
   if (!isCommandPaletteOpen) return null;
 
+  const q = (query || "").toLowerCase().trim();
   const filteredNav = allSearchDatabase
     .map((category) => ({
       ...category,
-      items: category.items.filter(
+      items: (category.items || []).filter(
         (item) =>
-          !query ||
-          item.title.toLowerCase().includes(query.toLowerCase()) ||
-          item.subtitle.toLowerCase().includes(query.toLowerCase())
+          !item
+            ? false
+            : !q ||
+              String(item.title || "").toLowerCase().includes(q) ||
+              String(item.subtitle || "").toLowerCase().includes(q)
       ),
     }))
-    .filter((category) => category.items.length > 0);
+    .filter((category) => (category.items || []).length > 0);
 
   const handleSelect = (href: string) => {
     setCommandPaletteOpen(false);

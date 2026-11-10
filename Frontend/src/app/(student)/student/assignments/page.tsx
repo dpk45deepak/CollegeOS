@@ -73,7 +73,8 @@ export default function StudentAssignmentsPage() {
     return <ErrorState message="Could not load assignments." onRetry={refetch} />;
   }
 
-  const filtered = assignments.filter((asg) => {
+  const filtered = (assignments || []).filter((asg) => {
+    if (!asg) return false;
     if (activeTab === "ALL") return true;
     if (activeTab === "PENDING") return asg.status === "PENDING";
     if (activeTab === "SUBMITTED") return asg.status === "SUBMITTED";
@@ -110,7 +111,7 @@ export default function StudentAssignmentsPage() {
                   : "hover:text-foreground"
               }`}
             >
-              {tab.charAt(0) + tab.slice(1).toLowerCase()}
+              {(tab || "").charAt(0) + (tab || "").slice(1).toLowerCase()}
             </button>
           ))}
         </div>

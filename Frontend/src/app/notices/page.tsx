@@ -74,7 +74,8 @@ export default function NoticesPage() {
     return <Skeleton className="h-64 w-full rounded-2xl" />;
   }
 
-  const filtered = notices.filter((n) => {
+  const filtered = (notices || []).filter((n) => {
+    if (!n) return false;
     if (filter === "ALL") return true;
     return n.priority === filter;
   });
@@ -109,7 +110,7 @@ export default function NoticesPage() {
                     : "hover:text-foreground"
                 }`}
               >
-                {tab.charAt(0) + tab.slice(1).toLowerCase()}
+                {(tab || "").charAt(0) + (tab || "").slice(1).toLowerCase()}
               </button>
             ))}
           </div>

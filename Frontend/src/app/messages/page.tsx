@@ -91,12 +91,17 @@ export default function MessagesPage() {
     sendMutation.mutate({ convId: activeConv.id, text: inputText });
   };
 
+  const q = (searchQuery || "").toLowerCase().trim();
   const filteredConversations = (conversations || []).filter((c) => {
+    if (!c) return false;
+    if (!q) return true;
     const otherUser = c.participants?.find((p) => p.user?.id !== user?.id)?.user;
-    const name = otherUser
-      ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId
-      : c.name || "Conversation";
-    return name.toLowerCase().includes(searchQuery.toLowerCase());
+    const name = String(
+      (otherUser
+        ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId || (otherUser as any).email
+        : c.name) || "Conversation"
+    ).toLowerCase();
+    return name.includes(q);
   });
 
   const displayMessages: MessageItem[] =
@@ -163,16 +168,18 @@ export default function MessagesPage() {
           ) : (
             filteredConversations.map((conv) => {
               const otherUser = conv.participants?.find((p) => p.user?.id !== user?.id)?.user;
-              const name = otherUser
-                ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId
-                : conv.name || "Academic Channel";
-              const initials = (name || "AC")
-                .split(" ")
-                .filter(Boolean)
-                .map((n) => n[0])
-                .slice(0, 2)
-                .join("")
-                .toUpperCase() || "AC";
+              const name =
+                (otherUser
+                  ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId || (otherUser as any).email
+                  : conv.name) || "Academic Channel";
+              const initials =
+                String(name)
+                  .split(" ")
+                  .filter(Boolean)
+                  .map((n) => n[0] || "")
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase() || "AC";
               const isActive = (activeConv?.id === conv.id) || (activeThreadId === conv.id);
 
               const lastMessageText =
@@ -237,19 +244,22 @@ export default function MessagesPage() {
                 <div className="h-9 w-9 rounded-full bg-brand-600 text-white font-bold text-xs flex items-center justify-center">
                   {(() => {
                     const otherUser = activeConv.participants?.find((p) => p.user?.id !== user?.id)?.user;
-                    const name = otherUser
-                      ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId
-                      : activeConv.name || "Channel";
-                    return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase() || "AC";
+                    const name =
+                      (otherUser
+                        ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId || (otherUser as any).email
+                        : activeConv.name) || "Channel";
+                    return String(name).split(" ").filter(Boolean).map((n) => n[0] || "").slice(0, 2).join("").toUpperCase() || "AC";
                   })()}
                 </div>
                 <div>
                   <h3 className="text-xs font-bold text-foreground">
                     {(() => {
                       const otherUser = activeConv.participants?.find((p) => p.user?.id !== user?.id)?.user;
-                      return otherUser
-                        ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId
-                        : activeConv.name || "Academic Channel";
+                      return (
+                        (otherUser
+                          ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.loginId || (otherUser as any).email
+                          : activeConv.name) || "Academic Channel"
+                      );
                     })()}
                   </h3>
                   <p className="text-[10px] text-muted-foreground">Institutional Communication</p>

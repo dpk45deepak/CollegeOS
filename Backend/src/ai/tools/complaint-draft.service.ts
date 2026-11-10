@@ -30,20 +30,19 @@ export class ComplaintDraftService {
 
   async save(userId: string, collegeId: string, d: Omit<ComplaintDraft, 'createdBy' | 'collegeId'>): Promise<string> {
     const id = randomBytes(9).toString('base64url');
-    await this.redis.client.set(
-      `cdraft:${userId}:${id}`,
-      JSON.stringify({ ...d, createdBy: userId, collegeId }),
-      'EX',
-      TTL,
-    );
+    const key = `cdraft:${userId}:${id}`;
+    const payload = JSON.stringify({ ...d, createdBy: userId, collegeId });
+    const saved = await this.redis.safeSet(key, payload, 'EX', TTL);
+    if (!saved) {
+      this.draftFallback.set(key, { data: payload, expiresAt: Date.now() + TTL * 1000 });
+    }
     return id;
   }
   async get(userId: string, id: string): Promise<ComplaintDraft> {
-    let raw: string | null = null;
-    try {
-      raw = await this.redis.client.get(`cdraft:${userId}:${id}`);
-    } catch {
-      const item = this.draftFallback.get(`cdraft:${userId}:${id}`);
+    const key = `cdraft:${userId}:${id}`;
+    let raw = await this.redis.safeGet(key);
+    if (!raw) {
+      const item = this.draftFallback.get(key);
       if (item && item.expiresAt > Date.now()) raw = item.data;
     }
     if (!raw) throw new NotFoundException('Draft expired or not found');
@@ -58,10 +57,12 @@ export class ComplaintDraftService {
       { category: d.category, subject: d.subject, description: d.description },
       { routing: d.routing, routedByAi: true },
     );
-    try { await this.redis.client.del(`cdraft:${p.userId}:${id}`); } catch { this.draftFallback.delete(`cdraft:${p.userId}:${id}`); }
+    await this.redis.safeDel(`cdraft:${p.userId}:${id}`);
+    this.draftFallback.delete(`cdraft:${p.userId}:${id}`);
     return complaint;
   }
   async cancel(userId: string, id: string) {
-    try { await this.redis.client.del(`cdraft:${userId}:${id}`); } catch { this.draftFallback.delete(`cdraft:${userId}:${id}`); }
+    await this.redis.safeDel(`cdraft:${userId}:${id}`);
+    this.draftFallback.delete(`cdraft:${userId}:${id}`);
   }
 }

@@ -237,7 +237,8 @@ export class AttendanceAnalyticsService {
       if (!bad.length && rep.overall.health !== 'SHORTAGE') continue;
       const worst = bad[0] ?? rep.overall;
       const key = `shortage:${s.id}:${week}`;
-      if (!(await this.redis.client.set(key, '1', 'EX', 8 * 86_400, 'NX'))) continue;
+      const locked = await this.redis.safeSet(key, '1', 'EX', 8 * 86_400, 'NX');
+      if (this.redis.isHealthy() && !locked) continue;
       const teachers =
         worst.subjectId !== 'ALL'
           ? await this.prisma.subjectOffering.findMany({

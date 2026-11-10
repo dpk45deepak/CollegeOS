@@ -43,12 +43,7 @@ export class RealtimeGateway implements OnGatewayConnection {
       const raw = (socket.handshake.auth as { token?: string } | undefined)?.token;
       if (!raw) throw new Error('missing token');
       const payload = this.tokens.verifyAccess(raw);
-      let isRevoked = false;
-      try {
-        isRevoked = (await this.redis.client.exists(revokedKey(payload.sid))) === 1;
-      } catch {
-        // safe fallback when redis is offline in serverless
-      }
+      const isRevoked = await this.redis.safeExists(revokedKey(payload.sid));
       if (isRevoked) throw new Error('revoked');
       const p = await this.principals.load(payload.sub);
       if (!p || p.status !== UserStatus.ACTIVE) throw new Error('inactive');

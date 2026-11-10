@@ -387,12 +387,11 @@ export class ComplaintsService {
   }
   private async ticketNo(c: string): Promise<string> {
     const y = new Date().getUTCFullYear();
-    try {
-      const n = await this.redis.client.incr(`ticket:${c}:${y}`);
+    const n = await this.redis.safeIncr(`ticket:${c}:${y}`);
+    if (n) {
       return `GRV-${y}-${String(n).padStart(5, '0')}`;
-    } catch {
-      const count = await this.prisma.complaint.count({ where: { collegeId: c } });
-      return `GRV-${y}-${String(count + 1).padStart(5, '0')}`;
     }
+    const count = await this.prisma.complaint.count({ where: { collegeId: c } });
+    return `GRV-${y}-${String(count + 1).padStart(5, '0')}`;
   }
 }

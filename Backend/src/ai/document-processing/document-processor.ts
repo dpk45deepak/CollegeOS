@@ -22,7 +22,7 @@ export interface EmbedJob {
 }
 
 /** Stage 1: extract → clean → metadata → chunk → persist chunks, then fan out embedding batches. */
-@Processor(QUEUES.DOCUMENT_PROCESSING)
+@Processor(QUEUES.DOCUMENT_PROCESSING, { autorun: !process.env.VERCEL })
 export class DocumentProcessor extends WorkerHost {
   private readonly logger = new Logger(DocumentProcessor.name);
   constructor(
@@ -107,7 +107,7 @@ export class DocumentProcessor extends WorkerHost {
 }
 
 /** Stage 2: embed chunk batches; the batch that finishes the last chunk flips the document to READY. */
-@Processor(QUEUES.EMBEDDING, { concurrency: 3 })
+@Processor(QUEUES.EMBEDDING, { concurrency: 3, autorun: !process.env.VERCEL })
 export class EmbeddingProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,

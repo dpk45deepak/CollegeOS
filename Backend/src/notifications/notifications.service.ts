@@ -133,7 +133,7 @@ export class NotificationsService {
   }
 }
 
-@Processor(QUEUES.NOTIFICATION)
+@Processor(QUEUES.NOTIFICATION, { autorun: !process.env.VERCEL })
 export class NotificationProcessor extends WorkerHost {
   private readonly providers: Map<string, ChannelProvider>;
   constructor(

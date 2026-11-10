@@ -38,9 +38,10 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     let isRevoked = false;
-    try {
-      isRevoked = (await this.redis.client.exists(revokedKey(payload.sid))) === 1;
-    } catch {
+    if (this.redis.isHealthy()) {
+      isRevoked = await this.redis.safeExists(revokedKey(payload.sid));
+    }
+    if (!isRevoked && !this.redis.isHealthy()) {
       // Redis is offline/unreachable in serverless environments; fallback to PostgreSQL session lookup
       const session = await this.prisma.authSession.findUnique({
         where: { id: payload.sid },

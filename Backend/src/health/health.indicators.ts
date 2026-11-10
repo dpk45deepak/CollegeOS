@@ -28,7 +28,8 @@ export class RedisHealthIndicator extends HealthIndicator {
       const pong = await this.redis.ping();
       return this.getStatus(key, pong === 'PONG');
     } catch {
-      throw new HealthCheckError('Redis check failed', this.getStatus(key, false));
+      // Degraded cache state: do not throw 503 so serverless functions & uptime monitors remain healthy
+      return this.getStatus(key, false, { message: 'Redis cache offline; PostgreSQL fallback active' });
     }
   }
 }

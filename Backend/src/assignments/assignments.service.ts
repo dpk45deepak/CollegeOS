@@ -233,7 +233,8 @@ export class AssignmentsService {
     });
     let sent = 0;
     for (const a of due) {
-      if (!(await this.redis.client.set(`deadline:${a.id}`, '1', 'EX', 36 * 3600, 'NX'))) continue;
+      const locked = await this.redis.safeSet(`deadline:${a.id}`, '1', 'EX', 36 * 3600, 'NX');
+      if (this.redis.isHealthy() && !locked) continue;
       const pending = await this.prisma.enrollment.findMany({
         where: { subjectOfferingId: a.subjectOfferingId, student: { submissions: { none: { assignmentId: a.id } } } },
         select: { student: { select: { userId: true } } },

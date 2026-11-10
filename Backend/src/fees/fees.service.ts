@@ -326,7 +326,9 @@ export class FeesService {
     let n = 0;
     for (const f of fees) {
       const out = outstanding(snap(f));
-      if (out <= 0 || !(await this.redis.client.set(`feedue:${f.id}`, '1', 'EX', 3 * 86_400, 'NX'))) continue;
+      if (out <= 0) continue;
+      const locked = await this.redis.safeSet(`feedue:${f.id}`, '1', 'EX', 3 * 86_400, 'NX');
+      if (this.redis.isHealthy() && !locked) continue;
       const overdue = f.dueDate < new Date();
       this.events.emit(DomainEvents.FeeDue, { collegeId: c, studentFeeId: f.id });
       this.events.emit(NOTIFY, {
@@ -359,14 +361,13 @@ export class FeesService {
   }
   private async receiptNo(c: string): Promise<string> {
     const d = new Date();
-    try {
-      const key = `receipt:${c}:${d.getUTCFullYear()}`;
-      const n = await this.redis.client.incr(key);
+    const key = `receipt:${c}:${d.getUTCFullYear()}`;
+    const n = await this.redis.safeIncr(key);
+    if (n) {
       return `RCPT-${d.getUTCFullYear()}-${String(n).padStart(6, '0')}-${randomBytes(2).toString('hex').toUpperCase()}`;
-    } catch {
-      const count = await this.prisma.payment.count({ where: { collegeId: c } });
-      return `RCPT-${d.getUTCFullYear()}-${String(count + 1).padStart(6, '0')}-${randomBytes(2).toString('hex').toUpperCase()}`;
     }
+    const count = await this.prisma.payment.count({ where: { collegeId: c } });
+    return `RCPT-${d.getUTCFullYear()}-${String(count + 1).padStart(6, '0')}-${randomBytes(2).toString('hex').toUpperCase()}`;
   }
 }
 export { PaymentStatus };

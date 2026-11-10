@@ -132,7 +132,8 @@ export class ScholarshipsService {
     });
     let n = 0;
     for (const s of soon) {
-      if (!(await this.redis.client.set(`schdeadline:${s.id}`, '1', 'EX', 3 * 86_400, 'NX'))) continue;
+      const locked = await this.redis.safeSet(`schdeadline:${s.id}`, '1', 'EX', 3 * 86_400, 'NX');
+      if (this.redis.isHealthy() && !locked) continue;
       const interested = await this.prisma.scholarshipApplication.findMany({
         where: { scholarshipId: s.id, status: 'INTERESTED' },
         select: { student: { select: { userId: true } } },

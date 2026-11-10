@@ -46,16 +46,20 @@ export class SchedulerService implements OnModuleInit {
 
   /** StudentAttendanceUpdated → (debounced) analytics → shortage events → notifications; and risk refresh. */
   @OnEvent(DomainEvents.AttendanceUpdated)
-  onAttendance(e: AttendanceUpdatedEvent) {
-    return this.queue.add(
-      'attendance.recompute',
-      { collegeId: e.collegeId, studentIds: [...new Set(e.studentIds)] },
-      { delay: 5_000 },
-    );
+  async onAttendance(e: AttendanceUpdatedEvent) {
+    try {
+      return await this.queue.add(
+        'attendance.recompute',
+        { collegeId: e.collegeId, studentIds: [...new Set(e.studentIds)] },
+        { delay: 5_000 },
+      );
+    } catch (err) {
+      this.logger.warn(`Attendance analytics queue offline: ${(err as Error)?.message}`);
+    }
   }
 }
 
-@Processor(QUEUES.ANALYTICS, { concurrency: 2 })
+@Processor(QUEUES.ANALYTICS, { concurrency: 2, autorun: !process.env.VERCEL })
 export class AnalyticsProcessor extends WorkerHost {
   private readonly logger = new Logger(AnalyticsProcessor.name);
   constructor(

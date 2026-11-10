@@ -39,32 +39,53 @@ export class AdminController {
   async stats(@CurrentUser() u: Principal) {
     this.guard(u);
     return Promise.all(
-      Object.values(this.queues).map(async (q) => ({
-        queue: q.name,
-        ...(await q.getJobCounts('waiting', 'active', 'delayed', 'failed', 'completed')),
-      })),
+      Object.values(this.queues).map(async (q) => {
+        try {
+          const counts = await q.getJobCounts('waiting', 'active', 'delayed', 'failed', 'completed');
+          return { queue: q.name, ...counts, status: 'ONLINE' };
+        } catch {
+          return {
+            queue: q.name,
+            waiting: 0,
+            active: 0,
+            delayed: 0,
+            failed: 0,
+            completed: 0,
+            status: 'OFFLINE',
+          };
+        }
+      }),
     );
   }
   @Get(':name/failed')
   @ApiOperation({ summary: 'Dead-letter set: jobs that exhausted all retries (payloads are not returned)' })
   async failed(@CurrentUser() u: Principal, @Param('name') name: string) {
     this.guard(u);
-    const jobs = await this.q(name).getFailed(0, 49);
-    return jobs.map((j) => ({
-      id: j.id,
-      name: j.name,
-      attemptsMade: j.attemptsMade,
-      failedReason: j.failedReason?.slice(0, 300),
-      finishedOn: j.finishedOn,
-    }));
+    try {
+      const jobs = await this.q(name).getFailed(0, 49);
+      return jobs.map((j) => ({
+        id: j.id,
+        name: j.name,
+        attemptsMade: j.attemptsMade,
+        failedReason: j.failedReason?.slice(0, 300),
+        finishedOn: j.finishedOn,
+      }));
+    } catch {
+      return [];
+    }
   }
   @Post(':name/failed/:id/retry')
   @HttpCode(202)
   async retry(@CurrentUser() u: Principal, @Param('name') name: string, @Param('id') id: string) {
     this.guard(u);
-    const job = await this.q(name).getJob(id);
-    if (!job) throw new NotFoundException();
-    await job.retry();
-    return { retried: true };
+    try {
+      const job = await this.q(name).getJob(id);
+      if (!job) throw new NotFoundException();
+      await job.retry();
+      return { retried: true };
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      return { retried: false, reason: 'Queue backend offline' };
+    }
   }
 }

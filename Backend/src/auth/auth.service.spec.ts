@@ -38,7 +38,14 @@ function build(user: Record<string, unknown> | null, session?: Record<string, un
     safeEqual: (a: string, b: string) => a === b,
     refreshTtlMs: () => 1000,
   };
-  const redis = { client: { set: jest.fn(async () => 'OK') } };
+  const client = { set: jest.fn(async () => 'OK') };
+  const redis = {
+    client,
+    safeSet: jest.fn(async (key: string, val: string, ...args: any[]) => {
+      // @ts-expect-error mock call
+      return (await client.set(key, val, ...args)) === 'OK';
+    }),
+  };
   const audit = { log: jest.fn(async () => undefined) };
   const svc = new AuthService(
     prisma as never,

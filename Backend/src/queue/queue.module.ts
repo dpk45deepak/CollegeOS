@@ -13,7 +13,12 @@ import { ALL_QUEUES } from './queue.constants';
     BullModule.forRootAsync({
       inject: [AppConfigService],
       useFactory: (config: AppConfigService) => {
-        const url = new URL(config.get('REDIS_URL'));
+        let url: URL;
+        try {
+          url = new URL(config.get('REDIS_URL'));
+        } catch {
+          url = new URL('redis://127.0.0.1:6379');
+        }
         return {
           connection: {
             host: url.hostname,
@@ -22,9 +27,12 @@ import { ALL_QUEUES } from './queue.constants';
             password: url.password ? decodeURIComponent(url.password) : undefined,
             db: url.pathname.length > 1 ? Number(url.pathname.slice(1)) : 0,
             tls: url.protocol === 'rediss:' ? {} : undefined,
-            connectTimeout: 3000,
+            connectTimeout: 1500,
+            maxRetriesPerRequest: null,
+            lazyConnect: true,
             enableOfflineQueue: false,
             retryStrategy: () => (process.env.VERCEL ? null : 3000),
+            reconnectOnError: () => false,
           },
           prefix: 'collegeos',
           defaultJobOptions: {

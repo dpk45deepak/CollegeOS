@@ -278,8 +278,14 @@ export class ReportsService {
 
   /** Large exports run in the reportQueue, land in object storage and notify the requester. */
   async enqueue(p: Principal, c: string, type: ReportType) {
-    const job = await this.queue.add('generate', { collegeId: c, type, principal: p });
-    return { jobId: job.id, status: 'QUEUED' };
+    try {
+      const job = await this.queue.add('generate', { collegeId: c, type, principal: p });
+      return { jobId: job.id, status: 'QUEUED' };
+    } catch {
+      // In serverless or when queue is offline, execute export synchronously
+      await this.store({ collegeId: c, type, principal: p });
+      return { jobId: `sync_${Date.now()}`, status: 'COMPLETED' };
+    }
   }
   async file(p: Principal, c: string, key: string) {
     if (!key.startsWith(`${c}/reports/${p.userId}/`)) throw new NotFoundException('Report not found'); // own reports only
@@ -311,7 +317,7 @@ export class ReportsService {
   }
 }
 
-@Processor(QUEUES.REPORT)
+@Processor(QUEUES.REPORT, { autorun: !process.env.VERCEL })
 export class ReportProcessor extends WorkerHost {
   constructor(private readonly reports: ReportsService) {
     super();

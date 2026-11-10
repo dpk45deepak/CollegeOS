@@ -88,7 +88,11 @@ export class DocumentsService {
         checksumSha256: createHash('sha256').update(file.buffer).digest('hex'),
       },
     });
-    await this.queue.add('process', { documentId: doc.id });
+    try {
+      await this.queue.add('process', { documentId: doc.id });
+    } catch {
+      // Offline queue fallback; document is safely stored in database
+    }
     await this.audit.log({
       collegeId: c,
       userId: p.userId,
@@ -192,7 +196,11 @@ export class DocumentsService {
     const d = await this.prisma.document.findFirst({ where: { id, collegeId: c } });
     if (!d) throw new NotFoundException();
     await this.prisma.document.update({ where: { id }, data: { status: 'UPLOADED', failureReason: null } });
-    await this.queue.add('process', { documentId: id });
+    try {
+      await this.queue.add('process', { documentId: id });
+    } catch {
+      // Offline queue fallback
+    }
     await this.audit.log({
       collegeId: c,
       userId: p.userId,

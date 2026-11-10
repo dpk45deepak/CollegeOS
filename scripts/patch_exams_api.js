@@ -61,3 +61,4 @@ if (c.includes(oldEnter.replace(/\r\n/g, "\n"))) {
 
 fs.writeFileSync("Frontend/src/services/api/exams.api.ts", c);
 console.log("Successfully patched exams.api.ts");
+

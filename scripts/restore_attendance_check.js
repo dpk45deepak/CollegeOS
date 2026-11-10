@@ -6,3 +6,4 @@ c = c.replace(
 );
 fs.writeFileSync("Backend/src/attendance/attendance.service.ts", c);
 console.log("Restored resolvePeriodKey throwing contract");
+

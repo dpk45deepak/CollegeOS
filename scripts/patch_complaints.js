@@ -236,3 +236,4 @@ if (page.includes(oldCatSelect.replace(/\r\n/g, "\n"))) {
 
 fs.writeFileSync("Frontend/src/app/(student)/student/complaints/page.tsx", page);
 console.log("Successfully patched complaints/page.tsx");
+

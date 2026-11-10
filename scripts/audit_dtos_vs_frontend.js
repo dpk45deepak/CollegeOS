@@ -48,3 +48,4 @@ dtoFiles.forEach(f => {
 
 console.log("Extracted DTO classes:", Object.keys(dtos).length);
 fs.writeFileSync("scripts/dtos_extracted.json", JSON.stringify(dtos, null, 2));
+

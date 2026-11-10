@@ -8,3 +8,4 @@ if (!c.includes(target)) {
 c = c.replace(target, "if (!key) return 'LEC_1';");
 fs.writeFileSync("Backend/src/attendance/attendance.service.ts", c);
 console.log("Successfully patched resolvePeriodKey in attendance.service.ts");
+

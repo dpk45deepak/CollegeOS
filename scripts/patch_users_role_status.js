@@ -80,3 +80,4 @@ if (page.includes(oldSelect.replace(/\r\n/g, "\n"))) {
 
 fs.writeFileSync("Frontend/src/app/(admin)/admin/users/page.tsx", page);
 console.log("Successfully patched admin/users/page.tsx");
+

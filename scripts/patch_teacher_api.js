@@ -53,3 +53,4 @@ if (c.replace(/\r\n/g, "\n").includes(target.replace(/\r\n/g, "\n"))) {
   console.error("Target block not matched!");
   process.exit(1);
 }
+

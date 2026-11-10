@@ -111,3 +111,4 @@ if (c.includes(targetSelect)) {
 
 fs.writeFileSync("Frontend/src/app/(teacher)/teacher/attendance/page.tsx", c);
 console.log("Successfully patched TeacherAttendancePage with period selector and error toast!");
+

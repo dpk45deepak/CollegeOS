@@ -12,10 +12,12 @@ import { PAYMENT_GATEWAYS, PaymentGateway } from './gateways/payment-gateway';
     {
       provide: PAYMENT_GATEWAYS,
       inject: [AppConfigService],
-      // Register real gateways (Razorpay/Stripe) here. The mock gateway is dev/test only.
+      // Register real gateways (Razorpay/Stripe) here. The mock gateway is dev/test fallback.
       useFactory: (c: AppConfigService) => {
         const m = new Map<string, PaymentGateway>();
-        if (!c.isProduction) m.set('mock', new MockGateway(c.get('JWT_REFRESH_SECRET').slice(0, 32)));
+        if (!c.isProduction || process.env.ENABLE_MOCK_GATEWAY === 'true' || m.size === 0) {
+          m.set('mock', new MockGateway(c.get('JWT_REFRESH_SECRET').slice(0, 32)));
+        }
         return m;
       },
     },

@@ -101,6 +101,26 @@ export default function TeacherDashboardPage() {
             marksObtained: r.marksObtained ?? 0,
           }))
         );
+      } else if (selectedExam.subjectOfferingId) {
+        try {
+          const roster = await teacherApi.getClassRoster(selectedExam.subjectOfferingId);
+          if (Array.isArray(roster) && roster.length > 0) {
+            setMarksSheet(
+              roster.map((s) => ({
+                studentId: s.id,
+                rollNumber: s.rollNumber || "ID",
+                studentName: s.name || "Student",
+                marksObtained: 0,
+              }))
+            );
+          } else {
+            setMarksSheet([]);
+          }
+        } catch {
+          setMarksSheet([]);
+        }
+      } else {
+        setMarksSheet([]);
       }
       return res;
     },

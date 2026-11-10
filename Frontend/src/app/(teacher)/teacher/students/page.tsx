@@ -11,19 +11,42 @@ import {
   Sparkles,
   BarChart3,
   CalendarCheck2,
+  BookOpen,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TeacherStudentsPage() {
-  const { data: atRiskStudents, isLoading } = useQuery({
+  const { data: atRiskStudents, isLoading: isRiskLoading } = useQuery({
     queryKey: ["teacher_at_risk_students"],
     queryFn: () => teacherApi.getAtRiskStudents(),
   });
 
-  if (isLoading || !atRiskStudents) {
+  const { data: classes, isLoading: isClassesLoading } = useQuery({
+    queryKey: ["teacher_classes"],
+    queryFn: () => teacherApi.getTodayClasses(),
+  });
+
+  const isLoading = isRiskLoading || isClassesLoading;
+
+  if (isLoading) {
     return <Skeleton className="h-64 w-full rounded-2xl" />;
   }
+
+  const offeringsCount = classes?.length || 0;
+  const atRiskCount = atRiskStudents?.length || 0;
+  const assignedSections =
+    classes && classes.length > 0
+      ? classes.map((c) => `${c.subjectCode} (Sec ${c.section})`).join(", ")
+      : "Active Teaching Schedule";
+
+  const avgDefaulterAttendance =
+    atRiskStudents && atRiskStudents.length > 0
+      ? (
+          atRiskStudents.reduce((acc, s) => acc + (s.attendance || 0), 0) /
+          atRiskStudents.length
+        ).toFixed(1)
+      : "0.0";
 
   return (
     <div className="space-y-6">
@@ -32,34 +55,57 @@ export default function TeacherStudentsPage() {
           Cohort Performance & Defaulters Analytics
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Authorized Sections: CSE 6A (CS601, CS606) and CSE 4B (CS401).
+          Authorized Sections: {assignedSections}.
         </p>
       </div>
 
       {/* Cohort Summary Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-4 rounded-xl border border-border bg-card">
-          <span className="text-[10px] text-muted-foreground uppercase font-bold block">
-            Enrolled Students
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold block">
+              Active Offerings
+            </span>
+            <BookOpen className="h-4 w-4 text-brand-600" />
+          </div>
+          <span className="text-2xl font-extrabold text-foreground font-mono mt-1 block">
+            {offeringsCount}
           </span>
-          <span className="text-2xl font-extrabold text-foreground font-mono">122</span>
-          <p className="text-[11px] text-muted-foreground mt-1">Across 2 assigned lecture sections</p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Across assigned department sections
+          </p>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-card">
-          <span className="text-[10px] text-muted-foreground uppercase font-bold block">
-            Average Attendance
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold block">
+              Flagged Defaulters
+            </span>
+            <AlertTriangle className="h-4 w-4 text-rose-600" />
+          </div>
+          <span className="text-2xl font-extrabold text-rose-600 font-mono mt-1 block">
+            {atRiskCount}
           </span>
-          <span className="text-2xl font-extrabold text-emerald-600 font-mono">79.2%</span>
-          <p className="text-[11px] text-muted-foreground mt-1">+4.2% above statutory 75% baseline</p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Students falling below statutory 75% threshold
+          </p>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-card">
-          <span className="text-[10px] text-muted-foreground uppercase font-bold block">
-            Assignment Turn-In Rate
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold block">
+              Defaulters Average
+            </span>
+            <TrendingUp className="h-4 w-4 text-amber-600" />
+          </div>
+          <span className="text-2xl font-extrabold text-amber-600 font-mono mt-1 block">
+            {atRiskCount > 0 ? `${avgDefaulterAttendance}%` : "100%"}
           </span>
-          <span className="text-2xl font-extrabold text-brand-600 font-mono">91.8%</span>
-          <p className="text-[11px] text-muted-foreground mt-1">112 of 122 students submitted on time</p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {atRiskCount > 0
+              ? "Urgent remedial attendance required"
+              : "All cohorts in good standing"}
+          </p>
         </div>
       </div>
 
@@ -86,23 +132,25 @@ export default function TeacherStudentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {(!atRiskStudents || atRiskStudents.length === 0) ? (
+              {!atRiskStudents || atRiskStudents.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-xs text-muted-foreground">
                     No students currently flagged below the 75% regulatory attendance threshold.
                   </td>
                 </tr>
-              ) : atRiskStudents.map((s) => (
-                <tr key={s.id} className="hover:bg-muted/20">
-                  <td className="p-3 pl-4 font-mono font-bold text-foreground">
-                    {s.rollNumber}
-                  </td>
-                  <td className="p-3 font-semibold text-foreground">{s.name}</td>
-                  <td className="p-3 font-mono">{s.subject}</td>
-                  <td className="p-3 font-mono font-bold text-rose-600">{s.attendance}%</td>
-                  <td className="p-3 pr-4 text-muted-foreground text-[11px]">{s.reason}</td>
-                </tr>
-              ))}
+              ) : (
+                atRiskStudents.map((s) => (
+                  <tr key={s.id} className="hover:bg-muted/20">
+                    <td className="p-3 pl-4 font-mono font-bold text-foreground">
+                      {s.rollNumber}
+                    </td>
+                    <td className="p-3 font-semibold text-foreground">{s.name}</td>
+                    <td className="p-3 font-mono">{s.subject}</td>
+                    <td className="p-3 font-mono font-bold text-rose-600">{s.attendance}%</td>
+                    <td className="p-3 pr-4 text-muted-foreground text-[11px]">{s.reason}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </CardContent>

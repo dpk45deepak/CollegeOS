@@ -117,9 +117,14 @@ export const teacherApi = {
     return items.map((a: any) => ({
       id: a.id,
       title: a.title,
-      subject: a.offering?.subject?.name || a.subject || "Course",
+      subject: a.offering?.subject?.name || a.subjectOffering?.subject?.name || a.subject || "Course",
       pendingCount: a._count?.submissions || 0,
     }));
+  },
+
+  getAssignmentSubmissions: async (assignmentId: string): Promise<any[]> => {
+    const raw = await apiClient<any>(`/assignments/${assignmentId}/submissions`);
+    return Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
   },
 
   getAtRiskStudents: async (): Promise<TeacherAtRiskStudent[]> => {

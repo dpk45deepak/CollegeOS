@@ -211,7 +211,10 @@ export class AttendanceService {
             ],
           }
         : { requestedById: p.userId };
-    const where: Prisma.AttendanceCorrectionWhereInput = { AND: [{ collegeId: c, status: q.status }, scope] };
+    const studentFilter: Prisma.AttendanceCorrectionWhereInput = q.studentId
+      ? { attendance: { studentId: q.studentId } }
+      : {};
+    const where: Prisma.AttendanceCorrectionWhereInput = { AND: [{ collegeId: c, status: q.status }, scope, studentFilter] };
     const [items, total] = await Promise.all([
       this.prisma.attendanceCorrection.findMany({
         where,

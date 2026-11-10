@@ -1,5 +1,25 @@
 [
   {
+    "file": "app\\(admin)\\admin\\analytics\\page.tsx",
+    "endpoint": "/audit"
+  },
+  {
+    "file": "app\\(admin)\\admin\\analytics\\page.tsx",
+    "endpoint": "/admin/queues"
+  },
+  {
+    "file": "app\\(admin)\\admin\\analytics\\page.tsx",
+    "endpoint": "/admin/queues/${queueName}/failed"
+  },
+  {
+    "file": "app\\(admin)\\admin\\analytics\\page.tsx",
+    "endpoint": "/admin/queues/${queueName}/failed/${job.id}/retry"
+  },
+  {
+    "file": "app\\(auth)\\verify-email\\page.tsx",
+    "endpoint": "/auth/resend-verification"
+  },
+  {
     "file": "lib\\api\\admin.ts",
     "endpoint": "/analytics/attention"
   },
@@ -37,11 +57,11 @@
   },
   {
     "file": "lib\\api\\ai.ts",
-    "endpoint": "/ai/complaint-draft/${draftId}/confirm"
+    "endpoint": "/ai/grievance/drafts/${draftId}/confirm"
   },
   {
     "file": "lib\\api\\ai.ts",
-    "endpoint": "/ai/complaint-draft/${draftId}/cancel"
+    "endpoint": "/ai/grievance/drafts/${draftId}"
   },
   {
     "file": "lib\\api\\ai.ts",
@@ -89,11 +109,15 @@
   },
   {
     "file": "lib\\api\\hod.ts",
-    "endpoint": "/teachers/leave-requests/${id}/approve"
+    "endpoint": "/leave-requests"
   },
   {
     "file": "lib\\api\\hod.ts",
-    "endpoint": "/teachers/leave-requests/${id}/reject"
+    "endpoint": "/leave-requests/${id}/approve"
+  },
+  {
+    "file": "lib\\api\\hod.ts",
+    "endpoint": "/leave-requests/${id}/reject"
   },
   {
     "file": "lib\\api\\messages.ts",
@@ -145,7 +169,11 @@
   },
   {
     "file": "lib\\api\\student.ts",
-    "endpoint": "/fees/pay"
+    "endpoint": "/students/me/fees"
+  },
+  {
+    "file": "lib\\api\\student.ts",
+    "endpoint": "/fees/${feeId}/payments"
   },
   {
     "file": "lib\\api\\student.ts",
@@ -173,7 +201,7 @@
   },
   {
     "file": "lib\\api\\student.ts",
-    "endpoint": "/campus/notices"
+    "endpoint": "/notices"
   },
   {
     "file": "lib\\api\\student.ts",
@@ -217,7 +245,727 @@
   },
   {
     "file": "lib\\api\\teacher.ts",
-    "endpoint": "/teachers/leave-requests"
+    "endpoint": "/leave-requests"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/colleges/current"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/colleges/current/settings"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/campuses"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/campuses"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/campuses/${id}"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/departments"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/departments"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/departments/${id}"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/programs"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/programs"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/programs/${id}"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/batches"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/batches"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/semesters"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/semesters"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/sections"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/sections"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/subjects"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/subjects"
+  },
+  {
+    "file": "services\\api\\academic.api.ts",
+    "endpoint": "/subjects/${id}"
+  },
+  {
+    "file": "services\\api\\ai.api.ts",
+    "endpoint": "/ai/chat"
+  },
+  {
+    "file": "services\\api\\ai.api.ts",
+    "endpoint": "/ai/agents"
+  },
+  {
+    "file": "services\\api\\ai.api.ts",
+    "endpoint": "/ai/conversations"
+  },
+  {
+    "file": "services\\api\\ai.api.ts",
+    "endpoint": "/ai/conversations/${id}/messages"
+  },
+  {
+    "file": "services\\api\\ai.api.ts",
+    "endpoint": "/ai/conversations/${id}"
+  },
+  {
+    "file": "services\\api\\ai.api.ts",
+    "endpoint": "/ai/advisor"
+  },
+  {
+    "file": "services\\api\\ai.api.ts",
+    "endpoint": "/ai/grievance/drafts/${draftId}/confirm"
+  },
+  {
+    "file": "services\\api\\ai.api.ts",
+    "endpoint": "/ai/grievance/drafts/${draftId}"
+  },
+  {
+    "file": "services\\api\\ai.api.ts",
+    "endpoint": "/ai/knowledge/ask"
+  },
+  {
+    "file": "services\\api\\ai.api.ts",
+    "endpoint": "/ai/knowledge/search"
+  },
+  {
+    "file": "services\\api\\ai.api.ts",
+    "endpoint": "/ai/admin/usage"
+  },
+  {
+    "file": "services\\api\\analytics.api.ts",
+    "endpoint": "/analytics/overview"
+  },
+  {
+    "file": "services\\api\\analytics.api.ts",
+    "endpoint": "/analytics/attention"
+  },
+  {
+    "file": "services\\api\\analytics.api.ts",
+    "endpoint": "/analytics/attendance-trend"
+  },
+  {
+    "file": "services\\api\\analytics.api.ts",
+    "endpoint": "/analytics/departments"
+  },
+  {
+    "file": "services\\api\\analytics.api.ts",
+    "endpoint": "/analytics/attendance-vs-performance"
+  },
+  {
+    "file": "services\\api\\analytics.api.ts",
+    "endpoint": "/analytics/risk"
+  },
+  {
+    "file": "services\\api\\assignments.api.ts",
+    "endpoint": "/assignments"
+  },
+  {
+    "file": "services\\api\\assignments.api.ts",
+    "endpoint": "/assignments"
+  },
+  {
+    "file": "services\\api\\assignments.api.ts",
+    "endpoint": "/assignments/${assignmentId}/submit"
+  },
+  {
+    "file": "services\\api\\assignments.api.ts",
+    "endpoint": "/assignments/${assignmentId}/submissions"
+  },
+  {
+    "file": "services\\api\\assignments.api.ts",
+    "endpoint": "/assignments/${assignmentId}/missing"
+  },
+  {
+    "file": "services\\api\\assignments.api.ts",
+    "endpoint": "/assignments/submissions/${submissionId}/grade"
+  },
+  {
+    "file": "services\\api\\attendance.api.ts",
+    "endpoint": "/attendance"
+  },
+  {
+    "file": "services\\api\\attendance.api.ts",
+    "endpoint": "/attendance/sessions"
+  },
+  {
+    "file": "services\\api\\attendance.api.ts",
+    "endpoint": "/attendance/correction-request"
+  },
+  {
+    "file": "services\\api\\attendance.api.ts",
+    "endpoint": "/attendance/corrections"
+  },
+  {
+    "file": "services\\api\\attendance.api.ts",
+    "endpoint": "/attendance/corrections/${id}/review"
+  },
+  {
+    "file": "services\\api\\attendance.api.ts",
+    "endpoint": "/attendance/students/${studentId}/report"
+  },
+  {
+    "file": "services\\api\\attendance.api.ts",
+    "endpoint": "/attendance/students/${studentId}/records"
+  },
+  {
+    "file": "services\\api\\attendance.api.ts",
+    "endpoint": "/attendance/analytics/shortage"
+  },
+  {
+    "file": "services\\api\\attendance.api.ts",
+    "endpoint": "/attendance/analytics/anomalies"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/auth/login"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/users/me"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/users/me"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/auth/refresh"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/auth/logout"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/auth/logout-all"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/auth/sessions"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/auth/sessions/${sessionId}"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/auth/forgot-password"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/auth/reset-password"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/auth/verify-email"
+  },
+  {
+    "file": "services\\api\\auth.api.ts",
+    "endpoint": "/auth/change-password"
+  },
+  {
+    "file": "services\\api\\campus.api.ts",
+    "endpoint": "/notices"
+  },
+  {
+    "file": "services\\api\\campus.api.ts",
+    "endpoint": "/notices/drafts"
+  },
+  {
+    "file": "services\\api\\campus.api.ts",
+    "endpoint": "/notices"
+  },
+  {
+    "file": "services\\api\\campus.api.ts",
+    "endpoint": "/notices/${id}/publish"
+  },
+  {
+    "file": "services\\api\\campus.api.ts",
+    "endpoint": "/clubs"
+  },
+  {
+    "file": "services\\api\\campus.api.ts",
+    "endpoint": "/clubs"
+  },
+  {
+    "file": "services\\api\\campus.api.ts",
+    "endpoint": "/events"
+  },
+  {
+    "file": "services\\api\\campus.api.ts",
+    "endpoint": "/events"
+  },
+  {
+    "file": "services\\api\\campus.api.ts",
+    "endpoint": "/events/${id}"
+  },
+  {
+    "file": "services\\api\\complaints.api.ts",
+    "endpoint": "/complaints"
+  },
+  {
+    "file": "services\\api\\complaints.api.ts",
+    "endpoint": "/complaints/route-preview"
+  },
+  {
+    "file": "services\\api\\complaints.api.ts",
+    "endpoint": "/complaints/my"
+  },
+  {
+    "file": "services\\api\\complaints.api.ts",
+    "endpoint": "/complaints"
+  },
+  {
+    "file": "services\\api\\complaints.api.ts",
+    "endpoint": "/complaints/${id}"
+  },
+  {
+    "file": "services\\api\\complaints.api.ts",
+    "endpoint": "/complaints/${id}/status"
+  },
+  {
+    "file": "services\\api\\complaints.api.ts",
+    "endpoint": "/complaints/${id}/assign"
+  },
+  {
+    "file": "services\\api\\complaints.api.ts",
+    "endpoint": "/complaints/${id}/comments"
+  },
+  {
+    "file": "services\\api\\complaints.api.ts",
+    "endpoint": "/complaints/${id}/feedback"
+  },
+  {
+    "file": "services\\api\\documents.api.ts",
+    "endpoint": "/documents"
+  },
+  {
+    "file": "services\\api\\documents.api.ts",
+    "endpoint": "/documents"
+  },
+  {
+    "file": "services\\api\\documents.api.ts",
+    "endpoint": "/documents/${id}"
+  },
+  {
+    "file": "services\\api\\documents.api.ts",
+    "endpoint": "/documents/${id}/visibility"
+  },
+  {
+    "file": "services\\api\\documents.api.ts",
+    "endpoint": "/documents/${id}/reprocess"
+  },
+  {
+    "file": "services\\api\\documents.api.ts",
+    "endpoint": "/documents/${id}"
+  },
+  {
+    "file": "services\\api\\exams.api.ts",
+    "endpoint": "/exams"
+  },
+  {
+    "file": "services\\api\\exams.api.ts",
+    "endpoint": "/exams"
+  },
+  {
+    "file": "services\\api\\exams.api.ts",
+    "endpoint": "/exams/${id}/cancel"
+  },
+  {
+    "file": "services\\api\\exams.api.ts",
+    "endpoint": "/exams/${id}/results"
+  },
+  {
+    "file": "services\\api\\exams.api.ts",
+    "endpoint": "/exams/${id}/results"
+  },
+  {
+    "file": "services\\api\\exams.api.ts",
+    "endpoint": "/exams/${id}/publish"
+  },
+  {
+    "file": "services\\api\\exams.api.ts",
+    "endpoint": "/grading-schemes"
+  },
+  {
+    "file": "services\\api\\exams.api.ts",
+    "endpoint": "/grading-schemes"
+  },
+  {
+    "file": "services\\api\\faculty.api.ts",
+    "endpoint": "/teachers/me"
+  },
+  {
+    "file": "services\\api\\faculty.api.ts",
+    "endpoint": "/teachers"
+  },
+  {
+    "file": "services\\api\\faculty.api.ts",
+    "endpoint": "/teachers"
+  },
+  {
+    "file": "services\\api\\faculty.api.ts",
+    "endpoint": "/subject-offerings"
+  },
+  {
+    "file": "services\\api\\faculty.api.ts",
+    "endpoint": "/subject-offerings"
+  },
+  {
+    "file": "services\\api\\faculty.api.ts",
+    "endpoint": "/subject-offerings/${offeringId}/enrollments"
+  },
+  {
+    "file": "services\\api\\faculty.api.ts",
+    "endpoint": "/subject-offerings/${offeringId}/students"
+  },
+  {
+    "file": "services\\api\\faculty.api.ts",
+    "endpoint": "/leave-requests"
+  },
+  {
+    "file": "services\\api\\faculty.api.ts",
+    "endpoint": "/leave-requests/${id}/approve"
+  },
+  {
+    "file": "services\\api\\faculty.api.ts",
+    "endpoint": "/leave-requests/${id}/reject"
+  },
+  {
+    "file": "services\\api\\fees.api.ts",
+    "endpoint": "/fees/structures"
+  },
+  {
+    "file": "services\\api\\fees.api.ts",
+    "endpoint": "/fees/structures"
+  },
+  {
+    "file": "services\\api\\fees.api.ts",
+    "endpoint": "/fees/structures/${structureId}/assign"
+  },
+  {
+    "file": "services\\api\\fees.api.ts",
+    "endpoint": "/fees"
+  },
+  {
+    "file": "services\\api\\fees.api.ts",
+    "endpoint": "/fees/student-fees/${studentFeeId}/adjust"
+  },
+  {
+    "file": "services\\api\\fees.api.ts",
+    "endpoint": "/fees/${studentFeeId}/payments"
+  },
+  {
+    "file": "services\\api\\fees.api.ts",
+    "endpoint": "/fees/${studentFeeId}/payments/manual"
+  },
+  {
+    "file": "services\\api\\fees.api.ts",
+    "endpoint": "/fees/payments/${paymentId}/receipt"
+  },
+  {
+    "file": "services\\api\\fees.api.ts",
+    "endpoint": "/fees/payments/${paymentId}/receipt/admin"
+  },
+  {
+    "file": "services\\api\\fees.api.ts",
+    "endpoint": "/fees/payments/${paymentId}/refunds"
+  },
+  {
+    "file": "services\\api\\messaging.api.ts",
+    "endpoint": "/messages/conversations"
+  },
+  {
+    "file": "services\\api\\messaging.api.ts",
+    "endpoint": "/messages/conversations"
+  },
+  {
+    "file": "services\\api\\messaging.api.ts",
+    "endpoint": "/messages/conversations/${conversationId}"
+  },
+  {
+    "file": "services\\api\\messaging.api.ts",
+    "endpoint": "/messages/conversations/${conversationId}"
+  },
+  {
+    "file": "services\\api\\messaging.api.ts",
+    "endpoint": "/messages/announcements"
+  },
+  {
+    "file": "services\\api\\notifications.api.ts",
+    "endpoint": "/notifications"
+  },
+  {
+    "file": "services\\api\\notifications.api.ts",
+    "endpoint": "/notifications/unread-count"
+  },
+  {
+    "file": "services\\api\\notifications.api.ts",
+    "endpoint": "/notifications/read"
+  },
+  {
+    "file": "services\\api\\notifications.api.ts",
+    "endpoint": "/notifications/devices"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/companies"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/companies"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/jobs"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/jobs"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/jobs/recommendations"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/jobs/${jobId}/apply"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/jobs/${jobId}/applications"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/drives"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/drives"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/applications/mine"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/applications/${applicationId}/status"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/applications/${applicationId}/interviews"
+  },
+  {
+    "file": "services\\api\\placements.api.ts",
+    "endpoint": "/placements/applications/${applicationId}/offers"
+  },
+  {
+    "file": "services\\api\\reports.api.ts",
+    "endpoint": "/reports/${type}/async"
+  },
+  {
+    "file": "services\\api\\scholarships.api.ts",
+    "endpoint": "/scholarships"
+  },
+  {
+    "file": "services\\api\\scholarships.api.ts",
+    "endpoint": "/scholarships/matches"
+  },
+  {
+    "file": "services\\api\\scholarships.api.ts",
+    "endpoint": "/scholarships/applications/mine"
+  },
+  {
+    "file": "services\\api\\scholarships.api.ts",
+    "endpoint": "/scholarships/${scholarshipId}/interest"
+  },
+  {
+    "file": "services\\api\\scholarships.api.ts",
+    "endpoint": "/scholarships/${scholarshipId}/apply"
+  },
+  {
+    "file": "services\\api\\scholarships.api.ts",
+    "endpoint": "/scholarships"
+  },
+  {
+    "file": "services\\api\\scholarships.api.ts",
+    "endpoint": "/scholarships/${id}"
+  },
+  {
+    "file": "services\\api\\scholarships.api.ts",
+    "endpoint": "/scholarships/${scholarshipId}/applications/${studentId}/decision"
+  },
+  {
+    "file": "services\\api\\search.api.ts",
+    "endpoint": "/search"
+  },
+  {
+    "file": "services\\api\\storage.api.ts",
+    "endpoint": "/files/attachments"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/skills"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/skills/${encodeURIComponent(name)}"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/portfolio"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/portfolio/${id}"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/${id}"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/${id}"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/dashboard"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/attendance"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/attendance/records"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/timetable"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/assignments"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/exams"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/results"
+  },
+  {
+    "file": "services\\api\\students.api.ts",
+    "endpoint": "/students/me/fees"
+  },
+  {
+    "file": "services\\api\\timetable.api.ts",
+    "endpoint": "/timetable/slots"
+  },
+  {
+    "file": "services\\api\\timetable.api.ts",
+    "endpoint": "/timetable/check"
+  },
+  {
+    "file": "services\\api\\timetable.api.ts",
+    "endpoint": "/timetable/slots/${id}"
+  },
+  {
+    "file": "services\\api\\timetable.api.ts",
+    "endpoint": "/timetable/sections/${sectionId}"
+  },
+  {
+    "file": "services\\api\\timetable.api.ts",
+    "endpoint": "/timetable/teachers/me"
+  },
+  {
+    "file": "services\\api\\timetable.api.ts",
+    "endpoint": "/timetable/teachers/${teacherId}/availability"
+  },
+  {
+    "file": "services\\api\\timetable.api.ts",
+    "endpoint": "/timetable/rooms"
+  },
+  {
+    "file": "services\\api\\timetable.api.ts",
+    "endpoint": "/timetable/rooms"
+  },
+  {
+    "file": "services\\api\\users.api.ts",
+    "endpoint": "/users/me"
+  },
+  {
+    "file": "services\\api\\users.api.ts",
+    "endpoint": "/users"
+  },
+  {
+    "file": "services\\api\\users.api.ts",
+    "endpoint": "/users"
+  },
+  {
+    "file": "services\\api\\users.api.ts",
+    "endpoint": "/users/${id}/roles"
+  },
+  {
+    "file": "services\\api\\users.api.ts",
+    "endpoint": "/users/${id}/status"
   },
   {
     "file": "__tests__\\auth-session.test.ts",

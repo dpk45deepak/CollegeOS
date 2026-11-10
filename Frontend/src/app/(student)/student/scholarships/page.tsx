@@ -62,18 +62,6 @@ export default function StudentScholarshipsPage() {
     );
   }
 
-  if (false) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-28 w-full rounded-2xl" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Skeleton className="h-64 rounded-xl" />
-          <Skeleton className="h-64 rounded-xl" />
-        </div>
-      </div>
-    );
-  }
-
   const handleWhyEligible = (s: Scholarship) => {
     setSelectedScholarship(s);
     setIsWhyModalOpen(true);

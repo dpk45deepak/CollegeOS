@@ -2,7 +2,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Controller, ForbiddenException, Get, HttpCode, NotFoundException, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Queue } from 'bullmq';
-import { P } from '../auth/permissions';
+import { P, ROLE } from '../auth/permissions';
 import { CurrentUser, RequirePermissions } from '../common/decorators/auth.decorators';
 import { Principal } from '../common/types/principal';
 import { ALL_QUEUES, QUEUES } from '../queue/queue.constants';
@@ -26,7 +26,9 @@ export class AdminController {
   }
 
   private guard(p: Principal) {
-    if (!p.isSuperAdmin) throw new ForbiddenException('Platform operators only');
+    if (!p.isSuperAdmin && !p.roleKeys.includes(ROLE.COLLEGE_ADMIN)) {
+      throw new ForbiddenException('Platform operators and college administrators only');
+    }
   }
   private q(name: string) {
     const q = this.queues[name];

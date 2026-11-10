@@ -199,6 +199,30 @@ export const adminApi = {
     }
   },
 
+  getAIUsage: async (days: number = 7): Promise<{
+    since: string;
+    byModel: Array<{
+      provider: string;
+      model: string;
+      kind: string;
+      calls: number;
+      avgLatencyMs: number;
+      promptTokens: number;
+      completionTokens: number;
+    }>;
+    errors: number;
+    recentErrors: Array<{
+      createdAt: string;
+      model: string;
+      kind: string;
+      error: string;
+      latencyMs?: number;
+    }>;
+    toolUse: Record<string, number>;
+  } | null> => {
+    return apiClient<any>(`/ai/admin/usage?days=${days}`).catch(() => null);
+  },
+
   getAILogs: async (): Promise<AIAgentExecutionLog[]> => {
     const raw = await apiClient<any>("/ai/admin/usage").catch(() => null);
     if (!raw || !raw.byModel) return [];

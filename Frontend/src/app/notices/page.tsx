@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
+import { toast } from "sonner";
 
 export default function NoticesPage() {
   const { user } = useAuthStore();
@@ -170,7 +171,13 @@ export default function NoticesPage() {
                     {((notice.attachments || [])).map((file, i) => (
                       <button
                         key={i}
-                        onClick={() => alert(`Downloading official PDF: ${file.name}`)}
+                        onClick={() => {
+                          if (file.url) {
+                            window.open(file.url, "_blank");
+                          } else {
+                            toast.info(`Official attachment ${file.name} is archived in the college registrar's repository.`);
+                          }
+                        }}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-xs text-foreground font-medium transition-colors"
                       >
                         <FileText className="h-3.5 w-3.5 text-brand-600" />

@@ -2114,6 +2114,18 @@
   {
     "file": "teachers\\teachers.controller.ts",
     "controller": "teachers.controller.ts",
+    "method": "GET",
+    "subPath": "leave-requests",
+    "prefix": "",
+    "fullRoute": "/api/v1/leave-requests",
+    "rawRoute": "/leave-requests",
+    "fnName": "RequirePermissions",
+    "params": "P.LEAVE_REQUEST",
+    "permissions": "Authenticated"
+  },
+  {
+    "file": "teachers\\teachers.controller.ts",
+    "controller": "teachers.controller.ts",
     "method": "POST",
     "subPath": "leave-requests",
     "prefix": "",

@@ -51,8 +51,21 @@ export function mapBackendRole(roleKey?: string): UserRole {
 }
 
 export function normalizeUserProfile(raw: BackendUserProfile): User {
-  const primaryRoleKey = raw.userRoles?.[0]?.role?.key;
-  const role = mapBackendRole(primaryRoleKey);
+  const roleKeys = (raw.userRoles || []).map((ur) => ur.role?.key).filter(Boolean);
+  let role: UserRole = "STUDENT";
+  if (roleKeys.includes("SUPER_ADMIN") || roleKeys.includes("COLLEGE_ADMIN")) {
+    role = "ADMIN";
+  } else if (roleKeys.includes("HOD")) {
+    role = "HOD";
+  } else if (roleKeys.includes("ACCOUNTANT")) {
+    role = "ACCOUNTANT";
+  } else if (roleKeys.includes("PLACEMENT_OFFICER")) {
+    role = "PLACEMENT_OFFICER";
+  } else if (roleKeys.includes("TEACHER")) {
+    role = "TEACHER";
+  } else if (roleKeys.length > 0) {
+    role = mapBackendRole(roleKeys[0]);
+  }
   const fullName = `${raw.firstName || ""} ${raw.lastName || ""}`.trim() || raw.loginId;
 
   return {

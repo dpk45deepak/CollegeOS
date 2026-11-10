@@ -6,7 +6,7 @@ It tracks every backend module, controller, and endpoint against frontend pages,
 ## Summary Statistics
 - **Total Backend Modules:** 26
 - **Total Backend Controllers:** 28
-- **Total Backend Endpoints:** 192
+- **Total Backend Endpoints:** 193
 - **Prisma Database Models:** 63
 
 ## Integration Status Classifications
@@ -199,6 +199,7 @@ It tracks every backend module, controller, and endpoint against frontend pages,
 | teachers | RequirePermissions | `/subject-offerings` | `POST` | /teacher/dashboard, /admin/users | teachersApi, useTeachers* | CREATE | PARTIALLY_INTEGRATED | NOT_TESTED |
 | teachers | RequirePermissions | `/subject-offerings/:id/enrollments` | `POST` | /teacher/dashboard, /admin/users | teachersApi, useTeachers* | CREATE | PARTIALLY_INTEGRATED | NOT_TESTED |
 | teachers | RequirePermissions | `/subject-offerings/:id/students` | `GET` | /teacher/dashboard, /admin/users | teachersApi, useTeachers* | READ | PARTIALLY_INTEGRATED | NOT_TESTED |
+| teachers | RequirePermissions | `/leave-requests` | `GET` | /teacher/dashboard, /admin/users | teachersApi, useTeachers* | READ | PARTIALLY_INTEGRATED | NOT_TESTED |
 | teachers | RequirePermissions | `/leave-requests` | `POST` | /teacher/dashboard, /admin/users | teachersApi, useTeachers* | CREATE | PARTIALLY_INTEGRATED | NOT_TESTED |
 | teachers | RequirePermissions | `/leave-requests/:id/approve` | `POST` | /teacher/dashboard, /admin/users | teachersApi, useTeachers* | CREATE | PARTIALLY_INTEGRATED | NOT_TESTED |
 | teachers | RequirePermissions | `/leave-requests/:id/reject` | `POST` | /teacher/dashboard, /admin/users | teachersApi, useTeachers* | CREATE | PARTIALLY_INTEGRATED | NOT_TESTED |

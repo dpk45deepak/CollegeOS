@@ -61,6 +61,7 @@ export class ReviewCorrectionDto {
 
 export class CorrectionListQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: CorrectionStatus }) @IsOptional() @IsEnum(CorrectionStatus) status?: CorrectionStatus;
+  @ApiPropertyOptional() @IsOptional() @IsString() studentId?: string;
 }
 
 export class AttendanceQueryDto extends PaginationQueryDto {

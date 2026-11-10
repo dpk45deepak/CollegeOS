@@ -266,7 +266,7 @@ export const studentApi = {
         };
       });
 
-      const calculatedGpa = totalCredits > 0 ? totalCreditPoints / totalCredits : 8.5;
+      const calculatedGpa = totalCredits > 0 ? totalCreditPoints / totalCredits : 0;
 
       return {
         semester: raw[0]?.exam?.subjectOffering?.semester?.number || 6,
@@ -506,6 +506,7 @@ export const studentApi = {
     category: Complaint["category"];
     subject: string;
     description: string;
+    priority?: string;
   }) => {
     return apiClient<Complaint>(
       "/complaints",
@@ -515,6 +516,7 @@ export const studentApi = {
           subject: data.subject,
           description: data.description,
           category: data.category?.toUpperCase() || "ACADEMIC",
+          priority: data.priority?.toUpperCase() || "MEDIUM",
         }),
       }
     );

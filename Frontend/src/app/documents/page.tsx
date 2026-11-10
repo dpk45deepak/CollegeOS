@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 export default function DocumentsPage() {
   const { user } = useAuthStore();
@@ -86,12 +87,8 @@ export default function DocumentsPage() {
         clause: primaryCite?.snippet ? `Excerpt: "${primaryCite.snippet.slice(0, 100)}..."` : "Verified Institutional Record",
       });
     } catch {
-      setRagAnswer({
-        answer: "The statutory minimum attendance requirement is strictly 75.0% in every individual course according to the Academic Regulations Ordinance. Falling below 75% results in automatic exam debarment.",
-        source: "Academic Regulations & Evaluation Ordinance",
-        page: 12,
-        clause: "Clause 7.2 — Attendance & Debarment Protocol",
-      });
+      toast.error("Failed to query knowledge base. The AI assistant service may be unreachable or indexing documents.");
+      setRagAnswer(null);
     } finally {
       setIsAskingRAG(false);
     }
@@ -116,7 +113,7 @@ export default function DocumentsPage() {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch {
-      alert(`Official verified document for ${doc?.title || "document"} queued for download.`);
+      toast.error(`Failed to download official document for ${doc?.title || "document"}.`);
     } finally {
       setDownloadingDocId(null);
     }

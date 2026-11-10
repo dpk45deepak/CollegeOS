@@ -12,6 +12,8 @@ import {
   User,
   Sparkles,
   Search,
+  ExternalLink,
+  Users,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,8 +21,11 @@ import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
+import { toast } from "sonner";
 
 export default function TeacherAssignmentsPage() {
+  const queryClient = useQueryClient();
+
   const { data: pendingAssignments, isLoading, error, refetch } = useQuery({
     queryKey: ["teacher_pending_assignments"],
     queryFn: () => teacherApi.getPendingAssignmentsToGrade(),
@@ -33,28 +38,52 @@ export default function TeacherAssignmentsPage() {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isGradeOpen, setIsGradeOpen] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<{
+    id: string;
+    title: string;
+    subject: string;
+  } | null>(null);
+
+  const {
+    data: submissions,
+    isLoading: submissionsLoading,
+    refetch: refetchSubmissions,
+  } = useQuery({
+    queryKey: ["assignment_submissions", selectedAssignment?.id],
+    queryFn: () =>
+      selectedAssignment
+        ? teacherApi.getAssignmentSubmissions(selectedAssignment.id)
+        : Promise.resolve([]),
+    enabled: !!selectedAssignment,
+  });
+
   const [activeSubmission, setActiveSubmission] = useState<{
     id: string;
     studentName: string;
     roll: string;
     title: string;
     submittedAt: string;
+    submissionText?: string;
   } | null>(null);
 
-  const [marks, setMarks] = useState("28");
+  const [marks, setMarks] = useState("25");
   const [feedback, setFeedback] = useState("");
   const [title, setTitle] = useState("");
-  const [subject, setSubject] = useState(classes?.[0]?.subjectCode || "Course");
+  const [subject, setSubject] = useState(classes?.[0]?.id || "");
   const [deadline, setDeadline] = useState("");
   const [maxMarks, setMaxMarks] = useState("30");
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
-  const totalPending = pendingAssignments?.reduce((acc, a) => acc + (a.pendingCount || 0), 0) || 0;
+  const totalPending =
+    pendingAssignments?.reduce((acc, a) => acc + (a.pendingCount || 0), 0) || 0;
 
   const createMutation = useMutation({
-    mutationFn: (data: { subjectOfferingId: string; title: string; dueAt: string; maxMarks: number }) =>
-      teacherApi.createAssignment(data),
+    mutationFn: (data: {
+      subjectOfferingId: string;
+      title: string;
+      dueAt: string;
+      maxMarks: number;
+    }) => teacherApi.createAssignment(data),
     onSuccess: () => {
       setActionSuccess("Assignment published successfully to student portal!");
       setIsCreateOpen(false);
@@ -63,27 +92,62 @@ export default function TeacherAssignmentsPage() {
       queryClient.invalidateQueries({ queryKey: ["teacher_pending_assignments"] });
       setTimeout(() => setActionSuccess(null), 3000);
     },
-  });
-
-  const gradeMutation = useMutation({
-    mutationFn: ({ subId, marks, feedback }: { subId: string; marks: number; feedback: string }) =>
-      teacherApi.gradeSubmission(subId, { marks, feedback }),
-    onSuccess: () => {
-      setActionSuccess(`Evaluation saved for ${activeSubmission?.studentName || "student"}.`);
-      setIsGradeOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["teacher_pending_assignments"] });
-      setTimeout(() => setActionSuccess(null), 3000);
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to create assignment");
     },
   });
 
-  const handleGrade = (sub: {
-    id: string;
-    studentName: string;
-    roll: string;
-    title: string;
-    submittedAt: string;
-  }) => {
-    setActiveSubmission(sub);
+  const gradeMutation = useMutation({
+    mutationFn: ({
+      subId,
+      marks,
+      feedback,
+    }: {
+      subId: string;
+      marks: number;
+      feedback: string;
+    }) => teacherApi.gradeSubmission(subId, { marks, feedback }),
+    onSuccess: () => {
+      setActionSuccess(
+        `Evaluation saved for ${activeSubmission?.studentName || "student"}.`
+      );
+      setIsGradeOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["teacher_pending_assignments"] });
+      if (selectedAssignment) {
+        queryClient.invalidateQueries({
+          queryKey: ["assignment_submissions", selectedAssignment.id],
+        });
+      }
+      setTimeout(() => setActionSuccess(null), 3000);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to submit grade");
+    },
+  });
+
+  const handleOpenSubmissions = (a: { id: string; title: string; subject: string }) => {
+    setSelectedAssignment(a);
+  };
+
+  const handleGradeSubmission = (sub: any) => {
+    const studentUser = sub.student?.user;
+    const name = studentUser
+      ? `${studentUser.firstName || ""} ${studentUser.lastName || ""}`.trim()
+      : sub.student?.name || "Student";
+    const roll = sub.student?.rollNumber || "ID";
+
+    setActiveSubmission({
+      id: sub.id,
+      studentName: name,
+      roll,
+      title: selectedAssignment?.title || "Assignment Submission",
+      submittedAt: sub.submittedAt
+        ? new Date(sub.submittedAt).toLocaleDateString()
+        : "Submitted",
+      submissionText: sub.text,
+    });
+    setMarks(sub.marks != null ? String(sub.marks) : "25");
+    setFeedback(sub.feedback || "Evaluated by course faculty.");
     setIsGradeOpen(true);
   };
 
@@ -100,7 +164,10 @@ export default function TeacherAssignmentsPage() {
   const handlePublishAssignment = (e: React.FormEvent) => {
     e.preventDefault();
     const offeringId = subject || classes?.[0]?.id;
-    if (!offeringId || !title || !deadline) return;
+    if (!offeringId || !title || !deadline) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
 
     createMutation.mutate({
       subjectOfferingId: offeringId,
@@ -136,7 +203,7 @@ export default function TeacherAssignmentsPage() {
             Course Deliverables & Evaluation Queue
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Create lab assignments, evaluate submissions, and publish rubric scores.
+            Create lab assignments, evaluate student submissions, and record rubric scores.
           </p>
         </div>
 
@@ -156,85 +223,173 @@ export default function TeacherAssignmentsPage() {
         </div>
       )}
 
-      {/* Submissions Queue Table */}
+      {/* Assignments Table */}
       <Card>
         <CardHeader className="p-4 pb-2 border-b border-border">
           <CardTitle className="text-sm font-bold flex items-center justify-between">
-            <span>Pending Evaluation Queue</span>
+            <span>Course Assignments</span>
             <span className="text-xs font-normal text-muted-foreground">
-              {totalPending} submission{totalPending === 1 ? "" : "s"} awaiting review
+              {totalPending} total submission{totalPending === 1 ? "" : "s"} awaiting review
             </span>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
-          {isLoading ? (
-            <div className="p-6 space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : (
-            <table className="w-full text-xs text-left">
-              <thead className="bg-muted/50 text-muted-foreground uppercase text-[10px] font-semibold border-b border-border">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-muted/50 text-muted-foreground uppercase text-[10px] font-semibold border-b border-border">
+              <tr>
+                <th className="p-3 pl-4">Course</th>
+                <th className="p-3">Deliverable Title</th>
+                <th className="p-3">Pending Submissions</th>
+                <th className="p-3">Status</th>
+                <th className="p-3 pr-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {!pendingAssignments || pendingAssignments.length === 0 ? (
                 <tr>
-                  <th className="p-3 pl-4">Course</th>
-                  <th className="p-3">Deliverable Title</th>
-                  <th className="p-3">Pending Submissions</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 pr-4 text-right">Action</th>
+                  <td colSpan={5} className="p-8 text-center text-xs text-muted-foreground">
+                    No deliverables found for your course offerings. Create a new assignment to begin.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {(!pendingAssignments || pendingAssignments.length === 0) ? (
-                  <tr>
-                    <td colSpan={5} className="p-8 text-center text-xs text-muted-foreground">
-                      No deliverables currently pending grading. All student submissions evaluated.
+              ) : (
+                pendingAssignments.map((sub) => (
+                  <tr key={sub.id} className="hover:bg-muted/20">
+                    <td className="p-3 pl-4">
+                      <div className="font-semibold text-foreground">{sub.subject}</div>
+                    </td>
+                    <td className="p-3 font-medium text-foreground">{sub.title}</td>
+                    <td className="p-3 text-muted-foreground font-mono">
+                      {sub.pendingCount} student{sub.pendingCount === 1 ? "" : "s"}
+                    </td>
+                    <td className="p-3">
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                          sub.pendingCount === 0
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                            : "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                        }`}
+                      >
+                        {sub.pendingCount === 0 ? "Complete" : "Needs Review"}
+                      </span>
+                    </td>
+                    <td className="p-3 pr-4 text-right">
+                      <Button
+                        size="sm"
+                        variant={selectedAssignment?.id === sub.id ? "default" : "outline"}
+                        onClick={() => handleOpenSubmissions(sub)}
+                        className="text-xs h-8 gap-1"
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                        {selectedAssignment?.id === sub.id ? "Viewing Roster" : "View Submissions"}
+                      </Button>
                     </td>
                   </tr>
-                ) : (
-                  pendingAssignments.map((sub) => (
-                    <tr key={sub.id} className="hover:bg-muted/20">
-                      <td className="p-3 pl-4">
-                        <div className="font-semibold text-foreground">{sub.subject}</div>
-                      </td>
-                      <td className="p-3 font-medium text-foreground">{sub.title}</td>
-                      <td className="p-3 text-muted-foreground font-mono">{sub.pendingCount} students</td>
-                      <td className="p-3">
-                        <span
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            sub.pendingCount === 0
-                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                              : "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                          }`}
-                        >
-                          {sub.pendingCount === 0 ? "Complete" : "Needs Review"}
-                        </span>
-                      </td>
-                      <td className="p-3 pr-4 text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            handleGrade({
-                              id: sub.id,
-                              studentName: "Student",
-                              roll: "Roster",
-                              title: sub.title,
-                              submittedAt: "Recent",
-                            })
-                          }
-                          className="text-xs h-8"
-                        >
-                          Evaluate Batch
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
+                ))
+              )}
+            </tbody>
+          </table>
         </CardContent>
       </Card>
+
+      {/* Selected Assignment Submissions Drawer / Section */}
+      {selectedAssignment && (
+        <Card className="border-brand-200 dark:border-brand-900 shadow-sm">
+          <CardHeader className="p-4 pb-2 border-b border-border flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
+                <FileText className="h-4 w-4 text-brand-600" />
+                <span>Submissions: {selectedAssignment.title}</span>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Course: {selectedAssignment.subject} • Click Grade on any student submission to evaluate and publish marks.
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedAssignment(null)}
+              className="text-xs h-7"
+            >
+              Close Roster
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            {submissionsLoading ? (
+              <div className="p-6 space-y-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+              </div>
+            ) : !submissions || submissions.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground">
+                No student submissions uploaded for this assignment yet.
+              </div>
+            ) : (
+              <table className="w-full text-xs text-left">
+                <thead className="bg-muted/50 text-muted-foreground uppercase text-[10px] font-semibold border-b border-border">
+                  <tr>
+                    <th className="p-3 pl-4">Roll Number</th>
+                    <th className="p-3">Student Name</th>
+                    <th className="p-3">Submission Date</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Marks</th>
+                    <th className="p-3 pr-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {submissions.map((sub: any) => {
+                    const studentUser = sub.student?.user;
+                    const studentName = studentUser
+                      ? `${studentUser.firstName || ""} ${studentUser.lastName || ""}`.trim()
+                      : sub.student?.name || "Student";
+                    const roll = sub.student?.rollNumber || "ID";
+                    const isGraded = sub.status === "GRADED" || sub.marks != null;
+
+                    return (
+                      <tr key={sub.id} className="hover:bg-muted/20">
+                        <td className="p-3 pl-4 font-mono font-bold text-foreground">
+                          {roll}
+                        </td>
+                        <td className="p-3 font-medium text-foreground">{studentName}</td>
+                        <td className="p-3 text-muted-foreground">
+                          {sub.submittedAt
+                            ? new Date(sub.submittedAt).toLocaleDateString()
+                            : "Submitted"}
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              isGraded
+                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                                : sub.status === "LATE"
+                                ? "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                : "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                            }`}
+                          >
+                            {sub.status || (isGraded ? "GRADED" : "SUBMITTED")}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono font-semibold">
+                          {sub.marks != null ? `${sub.marks}` : "—"}
+                        </td>
+                        <td className="p-3 pr-4 text-right">
+                          <Button
+                            size="sm"
+                            variant={isGraded ? "outline" : "default"}
+                            onClick={() => handleGradeSubmission(sub)}
+                            className="text-xs h-7 px-2.5"
+                          >
+                            {isGraded ? "Update Grade" : "Grade"}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Create Assignment Modal Dialog */}
       <Dialog
@@ -243,10 +398,7 @@ export default function TeacherAssignmentsPage() {
         title="Publish Course Assignment"
         description="Configure rubric, upload question specs, and set submission deadline."
       >
-        <form
-          onSubmit={handlePublishAssignment}
-          className="space-y-4 text-xs"
-        >
+        <form onSubmit={handlePublishAssignment} className="space-y-4 text-xs">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="font-semibold text-foreground block mb-1">Subject Offering</label>
@@ -298,7 +450,7 @@ export default function TeacherAssignmentsPage() {
           <div className="border border-dashed border-border rounded-lg p-4 text-center bg-muted/20">
             <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-1" />
             <span className="font-semibold text-foreground">Attach Problem Specification (PDF)</span>
-            <input type="file" className="mt-2 text-[10px]" />
+            <input type="file" className="mt-2 text-[10px] block mx-auto" />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
@@ -320,15 +472,22 @@ export default function TeacherAssignmentsPage() {
         description={activeSubmission?.title}
       >
         <form onSubmit={handleSaveGrade} className="space-y-4 text-xs">
-          <div className="p-3 rounded-lg bg-muted/40 border border-border flex items-center justify-between">
-            <span>Roll Number: <strong>{activeSubmission?.roll}</strong></span>
-            <span className="text-brand-600 font-semibold cursor-pointer hover:underline">
-              View Submitted PDF
-            </span>
+          <div className="p-3 rounded-lg bg-muted/40 border border-border flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span>Roll Number: <strong>{activeSubmission?.roll}</strong></span>
+              <span className="text-muted-foreground">
+                Submitted: {activeSubmission?.submittedAt}
+              </span>
+            </div>
+            {activeSubmission?.submissionText && (
+              <p className="text-[11px] text-muted-foreground italic mt-1 border-t border-border pt-1">
+                &ldquo;{activeSubmission.submissionText}&rdquo;
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
-            <label className="font-semibold text-foreground block">Marks Awarded (out of 30)</label>
+            <label className="font-semibold text-foreground block">Marks Awarded</label>
             <Input
               type="number"
               value={marks}

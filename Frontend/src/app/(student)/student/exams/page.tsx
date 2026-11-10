@@ -62,8 +62,8 @@ export default function StudentExamsPage() {
   <div class="grid">
     <div><strong>Student Name:</strong> ${user?.name || "Verified Student"}</div>
     <div><strong>Roll Number:</strong> ${user?.rollNumber || "SDIET2026"}</div>
-    <div><strong>Program / Dept:</strong> Bachelor of Technology (CSE)</div>
-    <div><strong>Academic Session:</strong> 2025-2026 (Semester 6)</div>
+    <div><strong>Program / Dept:</strong> ${(user as any)?.department || (user as any)?.program || "Bachelor of Technology (CSE)"}</div>
+    <div><strong>Academic Session:</strong> ${(user as any)?.academicSession || "Current Academic Session (Semester Final)"}</div>
   </div>
   <table>
     <thead>

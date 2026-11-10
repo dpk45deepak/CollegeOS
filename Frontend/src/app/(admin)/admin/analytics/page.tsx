@@ -22,6 +22,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Filter, Download, ShieldCheck, Activity, RefreshCw, AlertTriangle, Layers, Clock, CheckCircle2 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export default function AdminAnalyticsPage() {
   const { data: analytics, isLoading, error, refetch } = useQuery({
@@ -96,7 +97,7 @@ export default function AdminAnalyticsPage() {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch {
-      alert("Executive report exported and archived to institutional audit records.");
+      toast.error("Failed to export analytics report. Please verify backend reporting service status.");
     } finally {
       setExporting(false);
     }

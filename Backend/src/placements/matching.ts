@@ -8,10 +8,12 @@ export interface MatchStudent {
   departmentId: string;
   skills: string[];
   evidence: { title: string; description?: string | null; tags: string[] }[]; // projects + certifications
+  backlogs?: number | null;
 }
 export interface MatchJob {
   requiredSkills: string[];
   minCgpa: number | null;
+  maxBacklogs?: number | null;
   allowedDepartments: string[]; // empty = all
 }
 export interface MatchOutcome {
@@ -46,6 +48,8 @@ export function computeMatch(student: MatchStudent, job: MatchJob): MatchOutcome
   const reasons: string[] = [];
   if (job.minCgpa !== null && (student.cgpa === null || student.cgpa < job.minCgpa))
     reasons.push(`CGPA below the required ${job.minCgpa}`);
+  if (job.maxBacklogs !== undefined && job.maxBacklogs !== null && (student.backlogs ?? 0) > job.maxBacklogs)
+    reasons.push(`Active backlogs (${student.backlogs ?? 0}) exceed maximum allowed (${job.maxBacklogs})`);
   if (job.allowedDepartments.length && !job.allowedDepartments.includes(student.departmentId))
     reasons.push('Department not eligible for this role');
 

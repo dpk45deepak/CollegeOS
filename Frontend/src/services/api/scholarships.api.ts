@@ -1,6 +1,14 @@
 import { apiClient } from "@/lib/api/client";
 
-export type ScholarshipType = "MERIT" | "NEED_BASED" | "SPORTS" | "MINORITY" | "GOVERNMENT" | "INSTITUTIONAL";
+export type ScholarshipType =
+  | "GOVERNMENT"
+  | "COLLEGE"
+  | "PRIVATE"
+  | "MERIT"
+  | "NEED_BASED"
+  | "SPORTS"
+  | "MINORITY"
+  | "INSTITUTIONAL";
 
 export interface ScholarshipItem {
   id: string;

@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
+import { storageApi } from "@/services/api/storage.api";
 import { toast } from "sonner";
 
 export default function TeacherAssignmentsPage() {
@@ -83,6 +84,7 @@ export default function TeacherAssignmentsPage() {
       title: string;
       dueAt: string;
       maxMarks: number;
+      attachmentKeys?: string[];
     }) => teacherApi.createAssignment(data),
     onSuccess: () => {
       setActionSuccess("Assignment published successfully to student portal!");
@@ -161,7 +163,9 @@ export default function TeacherAssignmentsPage() {
     });
   };
 
-  const handlePublishAssignment = (e: React.FormEvent) => {
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+
+  const handlePublishAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     const offeringId = subject || classes?.[0]?.id;
     if (!offeringId || !title || !deadline) {
@@ -169,11 +173,23 @@ export default function TeacherAssignmentsPage() {
       return;
     }
 
+    let attachmentKeys: string[] | undefined;
+    if (attachedFile) {
+      try {
+        const uploadRes = await storageApi.uploadAttachment(attachedFile);
+        attachmentKeys = [uploadRes.key];
+      } catch (err) {
+        toast.error("Failed to upload assignment attachment");
+        return;
+      }
+    }
+
     createMutation.mutate({
       subjectOfferingId: offeringId,
       title,
       dueAt: deadline,
       maxMarks: Number(maxMarks) || 30,
+      attachmentKeys,
     });
   };
 
@@ -450,7 +466,14 @@ export default function TeacherAssignmentsPage() {
           <div className="border border-dashed border-border rounded-lg p-4 text-center bg-muted/20">
             <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-1" />
             <span className="font-semibold text-foreground">Attach Problem Specification (PDF)</span>
-            <input type="file" className="mt-2 text-[10px] block mx-auto" />
+            {attachedFile ? (
+              <div className="text-xs text-brand-600 font-medium mt-1">{attachedFile.name}</div>
+            ) : null}
+            <input
+              type="file"
+              onChange={(e) => setAttachedFile(e.target.files?.[0] || null)}
+              className="mt-2 text-[10px] block mx-auto"
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">

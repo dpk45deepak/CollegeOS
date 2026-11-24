@@ -111,12 +111,23 @@ export class AssignmentsService {
         ...toSkipTake(q),
         include: {
           _count: { select: { submissions: true } },
+          submissions: {
+            where: { status: { in: ['SUBMITTED', 'LATE'] } },
+            select: { id: true },
+          },
           subjectOffering: { select: { subject: { select: { name: true } } } },
         },
       }),
       this.prisma.assignment.count({ where }),
     ]);
-    return paginate(items, total, q);
+    return paginate(
+      items.map(({ submissions, ...item }) => ({
+        ...item,
+        pendingCount: submissions.length,
+      })),
+      total,
+      q,
+    );
   }
 
   async submit(p: Principal, c: string, assignmentId: string, dto: D.SubmitDto) {
@@ -144,7 +155,7 @@ export class AssignmentsService {
       },
       update: {
         text: dto.text,
-        fileKeys: dto.fileKeys ?? [],
+        fileKeys: dto.fileKeys !== undefined ? dto.fileKeys : (existing?.fileKeys ?? []),
         submittedAt: new Date(),
         status: late ? 'LATE' : 'SUBMITTED',
       },

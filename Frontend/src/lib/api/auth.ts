@@ -44,6 +44,14 @@ export function mapBackendRole(roleKey?: string): UserRole {
       return "PLACEMENT_OFFICER";
     case "ACCOUNTANT":
       return "ACCOUNTANT";
+    case "EXAM_CONTROLLER":
+      return "EXAM_CONTROLLER";
+    case "PARENT":
+      return "PARENT";
+    case "SUPPORT_STAFF":
+      return "SUPPORT_STAFF";
+    case "LIBRARY_STAFF":
+      return "LIBRARY_STAFF";
     case "STUDENT":
     default:
       return "STUDENT";
@@ -57,12 +65,20 @@ export function normalizeUserProfile(raw: BackendUserProfile): User {
     role = "ADMIN";
   } else if (roleKeys.includes("HOD")) {
     role = "HOD";
+  } else if (roleKeys.includes("EXAM_CONTROLLER")) {
+    role = "EXAM_CONTROLLER";
   } else if (roleKeys.includes("ACCOUNTANT")) {
     role = "ACCOUNTANT";
   } else if (roleKeys.includes("PLACEMENT_OFFICER")) {
     role = "PLACEMENT_OFFICER";
   } else if (roleKeys.includes("TEACHER")) {
     role = "TEACHER";
+  } else if (roleKeys.includes("PARENT")) {
+    role = "PARENT";
+  } else if (roleKeys.includes("SUPPORT_STAFF")) {
+    role = "SUPPORT_STAFF";
+  } else if (roleKeys.includes("LIBRARY_STAFF")) {
+    role = "LIBRARY_STAFF";
   } else if (roleKeys.length > 0) {
     role = mapBackendRole(roleKeys[0]);
   }
@@ -73,6 +89,7 @@ export function normalizeUserProfile(raw: BackendUserProfile): User {
     name: fullName,
     email: raw.email,
     role,
+    roles: roleKeys,
     rollNumber: raw.loginId,
     phone: raw.phone || undefined,
   };

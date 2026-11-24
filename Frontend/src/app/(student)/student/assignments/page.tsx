@@ -24,6 +24,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { formatDate } from "@/lib/utils";
+import { storageApi } from "@/services/api/storage.api";
 
 export default function StudentAssignmentsPage() {
   const { user } = useAuthStore();
@@ -37,21 +38,32 @@ export default function StudentAssignmentsPage() {
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
 
   const submitMutation = useMutation({
-    mutationFn: (asgId: string) =>
-      studentApi.submitAssignment(asgId, {
-        fileName: fileName || `Solution_${user?.rollNumber || "Student"}.pdf`,
-        size: "2.4 MB",
-      }),
+    mutationFn: async (asgId: string) => {
+      let key: string | undefined;
+      let sizeStr = "1 MB";
+      if (selectedFile) {
+        const uploadRes = await storageApi.uploadAttachment(selectedFile);
+        key = uploadRes.key;
+        sizeStr = `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`;
+      }
+      return studentApi.submitAssignment(asgId, {
+        fileName: selectedFile?.name || fileName || `Solution_${user?.rollNumber || "Student"}.pdf`,
+        size: sizeStr,
+        key,
+      });
+    },
     onSuccess: () => {
       setSubmissionSuccess(true);
       setTimeout(() => {
         setIsSubmitModalOpen(false);
         setSubmissionSuccess(false);
         setFileName("");
+        setSelectedFile(null);
         queryClient.invalidateQueries({ queryKey: ["student_assignments"] });
       }, 1500);
     },
@@ -244,7 +256,13 @@ export default function StudentAssignmentsPage() {
                 </p>
                 <input
                   type="file"
-                  onChange={(e) => setFileName(e.target.files?.[0]?.name || "")}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      setSelectedFile(f);
+                      setFileName(f.name);
+                    }
+                  }}
                   className="mt-3 text-xs text-muted-foreground file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-brand-50 file:text-brand-700"
                 />
               </div>

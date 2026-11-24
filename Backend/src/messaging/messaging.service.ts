@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AccessService } from '../access/access.service';
 import { isAdmin } from '../access/access.service';
+import { ROLE } from '../auth/permissions';
 import { PaginationQueryDto, paginate, toSkipTake } from '../common/dto/pagination.dto';
 import { NOTIFY } from '../common/events';
 import { Principal } from '../common/types/principal';
@@ -63,7 +64,11 @@ export class MessagingService {
   private async assertRelationship(
     p: Principal,
     c: string,
-    other: { student: { id: string } | null; teacher: { id: string; departmentId: string } | null },
+    other: {
+      userRoles: { role: { key: string }; departmentId: string | null }[];
+      student: { id: string } | null;
+      teacher: { id: string; departmentId: string } | null;
+    },
   ) {
     if (isAdmin(p)) return;
     const mine = kindOf(p.roleKeys);
@@ -71,8 +76,10 @@ export class MessagingService {
       const ok = await this.prisma.enrollment.count({
         where: { studentId: p.studentId, subjectOffering: { teacherId: other.teacher.id } },
       });
-      const hod = p.departmentIds.includes(other.teacher.departmentId);
-      if (!ok && !hod)
+      const isHod = other.userRoles.some(
+        (ur) => ur.role.key === ROLE.HOD && p.departmentIds.includes(ur.departmentId || other.teacher!.departmentId),
+      );
+      if (!ok && !isHod)
         throw new ForbiddenException({
           message: 'You can only message teachers of your subjects or your HOD',
           errorCode: 'MESSAGE_NOT_ALLOWED',

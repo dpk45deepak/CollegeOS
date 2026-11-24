@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { LeaveStatus, Prisma } from '@prisma/client';
-import { AccessService } from '../access/access.service';
+import { AccessService, isAdmin } from '../access/access.service';
 import { OwnershipService } from '../access/ownership.service';
 import { AuditService } from '../audit/audit.service';
 import { ROLE } from '../auth/permissions';
@@ -71,6 +71,9 @@ export class TeachersService {
       entity: 'Teacher',
       entityId: teacher.id,
     });
+    if (!dto.initialPassword) {
+      await this.users.sendVerification(teacher.userId);
+    }
     return teacher;
   }
 
@@ -219,6 +222,8 @@ export class TeachersService {
     if (status) where.status = status;
     if (p.teacherId && !p.permissions.includes('LEAVE_APPROVE')) {
       where.teacherId = p.teacherId;
+    } else if (!isAdmin(p) && p.roleKeys.includes(ROLE.HOD) && p.departmentIds.length) {
+      where.teacher = { departmentId: { in: p.departmentIds } };
     }
     return this.prisma.leaveRequest.findMany({
       where,

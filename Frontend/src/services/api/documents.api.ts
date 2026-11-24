@@ -1,19 +1,27 @@
 import { apiClient } from "@/lib/api/client";
 
 export type DocumentType =
-  | "SYLLABUS"
-  | "POLICY"
-  | "CURRICULUM"
+  | "REGULATION"
+  | "ATTENDANCE_POLICY"
+  | "EXAM_RULES"
+  | "SCHOLARSHIP"
+  | "FEE_POLICY"
+  | "HOSTEL_RULES"
+  | "PLACEMENT_POLICY"
+  | "HANDBOOK"
   | "CIRCULAR"
-  | "TIMETABLE"
-  | "PREVIOUS_EXAM"
-  | "ACADEMIC_CALENDAR"
+  | "NOTICE"
+  | "DEPARTMENT"
+  | "SYLLABUS"
+  | "TIMETABLE_POLICY"
+  | "STUDENT_RECORD"
   | "OTHER";
 
 export type DocumentVisibility =
   | "PUBLIC"
-  | "STUDENT_ONLY"
-  | "FACULTY_ONLY"
+  | "STUDENTS"
+  | "TEACHERS"
+  | "STAFF"
   | "DEPARTMENT"
   | "ROLE_RESTRICTED"
   | "ADMIN_ONLY";
@@ -58,7 +66,7 @@ export const documentsApi = {
     if (metadata.semesterNumber) formData.append("semesterNumber", String(metadata.semesterNumber));
     if (metadata.subjectId) formData.append("subjectId", metadata.subjectId);
     if (metadata.allowedRoleKeys) {
-      metadata.allowedRoleKeys.forEach((k) => formData.append("allowedRoleKeys[]", k));
+      metadata.allowedRoleKeys.forEach((k) => formData.append("allowedRoleKeys", k));
     }
 
     return apiClient<DocumentItem>("/documents", {

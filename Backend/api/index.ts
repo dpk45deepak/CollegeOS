@@ -23,7 +23,14 @@ async function bootstrap() {
 
         app.set('trust proxy', 1);
         app.use(helmet());
-        app.use(express.json({ limit: '1mb' }));
+        app.use(
+            express.json({
+                limit: '1mb',
+                verify: (req: any, _res, buf) => {
+                    req.rawBody = buf;
+                },
+            }),
+        );
         app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
         app.enableCors({

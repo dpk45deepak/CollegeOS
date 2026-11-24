@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "@/lib/api/admin";
 import {
@@ -35,6 +35,14 @@ export default function AdminAnalyticsPage() {
   const [exporting, setExporting] = useState(false);
   const [auditEntityFilter, setAuditEntityFilter] = useState("ALL");
   const [retryingQueue, setRetryingQueue] = useState<string | null>(null);
+
+  const filteredAttendanceByDept = useMemo(() => {
+    if (!analytics?.attendanceByDept) return [];
+    if (deptFilter === "ALL") return analytics.attendanceByDept;
+    return analytics.attendanceByDept.filter((d: any) =>
+      d.department?.toLowerCase().includes(deptFilter.toLowerCase())
+    );
+  }, [analytics?.attendanceByDept, deptFilter]);
 
   // System Audit Trail Query
   const { data: auditData, isLoading: auditLoading, refetch: refetchAudit } = useQuery({
@@ -197,13 +205,13 @@ export default function AdminAnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5 pt-0 h-64">
-            {analytics.attendanceByDept.length === 0 ? (
+            {filteredAttendanceByDept.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
                 No departmental attendance sessions logged for the active period.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics.attendanceByDept}>
+                <BarChart data={filteredAttendanceByDept}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis dataKey="department" textAnchor="end" tick={{ fontSize: 11 }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />

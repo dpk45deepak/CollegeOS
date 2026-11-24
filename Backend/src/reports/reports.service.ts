@@ -3,7 +3,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
-import { AccessService } from '../access/access.service';
+import { AccessService, isAdmin } from '../access/access.service';
+import { ROLE } from '../auth/permissions';
 import { AttendanceAnalyticsService } from '../attendance/attendance-analytics.service';
 import { NOTIFY } from '../common/events';
 import { Principal } from '../common/types/principal';
@@ -56,11 +57,11 @@ export class ReportsService {
       case 'fees':
         return this.feeReport(p, c);
       case 'placements':
-        return this.placementReport(c);
+        return this.placementReport(p, c);
       case 'complaints':
-        return this.complaintReport(c);
+        return this.complaintReport(p, c);
       case 'scholarships':
-        return this.scholarshipReport(c);
+        return this.scholarshipReport(p, c);
     }
   }
 
@@ -176,9 +177,10 @@ export class ReportsService {
       ]),
     };
   }
-  private async placementReport(c: string): Promise<ReportData> {
+  private async placementReport(p: Principal, c: string): Promise<ReportData> {
+    const studentScope = this.access.studentWhere(p, c);
     const apps = await this.prisma.jobApplication.findMany({
-      where: { collegeId: c },
+      where: { collegeId: c, student: studentScope },
       include: {
         job: { select: { title: true, company: { select: { name: true } } } },
         student: { select: { rollNumber: true, cgpa: true, user: { select: { firstName: true, lastName: true } } } },
@@ -202,9 +204,13 @@ export class ReportsService {
       ]),
     };
   }
-  private async complaintReport(c: string): Promise<ReportData> {
+  private async complaintReport(p: Principal, c: string): Promise<ReportData> {
+    const where: Prisma.ComplaintWhereInput = { collegeId: c };
+    if (!isAdmin(p) && p.roleKeys.includes(ROLE.HOD) && p.departmentIds.length) {
+      where.assignedDepartmentId = { in: p.departmentIds };
+    }
     const rows = await this.prisma.complaint.findMany({
-      where: { collegeId: c },
+      where,
       orderBy: { createdAt: 'desc' },
       take: MAX_ROWS,
     });
@@ -236,10 +242,11 @@ export class ReportsService {
       ]),
     };
   }
-  private async scholarshipReport(c: string): Promise<ReportData> {
+  private async scholarshipReport(p: Principal, c: string): Promise<ReportData> {
+    const studentScope = this.access.studentWhere(p, c);
     const rows = await this.prisma.scholarship.findMany({
       where: { collegeId: c },
-      include: { applications: { select: { status: true } } },
+      include: { applications: { where: { student: studentScope }, select: { status: true } } },
     });
     const count = (s: { status: string }[], st: string[]) => s.filter((x) => st.includes(x.status)).length;
     return {

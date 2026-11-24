@@ -152,13 +152,25 @@ export default function StudentFeesPage() {
   });
 
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [initiatedPayment, setInitiatedPayment] = useState<any>(null);
 
-  const handleDownloadReceipt = (tx: any) => {
-    const receiptHtml = `<!DOCTYPE html>
+  const handleDownloadReceipt = async (tx: any) => {
+    if (tx.status !== "SUCCESS" && tx.status !== "PARTIALLY_REFUNDED") {
+      toast.error("Official e-receipt is available only after payment settlement is verified.");
+      return;
+    }
+    try {
+      const receipt = await studentApi.getReceipt(tx.id);
+      const receiptNo = receipt?.receiptNo || tx.receiptNo || "RCP-VERIFIED";
+      const feeName = receipt?.fee?.name || "Institutional Academic Fee";
+      const studentName = receipt?.student?.user
+        ? `${receipt.student.user.firstName} ${receipt.student.user.lastName}`
+        : "Student";
+      const rollNumber = receipt?.student?.rollNumber || "";
+      const receiptHtml = `<!DOCTYPE html>
 <html>
 <head>
-  <title>Fee Payment e-Receipt - ${tx.receiptNo}</title>
+  <title>Fee Payment e-Receipt - ${receiptNo}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #111; max-width: 600px; margin: auto; }
     .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 16px; margin-bottom: 24px; }
@@ -172,41 +184,46 @@ export default function StudentFeesPage() {
 </head>
 <body>
   <div class="header">
-    <div class="title">Satyug Darshan Institute of Engineering & Technology</div>
+    <div class="title">CollegeOS Bursar & Institutional Accounts</div>
     <div class="sub">Official Tuition & Academic Fee Payment e-Receipt</div>
   </div>
   <div class="box">
-    <div class="row"><span>Receipt Number:</span><strong>${tx.receiptNo}</strong></div>
-    <div class="row"><span>Transaction Date:</span><span>${formatDate(tx.date)}</span></div>
-    <div class="row"><span>Payment Method:</span><span>${tx.method}</span></div>
-    <div class="row"><span>Payment Status:</span><strong style="color:#10b981;">VERIFIED / SUCCESS</strong></div>
-    <div class="row total"><span>Amount Paid:</span><span>₹${Number(tx.amount || 0).toLocaleString("en-IN")}</span></div>
+    <div class="row"><span>Receipt Number:</span><strong>${receiptNo}</strong></div>
+    <div class="row"><span>Student Name:</span><span>${studentName} ${rollNumber ? `(${rollNumber})` : ''}</span></div>
+    <div class="row"><span>Fee Structure:</span><span>${feeName}</span></div>
+    <div class="row"><span>Transaction Date:</span><span>${formatDate(receipt?.paidAt || tx.date)}</span></div>
+    <div class="row"><span>Payment Gateway / Method:</span><span>${receipt?.gateway || tx.method}</span></div>
+    <div class="row"><span>Payment Status:</span><strong style="color:#10b981;">${receipt?.status || 'VERIFIED / SUCCESS'}</strong></div>
+    <div class="row total"><span>Amount Settled:</span><span>₹${Number(receipt?.amount || tx.amount || 0).toLocaleString("en-IN")}</span></div>
   </div>
-  <div style="font-size:11px;color:#888;text-align:center;">This is a computer-generated institutional receipt valid for official clearance.</div>
+  <div style="font-size:11px;color:#888;text-align:center;">This is an authentic computer-generated institutional receipt verified by the college bursar.</div>
 </body>
 </html>`;
-    const blob = new Blob([receiptHtml], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const win = window.open(url, "_blank");
-    if (!win) {
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Receipt_${tx.receiptNo}.html`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const blob = new Blob([receiptHtml], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank");
+      if (!win) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Receipt_${receiptNo}.html`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to download verified receipt");
     }
   };
 
   const payMutation = useMutation({
     mutationFn: (amount: number) => studentApi.payFee(amount, feeData?.id),
-    onSuccess: () => {
-      setPaymentSuccess(true);
-      setTimeout(() => {
-        setIsPayModalOpen(false);
-        setPaymentSuccess(false);
-        queryClient.invalidateQueries({ queryKey: ["student_fees"] });
-      }, 1500);
+    onSuccess: (data: any) => {
+      setInitiatedPayment(data);
+      toast.success("Payment order created. Complete settlement via checkout.");
+      queryClient.invalidateQueries({ queryKey: ["student_fees"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to initiate payment");
     },
   });
 
@@ -805,13 +822,33 @@ export default function StudentFeesPage() {
         description="Encrypted banking gateway simulation with zero saved sensitive card credentials."
       >
         <div className="space-y-4">
-          {paymentSuccess ? (
-            <div className="text-center py-6 space-y-2">
-              <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
-              <h4 className="text-sm font-bold">Payment Processed Successfully!</h4>
+          {initiatedPayment ? (
+            <div className="text-center py-6 space-y-3">
+              <ShieldCheck className="h-10 w-10 text-brand-500 mx-auto" />
+              <h4 className="text-sm font-bold">Payment Order Initiated</h4>
               <p className="text-xs text-muted-foreground">
-                Your receipt REC-2026-9812 has been generated and clearance synced with academics.
+                Gateway Reference: <code className="font-mono font-semibold">{initiatedPayment.gatewayRef || initiatedPayment.paymentId}</code>
               </p>
+              <p className="text-xs text-muted-foreground">
+                Payment has been initialized with the provider. Complete checkout to finalize. The fee ledger and receipt will update upon webhook settlement confirmation.
+              </p>
+              {initiatedPayment.checkoutUrl && (
+                <div className="pt-2">
+                  <a
+                    href={initiatedPayment.checkoutUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-lg bg-brand-600 text-white hover:bg-brand-700"
+                  >
+                    Proceed to Payment Checkout
+                  </a>
+                </div>
+              )}
+              <div className="pt-2">
+                <Button size="sm" variant="outline" onClick={() => { setIsPayModalOpen(false); setInitiatedPayment(null); }}>
+                  Close
+                </Button>
+              </div>
             </div>
           ) : (
             <>

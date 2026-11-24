@@ -29,20 +29,20 @@ export class TimetableController {
     description: 'Rejects with 409 TIMETABLE_CONFLICT listing section / teacher / room / availability conflicts.',
   })
   create(@CurrentUser() u: Principal, @Tenant() t: string, @Body() dto: D.CreateSlotDto) {
-    return this.svc.create(t, dto, u.userId);
+    return this.svc.create(u, t, dto);
   }
   @Post('check')
   @HttpCode(200)
   @RequirePermissions(P.TIMETABLE_MANAGE)
   @ApiOperation({ summary: 'Dry-run conflict check' })
-  check(@Tenant() t: string, @Body() dto: D.CreateSlotDto) {
-    return this.svc.check(t, dto);
+  check(@CurrentUser() u: Principal, @Tenant() t: string, @Body() dto: D.CreateSlotDto) {
+    return this.svc.check(u, t, dto);
   }
   @Delete('slots/:id')
   @HttpCode(204)
   @RequirePermissions(P.TIMETABLE_MANAGE)
   remove(@CurrentUser() u: Principal, @Tenant() t: string, @Param('id') id: string) {
-    return this.svc.remove(t, id, u.userId);
+    return this.svc.remove(u, t, id);
   }
 
   @Get('sections/:sectionId')
@@ -58,8 +58,8 @@ export class TimetableController {
 
   @Put('teachers/:teacherId/availability')
   @RequirePermissions(P.TIMETABLE_MANAGE)
-  availability(@Tenant() t: string, @Param('teacherId') id: string, @Body() dto: AvailabilityListDto) {
-    return this.svc.setAvailability(t, id, dto.windows);
+  availability(@CurrentUser() u: Principal, @Tenant() t: string, @Param('teacherId') id: string, @Body() dto: AvailabilityListDto) {
+    return this.svc.setAvailability(u, t, id, dto.windows);
   }
   @Get('rooms') @RequirePermissions(P.TIMETABLE_VIEW) rooms(@Tenant() t: string) {
     return this.svc.listRooms(t);

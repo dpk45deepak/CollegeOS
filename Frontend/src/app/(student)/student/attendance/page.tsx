@@ -43,7 +43,7 @@ export default function StudentAttendancePage() {
   const disputeMutation = useMutation({
     mutationFn: async (data: { subjectName: string; requestedStatus: string; reason: string }) => {
       return studentApi.createComplaint({
-        category: "Academic",
+        category: "ATTENDANCE",
         subject: `Attendance Dispute: ${data.subjectName} (${data.requestedStatus})`,
         description: `Official student attendance dispute for ${data.subjectName}. Requested status: ${data.requestedStatus}. Justification: ${data.reason}`,
       });

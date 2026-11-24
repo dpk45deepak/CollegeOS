@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, UserStatus } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
+import { OwnershipService } from '../access/ownership.service';
 import { AuthService } from '../auth/auth.service';
 import { AuditService } from '../audit/audit.service';
 import { PaginationQueryDto, paginate, toSkipTake } from '../common/dto/pagination.dto';
@@ -29,10 +30,18 @@ export class UsersService {
     private readonly auth: AuthService,
     private readonly audit: AuditService,
     private readonly principals: PrincipalService,
+    private readonly own: OwnershipService,
   ) {}
+
+  async sendVerification(userId: string) {
+    return this.auth.sendVerification(userId);
+  }
 
   /** Creates a user inside a tenant. Reused by student/teacher onboarding. */
   async create(collegeId: string, dto: CreateUserDto, actorId?: string, tx?: Prisma.TransactionClient) {
+    if (dto.departmentIds?.length) {
+      await this.own.assert('department', dto.departmentIds, collegeId);
+    }
     const db = tx ?? this.prisma;
     const roles = await db.role.findMany({ where: { collegeId, key: { in: dto.roles } } });
     if (roles.length !== new Set(dto.roles).size) throw new BadRequestException('Unknown role in request');
@@ -116,6 +125,9 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
     const roles = await this.prisma.role.findMany({ where: { collegeId, key: { in: dto.roles } } });
     if (roles.length !== new Set(dto.roles).size) throw new BadRequestException('Unknown role in request');
+    if (dto.departmentIds?.length) {
+      await this.own.assert('department', dto.departmentIds, collegeId);
+    }
     const before = user.userRoles.map((ur) => ur.role.key);
     await this.prisma.$transaction(async (tx) => {
       await tx.userRole.deleteMany({ where: { userId } });

@@ -167,6 +167,16 @@ export class AttendanceService {
         errorCode: 'CORRECTION_PENDING',
       });
     }
+    const existingPending = await this.prisma.attendanceCorrection.findFirst({
+      where: { attendanceId: att.id, status: CorrectionStatus.PENDING },
+    });
+    if (existingPending) {
+      throw new ConflictException({
+        message: 'A pending correction request already exists for this attendance record',
+        errorCode: 'PENDING_CORRECTION_EXISTS',
+      });
+    }
+
     const correction = await this.prisma.attendanceCorrection.create({
       data: {
         collegeId: c,

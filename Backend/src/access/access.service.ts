@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ROLE } from '../auth/permissions';
 import { Principal } from '../common/types/principal';
@@ -26,6 +26,9 @@ export class AccessService {
   constructor(private readonly prisma: PrismaService) {}
 
   studentWhere(p: Principal, collegeId: string): Prisma.StudentWhereInput {
+    if (!collegeId || typeof collegeId !== 'string' || !collegeId.trim()) {
+      throw new BadRequestException('A valid tenant collegeId is required for student scoping');
+    }
     const base: Prisma.StudentWhereInput = { collegeId };
     if (hasAny(p, COLLEGE_WIDE)) return base;
     const or: Prisma.StudentWhereInput[] = [];
@@ -37,6 +40,9 @@ export class AccessService {
   }
 
   offeringWhere(p: Principal, collegeId: string): Prisma.SubjectOfferingWhereInput {
+    if (!collegeId || typeof collegeId !== 'string' || !collegeId.trim()) {
+      throw new BadRequestException('A valid tenant collegeId is required for offering scoping');
+    }
     const base: Prisma.SubjectOfferingWhereInput = { collegeId };
     if (hasAny(p, COLLEGE_WIDE)) return base;
     const or: Prisma.SubjectOfferingWhereInput[] = [];

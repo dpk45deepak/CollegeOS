@@ -52,6 +52,13 @@ export class VerifyEmailDto {
   @ApiProperty() @IsString() @MinLength(20) @MaxLength(256) token!: string;
 }
 
+export class ResendVerificationDto {
+  @ApiPropertyOptional({ example: 'user@example.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+}
+
 export class ChangePasswordDto {
   @ApiProperty() @IsString() @IsNotEmpty() currentPassword!: string;
   @ApiProperty() @Matches(PASSWORD_RULE, { message: PASSWORD_MSG }) newPassword!: string;

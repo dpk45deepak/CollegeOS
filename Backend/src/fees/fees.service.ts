@@ -72,8 +72,19 @@ export class FeesService {
       ).map((s) => s.id);
     if (!studentIds.length) throw new BadRequestException('No students selected');
     await this.own.assert('student', studentIds, c);
+
+    const existing = await this.prisma.studentFee.findMany({
+      where: { collegeId: c, feeStructureId: structureId, studentId: { in: studentIds } },
+      select: { studentId: true },
+    });
+    const existingSet = new Set(existing.map((e) => e.studentId));
+    const newStudentIds = studentIds.filter((id) => !existingSet.has(id));
+    if (!newStudentIds.length) {
+      return { assigned: 0, message: 'Fee structure is already assigned to all selected students' };
+    }
+
     const res = await this.prisma.studentFee.createMany({
-      data: studentIds.map((studentId) => ({
+      data: newStudentIds.map((studentId) => ({
         collegeId: c,
         studentId,
         feeStructureId: structureId,
@@ -175,6 +186,9 @@ export class FeesService {
     if (!v.success) {
       await this.prisma.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.FAILED } });
       return { ok: true };
+    }
+    if (v.amount !== undefined && v.amount !== null && toPaise(v.amount) !== toPaise(payment.amount)) {
+      throw new BadRequestException('Webhook amount does not match payment amount');
     }
     await this.settle(payment.id, payment.collegeId);
     return { ok: true };
@@ -280,16 +294,34 @@ export class FeesService {
     });
     if (!payment || (payment.status !== 'SUCCESS' && payment.status !== 'PARTIALLY_REFUNDED'))
       throw new NotFoundException('Refundable payment not found');
-    const refunded = payment.refunds.reduce((s, r) => s + toPaise(r.amount), 0);
-    if (toPaise(dto.amount) + refunded > toPaise(payment.amount))
-      throw new BadRequestException('Refund exceeds the paid amount');
-    await this.prisma.$transaction(async (tx) => {
+
+    const gw = this.gateways.get(payment.gateway);
+    if (gw && gw.refund && payment.gatewayRef) {
+      const gwRes = await gw.refund({
+        gatewayRef: payment.gatewayRef,
+        amount: dto.amount,
+        currency: payment.currency,
+        reason: dto.reason,
+      });
+      if (!gwRes.success) {
+        throw new BadRequestException('Payment gateway rejected the refund');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const txPayment = await tx.payment.findUniqueOrThrow({
+        where: { id: paymentId },
+        include: { refunds: true },
+      });
+      const refunded = txPayment.refunds.reduce((s, r) => s + toPaise(r.amount), 0);
+      if (toPaise(dto.amount) + refunded > toPaise(txPayment.amount))
+        throw new BadRequestException('Refund exceeds the paid amount');
       await tx.refund.create({
         data: { paymentId, amount: dto.amount, reason: dto.reason, status: 'PROCESSED', processedAt: new Date() },
       });
-      const full = toPaise(dto.amount) + refunded === toPaise(payment.amount);
+      const full = toPaise(dto.amount) + refunded === toPaise(txPayment.amount);
       await tx.payment.update({ where: { id: paymentId }, data: { status: full ? 'REFUNDED' : 'PARTIALLY_REFUNDED' } });
-      const fee = await tx.studentFee.findUniqueOrThrow({ where: { id: payment.studentFeeId } });
+      const fee = await tx.studentFee.findUniqueOrThrow({ where: { id: txPayment.studentFeeId } });
       const paid = Math.max(0, fromPaise(toPaise(fee.amountPaid) - toPaise(dto.amount)));
       await tx.studentFee.update({
         where: { id: fee.id },
@@ -307,8 +339,8 @@ export class FeesService {
         },
         tx,
       );
+      return { refunded: dto.amount };
     });
-    return { refunded: dto.amount };
   }
 
   /** Scheduler hook: reminds students of fees due within 3 days or overdue (once per 3 days per fee). */

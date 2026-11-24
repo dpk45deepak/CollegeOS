@@ -4,13 +4,18 @@ export type UserRole =
   | "HOD"
   | "ADMIN"
   | "PLACEMENT_OFFICER"
-  | "ACCOUNTANT";
+  | "ACCOUNTANT"
+  | "EXAM_CONTROLLER"
+  | "PARENT"
+  | "SUPPORT_STAFF"
+  | "LIBRARY_STAFF";
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  roles?: string[];
   avatarUrl?: string;
   department?: string;
   semester?: number;

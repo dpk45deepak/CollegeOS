@@ -10,6 +10,7 @@ import {
   ForgotPasswordDto,
   LoginDto,
   RefreshDto,
+  ResendVerificationDto,
   ResetPasswordDto,
   VerifyEmailDto,
 } from './dto/auth.dto';
@@ -110,12 +111,15 @@ export class AuthController {
     await this.auth.verifyEmail(dto.token);
   }
 
-  @ApiBearerAuth()
+  @Public()
   @Post('resend-verification')
   @HttpCode(202)
   @ApiOperation({ summary: 'Resend verification email' })
-  async resend(@CurrentUser() user: Principal) {
-    await this.auth.sendVerification(user.userId);
+  async resend(@Body() dto?: ResendVerificationDto, @CurrentUser() user?: Principal) {
+    const target = dto?.email || user?.userId;
+    if (target) {
+      await this.auth.resendVerification(target);
+    }
   }
 
   @ApiBearerAuth()

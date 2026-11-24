@@ -44,7 +44,7 @@ export class ComplaintsService {
     // Safety override: if rules detect a sensitive report it wins over any AI/user-chosen routing.
     const routing =
       rule.priority === 'CRITICAL' && rule.handlerRole === ROLE.COLLEGE_ADMIN ? rule : (opts.routing ?? rule);
-    const priority: Priority = dto.priority ?? routing.priority;
+    const priority: Priority = routing.priority === 'CRITICAL' ? 'CRITICAL' : (dto.priority ?? routing.priority);
     const assignee = await this.resolveAssignee(c, routing, p);
 
     const ticketNo = await this.ticketNo(c);
@@ -158,7 +158,13 @@ export class ComplaintsService {
     return paginate(items, total, q);
   }
   async get(p: Principal, c: string, id: string) {
-    const complaint = await this.prisma.complaint.findFirst({ where: { id, collegeId: c } });
+    const complaint = await this.prisma.complaint.findFirst({
+      where: { id, collegeId: c },
+      include: {
+        assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+        assignedDepartment: { select: { id: true, name: true, code: true } },
+      },
+    });
     if (!complaint) throw new NotFoundException('Complaint not found');
     const manager = this.canManage(p, complaint);
     if (!manager && complaint.complainantId !== p.userId) throw new NotFoundException('Complaint not found');
@@ -166,7 +172,22 @@ export class ComplaintsService {
       where: { complaintId: id, ...(manager ? {} : { type: { not: 'INTERNAL_NOTE' } }) },
       orderBy: { createdAt: 'asc' },
     });
-    return { ...complaint, events };
+    const actorIds = [...new Set(events.map((e) => e.actorId).filter(Boolean))] as string[];
+    const actors = actorIds.length
+      ? new Map(
+          (
+            await this.prisma.user.findMany({
+              where: { id: { in: actorIds } },
+              select: { id: true, firstName: true, lastName: true },
+            })
+          ).map((u) => [u.id, u]),
+        )
+      : new Map();
+    const enrichedEvents = events.map((e) => ({
+      ...e,
+      actor: e.actorId ? actors.get(e.actorId) ?? null : null,
+    }));
+    return { ...complaint, events: enrichedEvents };
   }
   private canManage(p: Principal, c: Complaint): boolean {
     return (
@@ -187,7 +208,7 @@ export class ComplaintsService {
       });
     if (['ESCALATED'].includes(dto.status)) return this.escalate(cur.id, c, dto.note ?? 'Manually escalated', p.userId);
     const data: Prisma.ComplaintUpdateInput = { status: dto.status };
-    if (dto.status === 'AWAITING_FEEDBACK') data.resolvedAt = new Date();
+    if (dto.status === 'AWAITING_FEEDBACK' || (dto.status as string) === 'RESOLVED') data.resolvedAt = new Date();
     if (dto.status === 'CLOSED') data.closedAt = new Date();
     const updated = await this.prisma.complaint.update({ where: { id }, data });
     await this.prisma.complaintEvent.create({
@@ -204,7 +225,7 @@ export class ComplaintsService {
     });
     this.notifyComplainant(
       updated,
-      dto.status === 'AWAITING_FEEDBACK'
+      dto.status === 'AWAITING_FEEDBACK' || (dto.status as string) === 'RESOLVED'
         ? 'Your complaint was resolved — please share feedback'
         : `Complaint ${dto.status.toLowerCase().replace('_', ' ')}`,
       dto.note,
@@ -214,8 +235,31 @@ export class ComplaintsService {
 
   async assign(p: Principal, c: string, id: string, dto: D.AssignComplaintDto) {
     const cur = await this.mustManage(p, c, id);
-    const target = await this.prisma.user.findFirst({ where: { id: dto.userId, collegeId: c, status: 'ACTIVE' } });
+    const target = await this.prisma.user.findFirst({
+      where: { id: dto.userId, collegeId: c, status: 'ACTIVE' },
+      include: {
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  include: { permission: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
     if (!target) throw new NotFoundException('Assignee not found');
+    const hasManage = target.userRoles.some(
+      (ur: any) =>
+        ur.role.permissions.some((rp: any) => rp.permission.key === P.COMPLAINT_MANAGE) ||
+        [ROLE.SUPER_ADMIN, ROLE.COLLEGE_ADMIN, ROLE.HOD].includes(ur.role.key as any),
+    );
+    if (!hasManage) {
+      throw new BadRequestException('Assignee does not have permission to manage complaints');
+    }
     const next: ComplaintStatus =
       cur.status === 'OPEN' || cur.status === 'REOPENED' || cur.status === 'ESCALATED' ? 'ASSIGNED' : cur.status;
     const updated = await this.prisma.complaint.update({

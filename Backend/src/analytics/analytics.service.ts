@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { isAdmin } from '../access/access.service';
+import { ROLE } from '../auth/permissions';
 import { Principal } from '../common/types/principal';
 import { PrismaService } from '../prisma/prisma.service';
 
 const num = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100) / 100);
 
-/** Department scope: admins see the whole college, HODs their departments. */
+/** Department scope: admins see the whole college, HODs their departments. Non-admin non-HODs are scoped to their departments or restricted. */
 export function scopeDepartments(p: Principal): string[] | undefined {
-  return isAdmin(p) ? undefined : p.departmentIds;
+  if (isAdmin(p)) return undefined;
+  if (p.roleKeys.includes(ROLE.HOD) && p.departmentIds.length) return p.departmentIds;
+  return p.departmentIds.length ? p.departmentIds : ['__none__'];
 }
 
 @Injectable()
@@ -98,12 +101,16 @@ export class AnalyticsService {
     };
   }
 
-  attendanceTrend(c: string, days = 30) {
+  attendanceTrend(c: string, days = 30, deps?: string[]) {
+    const scope = this.studentSql(deps);
     return this.prisma.$queryRaw<{ date: Date; pct: number }[]>(
-      Prisma.sql`SELECT date, ROUND((100.0 * SUM(CASE WHEN status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN status <> 'EXCUSED' THEN 1 ELSE 0 END),0))::numeric, 2)::float AS pct FROM "Attendance" WHERE "collegeId" = ${c} AND date >= now() - make_interval(days => ${days}) GROUP BY date ORDER BY date`,
+      Prisma.sql`SELECT date, ROUND((100.0 * SUM(CASE WHEN status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN status <> 'EXCUSED' THEN 1 ELSE 0 END),0))::numeric, 2)::float AS pct FROM "Attendance" WHERE "collegeId" = ${c} ${scope} AND date >= now() - make_interval(days => ${days}) GROUP BY date ORDER BY date`,
     );
   }
-  departmentBreakdown(c: string) {
+  departmentBreakdown(c: string, deps?: string[]) {
+    const deptScope = deps && deps.length
+      ? Prisma.sql`AND d.id = ANY(${deps}::text[])`
+      : Prisma.empty;
     return this.prisma.$queryRaw<
       { department: string; students: number; attendancePct: number | null; avgCgpa: number | null }[]
     >(Prisma.sql`
@@ -111,7 +118,7 @@ export class AnalyticsService {
              ROUND((100.0 * SUM(CASE WHEN a.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN a.status <> 'EXCUSED' THEN 1 ELSE 0 END),0))::numeric, 2)::float AS "attendancePct",
              ROUND(AVG(s.cgpa)::numeric, 2)::float AS "avgCgpa"
       FROM "Department" d LEFT JOIN "Student" s ON s."departmentId" = d.id LEFT JOIN "Attendance" a ON a."studentId" = s.id
-      WHERE d."collegeId" = ${c} GROUP BY d.code ORDER BY d.code`);
+      WHERE d."collegeId" = ${c} ${deptScope} GROUP BY d.code ORDER BY d.code`);
   }
 
   /**

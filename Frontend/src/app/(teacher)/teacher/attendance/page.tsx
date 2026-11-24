@@ -194,6 +194,25 @@ export default function TeacherAttendancePage() {
 
           <div>
             <label className="text-xs font-semibold text-foreground block mb-1">
+              Teaching Period
+            </label>
+            <select
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
+            >
+              <option value="LEC_1">Period 1 (09:00 - 10:00)</option>
+              <option value="LEC_2">Period 2 (10:00 - 11:00)</option>
+              <option value="LEC_3">Period 3 (11:15 - 12:15)</option>
+              <option value="LEC_4">Period 4 (12:15 - 01:15)</option>
+              <option value="LEC_5">Period 5 (02:00 - 03:00)</option>
+              <option value="LAB_1">Practical Lab 1 (02:00 - 04:00)</option>
+              <option value="TUT_1">Tutorial Session</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-foreground block mb-1">
               Search Roster
             </label>
             <Input

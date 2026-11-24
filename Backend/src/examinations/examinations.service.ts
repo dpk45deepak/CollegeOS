@@ -58,7 +58,16 @@ export class ExaminationsService {
   // ── exams ──────────────────────────────────────────
   async create(p: Principal, c: string, dto: D.CreateExamDto) {
     if (dto.passMarks > dto.maxMarks) throw new BadRequestException('passMarks exceeds maxMarks');
-    const offering = await this.access.assertManagesOffering(p, c, dto.subjectOfferingId);
+    const examController = p.roleKeys.includes(ROLE.EXAM_CONTROLLER);
+    let offering;
+    if (examController) {
+      offering = await this.prisma.subjectOffering.findFirstOrThrow({
+        where: { id: dto.subjectOfferingId, collegeId: c },
+        include: { subject: true },
+      });
+    } else {
+      offering = await this.access.assertManagesOffering(p, c, dto.subjectOfferingId);
+    }
     await this.own.assert('room', dto.roomId, c);
     await this.own.assert('gradingScheme', dto.gradingSchemeId, c);
 
@@ -133,7 +142,8 @@ export class ExaminationsService {
   async cancel(p: Principal, c: string, id: string) {
     const exam = await this.prisma.exam.findFirst({ where: { id, collegeId: c } });
     if (!exam) throw new NotFoundException();
-    await this.access.assertManagesOffering(p, c, exam.subjectOfferingId);
+    const examController = p.roleKeys.includes(ROLE.EXAM_CONTROLLER);
+    if (!examController) await this.access.assertManagesOffering(p, c, exam.subjectOfferingId);
     await this.audit.log({ collegeId: c, userId: p.userId, action: 'EXAM_CANCEL', entity: 'Exam', entityId: id });
     return this.prisma.exam.update({ where: { id }, data: { status: 'CANCELLED' } });
   }
@@ -159,8 +169,8 @@ export class ExaminationsService {
 
     for (const r of dto.results) {
       if (!enrolled.has(r.studentId)) throw new BadRequestException(`Student ${r.studentId} is not enrolled`);
-      if (r.marksObtained > Number(exam.maxMarks))
-        throw new BadRequestException(`Marks exceed maximum (${exam.maxMarks})`);
+      if (r.marksObtained < 0 || r.marksObtained > Number(exam.maxMarks))
+        throw new BadRequestException(`Marks must be between 0 and maximum (${exam.maxMarks})`);
     }
     const touchesPublished = dto.results.some((r) => existing.get(r.studentId)?.status === ResultStatus.PUBLISHED);
     if (touchesPublished && !dto.reason)

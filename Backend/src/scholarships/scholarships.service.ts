@@ -1,8 +1,9 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { AttendanceAnalyticsService } from '../attendance/attendance-analytics.service';
 import { OwnershipService } from '../access/ownership.service';
+import { AuditService } from '../audit/audit.service';
 import { paginate, toSkipTake } from '../common/dto/pagination.dto';
 import { DomainEvents, NOTIFY } from '../common/events';
 import { Principal } from '../common/types/principal';
@@ -19,6 +20,7 @@ export class ScholarshipsService {
     private readonly attendance: AttendanceAnalyticsService,
     private readonly events: EventEmitter2,
     private readonly redis: RedisService,
+    private readonly audit: AuditService,
   ) {}
 
   create(c: string, dto: D.CreateScholarshipDto) {
@@ -85,6 +87,11 @@ export class ScholarshipsService {
   async express(p: Principal, c: string, id: string, applied: boolean) {
     if (!p.studentId) throw new ForbiddenException('Students only');
     await this.own.assert('scholarship', id, c);
+    const sch = await this.prisma.scholarship.findFirst({ where: { id, collegeId: c } });
+    if (!sch || !sch.isActive) throw new NotFoundException('Scholarship not found or inactive');
+    if (applied && sch.deadline && sch.deadline < new Date()) {
+      throw new BadRequestException('Scholarship deadline has passed');
+    }
     const existing = await this.prisma.scholarshipApplication.findUnique({
       where: { scholarshipId_studentId: { scholarshipId: id, studentId: p.studentId } },
     });
@@ -113,7 +120,19 @@ export class ScholarshipsService {
       include: { student: { select: { userId: true } }, scholarship: { select: { name: true } } },
     });
     if (!app) throw new NotFoundException();
+    if (status === 'DISBURSED' && app.status !== 'APPROVED') {
+      throw new BadRequestException('Scholarship must be approved before being disbursed');
+    }
     await this.prisma.scholarshipApplication.update({ where: { id: app.id }, data: { status } });
+    await this.audit.log({
+      collegeId: c,
+      userId: app.student.userId,
+      action: 'SCHOLARSHIP_DECISION',
+      entity: 'ScholarshipApplication',
+      entityId: app.id,
+      oldValue: app.status,
+      newValue: status,
+    });
     this.events.emit(NOTIFY, {
       collegeId: c,
       userIds: [app.student.userId],

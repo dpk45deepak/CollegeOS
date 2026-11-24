@@ -28,8 +28,11 @@ export class CampusService {
     await this.own.assert('department', dto.departmentId, c);
     if (dto.attachmentKeys) this.storage.assertKeysBelong(dto.attachmentKeys, c);
     // HODs may only target their own department.
-    if (!isAdmin(p) && p.roleKeys.includes(ROLE.HOD) && dto.departmentId && !p.departmentIds.includes(dto.departmentId))
-      throw new ForbiddenException('Not your department');
+    if (!isAdmin(p) && p.roleKeys.includes(ROLE.HOD)) {
+      if (!dto.departmentId || !p.departmentIds.includes(dto.departmentId)) {
+        throw new ForbiddenException('HOD notices must target your authorized department');
+      }
+    }
     return this.prisma.notice.create({
       data: {
         ...dto,
@@ -45,11 +48,8 @@ export class CampusService {
     const n = await this.prisma.notice.findFirst({ where: { id, collegeId: c } });
     if (!n) throw new NotFoundException();
     if (n.publishedAt) throw new BadRequestException('Already published');
-    if (
-      !isAdmin(p) &&
-      !(p.roleKeys.includes(ROLE.HOD) && (!n.departmentId || p.departmentIds.includes(n.departmentId))) &&
-      !p.roleKeys.includes(ROLE.PLACEMENT_OFFICER)
-    ) {
+    const isHodForNotice = p.roleKeys.includes(ROLE.HOD) && !!n.departmentId && p.departmentIds.includes(n.departmentId);
+    if (!isAdmin(p) && !isHodForNotice && !p.roleKeys.includes(ROLE.PLACEMENT_OFFICER)) {
       throw new ForbiddenException('You cannot publish this notice');
     }
     const published = await this.prisma.notice.update({ where: { id }, data: { publishedAt: new Date() } });
@@ -131,7 +131,16 @@ export class CampusService {
     return this.prisma.campusEvent.create({ data: { ...dto, collegeId: c } });
   }
   async updateEvent(c: string, id: string, dto: D.UpdateEventDto) {
-    if (!(await this.prisma.campusEvent.count({ where: { id, collegeId: c } }))) throw new NotFoundException();
+    const existing = await this.prisma.campusEvent.findFirst({ where: { id, collegeId: c } });
+    if (!existing) throw new NotFoundException();
+    if (dto.clubId && !(await this.prisma.club.count({ where: { id: dto.clubId, collegeId: c } }))) {
+      throw new NotFoundException('club not found');
+    }
+    const startsAt = dto.startsAt ?? existing.startsAt;
+    const endsAt = dto.endsAt ?? existing.endsAt;
+    if (endsAt && startsAt && endsAt <= startsAt) {
+      throw new BadRequestException('endsAt must be after startsAt');
+    }
     return this.prisma.campusEvent.update({ where: { id }, data: dto });
   }
   async listEvents(c: string, q: PaginationQueryDto, upcoming = true) {

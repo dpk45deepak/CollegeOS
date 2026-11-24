@@ -65,6 +65,11 @@ export class FeesController {
   receipt(@CurrentUser() u: Principal, @Tenant() t: string, @Param('paymentId') id: string) {
     return this.svc.receiptForStudent(u, t, id);
   }
+  @Get('receipts/:paymentId')
+  @RequirePermissions(P.FEE_VIEW_OWN)
+  receiptAlias(@CurrentUser() u: Principal, @Tenant() t: string, @Param('paymentId') id: string) {
+    return this.svc.receiptForStudent(u, t, id);
+  }
   @Get('payments/:paymentId/receipt/admin')
   @RequirePermissions(P.FEE_VIEW_ALL)
   receiptAdmin(@Tenant() t: string, @Param('paymentId') id: string) {

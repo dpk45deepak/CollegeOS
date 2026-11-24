@@ -1,6 +1,6 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { UnauthorizedException } from '@nestjs/common';
-import { CreateOrderInput, CreateOrderResult, PaymentGateway, VerifiedPayment } from './payment-gateway';
+import { CreateOrderInput, CreateOrderResult, PaymentGateway, RefundInput, RefundResult, VerifiedPayment } from './payment-gateway';
 
 /** Dev/test gateway with HMAC-signed webhooks — shows the verification contract real gateways must follow. */
 export class MockGateway implements PaymentGateway {
@@ -20,5 +20,12 @@ export class MockGateway implements PaymentGateway {
       throw new UnauthorizedException('Bad webhook signature');
     const body = JSON.parse(raw.toString('utf8')) as { gatewayRef: string; status: string; amount?: number };
     return { gatewayRef: body.gatewayRef, success: body.status === 'paid', amount: body.amount };
+  }
+  async refund(input: RefundInput): Promise<RefundResult> {
+    return {
+      refundGatewayRef: `mock_ref_${randomUUID()}`,
+      success: true,
+      status: 'PROCESSED',
+    };
   }
 }

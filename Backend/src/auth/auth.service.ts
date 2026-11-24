@@ -120,7 +120,15 @@ export class AuthService {
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException({ message: 'Account is not active', errorCode: 'ACCOUNT_INACTIVE' });
     }
-    await this.revokeSession(session.id);
+    const updateResult = await this.prisma.authSession.updateMany({
+      where: { id: session.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    if (updateResult.count === 0) {
+      await this.revokeFamily(session.familyId);
+      throw new UnauthorizedException({ message: 'Refresh token reuse detected', errorCode: 'REFRESH_REUSED' });
+    }
+    await this.markRevoked(session.id);
     return this.createSession(user.id, user.collegeId, session.familyId, session.deviceName ?? undefined, meta);
   }
 
@@ -189,11 +197,23 @@ export class AuthService {
 
   async verifyEmail(rawToken: string): Promise<void> {
     const t = await this.consumeToken(rawToken, OneTimeTokenType.EMAIL_VERIFY);
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: t.userId } });
+    const shouldActivate = user.status === UserStatus.PENDING_VERIFICATION;
     await this.prisma.user.update({
       where: { id: t.userId },
-      data: { emailVerifiedAt: new Date(), status: UserStatus.ACTIVE },
+      data: { emailVerifiedAt: new Date(), status: shouldActivate ? UserStatus.ACTIVE : user.status },
     });
     await this.principals.invalidate(t.userId);
+  }
+
+  async resendVerification(emailOrUserId: string): Promise<void> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ id: emailOrUserId }, { email: emailOrUserId.toLowerCase() }],
+      },
+    });
+    if (!user || user.emailVerifiedAt) return;
+    await this.sendVerification(user.id);
   }
 
   async changePassword(userId: string, current: string, next: string): Promise<void> {
@@ -313,7 +333,13 @@ export class AuthService {
     if (!t || t.type !== type || t.usedAt || t.expiresAt < new Date()) {
       throw new UnauthorizedException({ message: 'Invalid or expired token', errorCode: 'TOKEN_INVALID' });
     }
-    await this.prisma.oneTimeToken.update({ where: { id: t.id }, data: { usedAt: new Date() } });
+    const consumed = await this.prisma.oneTimeToken.updateMany({
+      where: { id: t.id, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    if (consumed.count !== 1) {
+      throw new UnauthorizedException({ message: 'Token already used or expired', errorCode: 'TOKEN_INVALID' });
+    }
     return t;
   }
 }

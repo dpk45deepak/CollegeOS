@@ -23,6 +23,7 @@ export function documentWhere(p: Principal, collegeId: string): Prisma.DocumentW
   return {
     collegeId,
     OR: [
+      { uploadedById: p.userId },
       {
         visibility: {
           in: g.visibilities.filter((v) => v !== 'DEPARTMENT' && v !== 'ROLE_RESTRICTED' && v !== 'ADMIN_ONLY'),
@@ -195,11 +196,18 @@ export class DocumentsService {
   async reprocess(p: Principal, c: string, id: string) {
     const d = await this.prisma.document.findFirst({ where: { id, collegeId: c } });
     if (!d) throw new NotFoundException();
+    if (!isAdmin(p) && d.uploadedById !== p.userId)
+      throw new ForbiddenException('Only the uploader or an admin can reprocess this document');
+
     await this.prisma.document.update({ where: { id }, data: { status: 'UPLOADED', failureReason: null } });
     try {
       await this.queue.add('process', { documentId: id });
-    } catch {
-      // Offline queue fallback
+    } catch (err) {
+      await this.prisma.document.update({
+        where: { id },
+        data: { status: 'FAILED', failureReason: 'Processing queue unavailable. Please try again later.' },
+      });
+      throw new BadRequestException('Document processing queue is currently offline');
     }
     await this.audit.log({
       collegeId: c,

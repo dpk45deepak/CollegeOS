@@ -1,4 +1,4 @@
-import { createParamDecorator, ExecutionContext, SetMetadata } from '@nestjs/common';
+import { BadRequestException, createParamDecorator, ExecutionContext, SetMetadata } from '@nestjs/common';
 import type { AuthedRequest, Principal } from '../types/principal';
 
 export const IS_PUBLIC = 'isPublic';
@@ -13,7 +13,15 @@ export const CurrentUser = createParamDecorator((_d: unknown, ctx: ExecutionCont
   return ctx.switchToHttp().getRequest<AuthedRequest>().user as Principal;
 });
 
-/** Resolved tenant (college) id for this request. */
+/** Resolved tenant (college) id for this request. Throws if tenant is missing. */
 export const Tenant = createParamDecorator((_d: unknown, ctx: ExecutionContext): string => {
-  return ctx.switchToHttp().getRequest<AuthedRequest>().tenantId as string;
+  const req = ctx.switchToHttp().getRequest<AuthedRequest>();
+  const tenantId = req.tenantId;
+  if (!tenantId) {
+    throw new BadRequestException({
+      message: 'Tenant context required. Please select a tenant or provide x-tenant-id header.',
+      errorCode: 'TENANT_REQUIRED',
+    });
+  }
+  return tenantId;
 });

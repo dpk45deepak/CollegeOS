@@ -38,9 +38,11 @@ export interface DocLike {
   visibility: DocumentVisibility;
   departmentId: string | null;
   allowedRoleKeys: string[];
+  uploadedById?: string | null;
 }
 
-export function canViewDocument(p: Pick<Principal, 'roleKeys' | 'departmentIds'>, d: DocLike): boolean {
+export function canViewDocument(p: Pick<Principal, 'roleKeys' | 'departmentIds'> & { userId?: string }, d: DocLike): boolean {
+  if (d.uploadedById && p.userId && d.uploadedById === p.userId) return true;
   const g = visibilityGrant(p);
   if (g.all) return true;
   switch (d.visibility) {

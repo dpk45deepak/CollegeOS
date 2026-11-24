@@ -17,6 +17,7 @@ import { REALTIME_EMIT, RealtimeEmit } from '../notifications/notifications.serv
 import { RedisService } from '../redis/redis.service';
 import { PrincipalService } from '../security/principal.service';
 import { TokenService } from '../security/token.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface SocketData {
   principal?: Principal;
@@ -36,6 +37,7 @@ export class RealtimeGateway implements OnGatewayConnection {
     private readonly principals: PrincipalService,
     private readonly redis: RedisService,
     private readonly access: AccessService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async handleConnection(socket: Socket): Promise<void> {
@@ -43,7 +45,17 @@ export class RealtimeGateway implements OnGatewayConnection {
       const raw = (socket.handshake.auth as { token?: string } | undefined)?.token;
       if (!raw) throw new Error('missing token');
       const payload = this.tokens.verifyAccess(raw);
-      const isRevoked = await this.redis.safeExists(revokedKey(payload.sid));
+      let isRevoked = false;
+      if (this.redis.isHealthy()) {
+        isRevoked = await this.redis.safeExists(revokedKey(payload.sid));
+      }
+      if (!isRevoked && !this.redis.isHealthy()) {
+        const session = await this.prisma.authSession.findUnique({
+          where: { id: payload.sid },
+          select: { revokedAt: true },
+        });
+        isRevoked = !session || !!session.revokedAt;
+      }
       if (isRevoked) throw new Error('revoked');
       const p = await this.principals.load(payload.sub);
       if (!p || p.status !== UserStatus.ACTIVE) throw new Error('inactive');

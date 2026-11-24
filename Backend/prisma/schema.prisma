@@ -1031,6 +1031,7 @@ model StudentFee {
 
   payments Payment[]
 
+  @@unique([studentId, feeStructureId])
   @@index([studentId, status])
   @@index([collegeId, status, dueDate])
 }

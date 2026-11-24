@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ExamType } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
@@ -59,6 +59,10 @@ export class CreateGradingSchemeDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isDefault?: boolean;
 }
 export class ExamListQueryDto extends PaginationQueryDto {
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() @Type(() => Boolean) upcoming?: boolean;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  upcoming?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() subjectOfferingId?: string;
 }

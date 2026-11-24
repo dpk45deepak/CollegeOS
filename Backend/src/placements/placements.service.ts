@@ -115,6 +115,13 @@ export class PlacementsService {
       where: { id: studentId, collegeId: c },
       include: { skills: true, portfolio: true },
     });
+    const failingResults = await this.prisma.examResult.count({
+      where: {
+        studentId,
+        collegeId: c,
+        grade: { in: ['F', 'FAIL', 'AB'] },
+      },
+    });
     return {
       cgpa: s.cgpa === null ? null : Number(s.cgpa),
       departmentId: s.departmentId,
@@ -122,6 +129,7 @@ export class PlacementsService {
       evidence: s.portfolio
         .filter((p) => p.type !== 'ACHIEVEMENT')
         .map((p) => ({ title: p.title, description: p.description, tags: p.tags })),
+      backlogs: failingResults,
     };
   }
 
@@ -139,6 +147,7 @@ export class PlacementsService {
         match: computeMatch(student, {
           requiredSkills: j.requiredSkills,
           minCgpa: j.minCgpa === null ? null : Number(j.minCgpa),
+          maxBacklogs: j.maxBacklogs,
           allowedDepartments: j.allowedDepartments,
         }),
       }))
@@ -154,6 +163,7 @@ export class PlacementsService {
     const m = computeMatch(student, {
       requiredSkills: job.requiredSkills,
       minCgpa: job.minCgpa === null ? null : Number(job.minCgpa),
+      maxBacklogs: job.maxBacklogs,
       allowedDepartments: job.allowedDepartments,
     });
     if (!m.eligible)

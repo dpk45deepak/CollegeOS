@@ -1,0 +1,13 @@
+# Engineering Baseline
+- Inspect repository structure, manifests, Git status and existing conventions before editing.
+- Preserve uncommitted user changes; never reset or clean unrelated work.
+- Prefer the smallest maintainable root-cause fix.
+- Use explicit types; avoid `any`, unsafe casts and duplicated logic.
+- Validate untrusted input and enforce authorization server-side.
+- Scope data access by tenant/owner where applicable.
+- Handle loading, empty, error and success states honestly.
+- Never fabricate data or claim success before durable confirmation.
+- Add regression tests for bug fixes.
+- Never expose secrets or sensitive data in code, logs or docs.
+- Ask before destructive migrations, production deployments, paid services or irreversible actions.
+- Run relevant checks, inspect the diff, and report actual results and remaining risks.

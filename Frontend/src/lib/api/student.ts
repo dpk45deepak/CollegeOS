@@ -234,7 +234,7 @@ export const studentApi = {
         seatNumber: typeof e.seatNumber === "string" ? e.seatNumber : "Allocated at Gate",
         maxMarks: e.maxMarks || 100,
         syllabus: typeof e.syllabus === "string" ? e.syllabus : "Comprehensive course curriculum and assigned units.",
-        status: (parsedDate > new Date() ? "UPCOMING" : "COMPLETED") as "UPCOMING" | "COMPLETED",
+        status: (e.status || (parsedDate > new Date() ? "UPCOMING" : "COMPLETED")) as any,
       };
     });
   },
@@ -317,22 +317,23 @@ export const studentApi = {
 
     if (items.length > 0) {
       const primary = items[0];
-      const totalAmount = items.reduce((sum: number, f: any) => sum + (f.amount || 0), 0);
-      const paidAmount = items.reduce((sum: number, f: any) => sum + (f.paidAmount || 0), 0);
-      const pendingAmount = items.reduce((sum: number, f: any) => sum + (f.outstanding || 0), 0);
+      const totalAmount = items.reduce((sum: number, f: any) => sum + Number(f.netPayable ?? f.amountDue ?? f.amount ?? 0), 0);
+      const paidAmount = items.reduce((sum: number, f: any) => sum + Number(f.amountPaid ?? f.paidAmount ?? 0), 0);
+      const pendingAmount = items.reduce((sum: number, f: any) => sum + Number(f.outstanding ?? 0), 0);
 
       const breakdown = (primary.feeStructure?.components || []).map((c: any) => ({
         head: c.name || c.head || "Tuition & Academic Fees",
-        amount: c.amount || 0,
+        amount: Number(c.amount || 0),
       }));
 
-      const transactions = (primary.payments || []).map((p: any) => ({
+      const allPayments = items.flatMap((f: any) => f.payments || []);
+      const transactions = allPayments.map((p: any) => ({
         id: p.id,
         date: p.paidAt ? new Date(p.paidAt).toISOString().split("T")[0] : "",
-        amount: p.amount || 0,
-        receiptNo: p.receiptNo || "RCP-ONLINE",
-        method: "Online Gateway",
-        status: (p.status === "SUCCESS" ? "SUCCESS" : "PENDING") as "SUCCESS" | "PENDING",
+        amount: Number(p.amount || 0),
+        receiptNo: p.receiptNo || (p.status === 'SUCCESS' ? `RCP-${p.id.slice(0, 8)}` : null),
+        method: p.gateway?.startsWith('manual:') ? p.gateway.replace('manual:', 'Cashier: ') : "Online Gateway",
+        status: p.status as "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED" | "PARTIALLY_REFUNDED",
       }));
 
       return {
@@ -343,7 +344,7 @@ export const studentApi = {
         paidAmount,
         pendingAmount,
         dueDate: primary.dueDate ? new Date(primary.dueDate).toISOString().split("T")[0] : "",
-        status: (pendingAmount === 0 ? "PAID" : paidAmount > 0 ? "PARTIAL" : "PENDING") as any,
+        status: (pendingAmount <= 0 ? "PAID" : paidAmount > 0 ? "PARTIAL" : "PENDING") as any,
         breakdown: breakdown.length > 0 ? breakdown : [{ head: primary.feeStructure?.name || "Semester Academic Fee", amount: totalAmount }],
         transactions,
       };
@@ -363,6 +364,10 @@ export const studentApi = {
     };
   },
 
+  getReceipt: async (paymentId: string) => {
+    return apiClient<any>(`/fees/payments/${paymentId}/receipt`);
+  },
+
   payFee: async (amount: number, studentFeeId?: string) => {
     let feeId = studentFeeId;
     if (!feeId) {
@@ -376,7 +381,7 @@ export const studentApi = {
         feeId = "default_fee";
       }
     }
-    return apiClient<{ success: boolean; transactionId: string }>(
+    return apiClient<{ paymentId: string; gatewayRef: string; checkoutUrl?: string }>(
       `/fees/${feeId}/payments`,
       {
         method: "POST",
@@ -392,26 +397,30 @@ export const studentApi = {
     const raw = await apiClient<any>("/scholarships");
     const items = Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
 
-    return items.map((s: any) => ({
-      id: s.id,
-      name: s.name || "Merit Scholarship",
-      provider: s.provider || "State Government",
-      category: s.type || s.category || "MERIT",
-      amount: Number(s.amount) || 25000,
-      deadline: s.deadline ? new Date(s.deadline).toISOString().split("T")[0] : "",
-      criteria: s.eligibilityText || "Open to active college students in good academic standing.",
-      requirements: Array.isArray(s.requirements)
-        ? s.requirements
-        : Array.isArray(s.requiredDocuments)
-        ? s.requiredDocuments
-        : ["Valid College ID", "Previous Semester Marksheet", "Income Certificate"],
-      documentsNeeded: Array.isArray(s.documentsNeeded)
-        ? s.documentsNeeded
-        : Array.isArray(s.requiredDocuments)
-        ? s.requiredDocuments
-        : ["College ID Card", "Mark Sheet PDF", "Bank Passbook Copy"],
-      status: s.status || "ELIGIBLE",
-    }));
+    return items.map((item: any) => {
+      const s = item.scholarship || item;
+      const m = item.match || {};
+      return {
+        id: s.id,
+        name: s.name || "Merit Scholarship",
+        provider: s.provider || "State Government",
+        category: s.type || s.category || "GOVERNMENT",
+        amount: Number(s.amount) || 25000,
+        deadline: s.deadline ? new Date(s.deadline).toISOString().split("T")[0] : "",
+        criteria: s.eligibilityText || (m.fit ? `Fit: ${m.fit}` : "Open to active college students in good academic standing."),
+        requirements: Array.isArray(s.requirements)
+          ? s.requirements
+          : Array.isArray(s.requiredDocuments)
+          ? s.requiredDocuments
+          : ["Valid College ID", "Previous Semester Marksheet"],
+        documentsNeeded: Array.isArray(s.documentsNeeded)
+          ? s.documentsNeeded
+          : Array.isArray(s.requiredDocuments)
+          ? s.requiredDocuments
+          : ["College ID Card", "Mark Sheet PDF"],
+        status: m.fit || s.status || "ELIGIBLE",
+      };
+    });
   },
 
   applyScholarship: async (scholarshipId: string) => {
@@ -503,7 +512,7 @@ export const studentApi = {
   },
 
   createComplaint: async (data: {
-    category: Complaint["category"];
+    category: Complaint["category"] | "ATTENDANCE" | "Attendance" | string;
     subject: string;
     description: string;
     priority?: string;
@@ -517,7 +526,8 @@ export const studentApi = {
     }
 
     let pri = (data.priority || "MEDIUM").toUpperCase();
-    if (pri === "CRITICAL") pri = "URGENT";
+    if (pri === "URGENT") pri = "CRITICAL";
+    if (!["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(pri)) pri = "MEDIUM";
 
     return apiClient<Complaint>(
       "/complaints",
@@ -551,33 +561,29 @@ export const studentApi = {
           ? doc.documentType.charAt(0).toUpperCase() + doc.documentType.slice(1).toLowerCase()
           : "Policy"),
       department: typeof doc.department === "string" ? doc.department : doc.department?.code || doc.department?.name || "Academic Affairs",
-      academicYear: doc.academicYear || "2024-25",
+      academicYear: doc.academicYear || "",
       uploadedAt: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : "Recent",
-      fileSize: doc.fileSize || `${doc.pageCount ? `${doc.pageCount} pages` : "Official PDF"}`,
-      fileType: doc.fileType || "pdf",
+      fileSize: doc.sizeBytes ? `${(doc.sizeBytes / 1024).toFixed(1)} KB` : (doc.fileSize || "PDF"),
+      fileType: doc.mimeType || doc.fileType || "application/pdf",
       url: doc.url || `/api/v1/documents/${doc.id}/download`,
-      summary: doc.summary || doc.description || `Official institutional document for ${doc.title || "academic records"} filed under ${doc.documentType || "Academic Affairs"}.`,
+      summary: doc.summary || doc.description || `Official institutional document for ${doc.title || "academic records"}.`,
     })) as CollegeDocument[];
   },
 
   getNotifications: async (): Promise<NotificationItem[]> => {
-    try {
-      const raw = await apiClient<any>("/notifications");
-      const items = Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
-      return items.map((n: any) => ({
-        id: n.id,
-        type: n.type || "general",
-        title: n.title || "Notification",
-        message: n.body || n.message || "",
-        timestamp: n.createdAt
-          ? new Date(n.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })
-          : "Just now",
-        isRead: !!n.readAt,
-        actionUrl: n.data?.actionUrl,
-      }));
-    } catch {
-      return [];
-    }
+    const raw = await apiClient<any>("/notifications");
+    const items = Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
+    return items.map((n: any) => ({
+      id: n.id,
+      type: n.type || "general",
+      title: n.title || "Notification",
+      message: n.body || n.message || "",
+      timestamp: n.createdAt
+        ? new Date(n.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })
+        : "Just now",
+      isRead: !!n.readAt,
+      actionUrl: n.data?.actionUrl,
+    }));
   },
 
   requestAttendanceCorrection: async (data: {

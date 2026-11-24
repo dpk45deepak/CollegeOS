@@ -102,8 +102,8 @@ export default function AdminUsersPage() {
   const rawUsers = Array.isArray(usersData) ? usersData : (usersData as any)?.items || [];
   const filtered = (rawUsers || []).filter((u: UserItem) => {
     if (!u) return false;
-    const roleKey = u.userRoles?.[0]?.role?.key || "STUDENT";
-    const matchesRole = roleFilter === "ALL" || roleKey === roleFilter;
+    const userRoleKeys = (u.userRoles || []).map((ur: any) => ur.role?.key).filter(Boolean);
+    const matchesRole = roleFilter === "ALL" || userRoleKeys.includes(roleFilter) || (userRoleKeys.length === 0 && roleFilter === "STUDENT");
     return matchesRole;
   });
 

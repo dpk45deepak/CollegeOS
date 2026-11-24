@@ -14,6 +14,17 @@ export interface VerifiedPayment {
   success: boolean;
   amount?: number;
 }
+export interface RefundInput {
+  gatewayRef: string;
+  amount: number;
+  currency: string;
+  reason?: string;
+}
+export interface RefundResult {
+  refundGatewayRef: string;
+  success: boolean;
+  status: string;
+}
 
 /**
  * Payment gateway abstraction (Razorpay / Stripe / PayU …). Implementations create hosted-checkout orders and
@@ -24,5 +35,7 @@ export interface PaymentGateway {
   createOrder(input: CreateOrderInput): Promise<CreateOrderResult>;
   /** Verify the webhook signature/body and return the normalised result; throw if the signature is invalid. */
   verifyWebhook(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): Promise<VerifiedPayment>;
+  /** Optional refund call to payment provider */
+  refund?(input: RefundInput): Promise<RefundResult>;
 }
 export const PAYMENT_GATEWAYS = Symbol('PAYMENT_GATEWAYS');

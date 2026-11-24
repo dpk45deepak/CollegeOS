@@ -39,16 +39,16 @@ export class AnalyticsController {
   attention(@CurrentUser() u: Principal, @Tenant() t: string) {
     return this.svc.attention(u, t);
   }
-  @Get('attendance-trend') trend(@Tenant() t: string, @Query() q: DaysQuery) {
-    return this.svc.attendanceTrend(t, q.days ?? 30);
+  @Get('attendance-trend') trend(@CurrentUser() u: Principal, @Tenant() t: string, @Query() q: DaysQuery) {
+    return this.svc.attendanceTrend(t, q.days ?? 30, scopeDepartments(u));
   }
-  @Get('departments') departments(@Tenant() t: string) {
-    return this.svc.departmentBreakdown(t);
+  @Get('departments') departments(@CurrentUser() u: Principal, @Tenant() t: string) {
+    return this.svc.departmentBreakdown(t, scopeDepartments(u));
   }
   @Get('attendance-vs-performance')
   @ApiOperation({ summary: 'Correlation between attendance and marks (aggregate only)' })
-  correlation(@Tenant() t: string) {
-    return this.perf.attendanceVsPerformance(t);
+  correlation(@CurrentUser() u: Principal, @Tenant() t: string) {
+    return this.perf.attendanceVsPerformance(t, scopeDepartments(u));
   }
   @Get('risk')
   @ApiOperation({ summary: 'Students with elevated academic-risk indicators, with the reasons' })

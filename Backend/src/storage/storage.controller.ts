@@ -1,8 +1,10 @@
-import { BadRequestException, Controller, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
 import { CurrentUser, Tenant } from '../common/decorators/auth.decorators';
+import { SkipEnvelope } from '../common/decorators/skip-envelope.decorator';
 import { Principal } from '../common/types/principal';
 import { StorageService } from './storage.service';
 
@@ -11,6 +13,26 @@ import { StorageService } from './storage.service';
 @Controller('files')
 export class StorageController {
   constructor(private readonly storage: StorageService) {}
+
+  @Get('download')
+  @SkipEnvelope()
+  @ApiOperation({ summary: 'Download an attachment by key' })
+  async download(
+    @CurrentUser() u: Principal,
+    @Tenant() t: string,
+    @Query('key') key: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    if (!key) throw new BadRequestException('key is required');
+    this.storage.assertKeysBelong([key], t);
+    const body = await this.storage.read(key);
+    const filename = key.split('/').pop() || 'attachment';
+    res.set({
+      'content-disposition': `attachment; filename="${filename}"`,
+      'x-content-type-options': 'nosniff',
+    });
+    return new StreamableFile(body);
+  }
 
   @Post('attachments')
   @Throttle({ default: { limit: 20, ttl: 60_000 } })

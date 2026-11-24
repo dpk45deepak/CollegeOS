@@ -7,9 +7,28 @@ import { StorageController } from './storage.controller';
 import { StorageService } from './storage.service';
 import { MALWARE_SCANNER, MalwareScanner, STORAGE_DRIVER, StorageDriver } from './storage.types';
 
-/** Default scanner: accepts everything. Replace with a ClamAV/cloud-AV implementation in production. */
-class NoopScanner implements MalwareScanner {
-  async isClean(): Promise<boolean> {
+/** Production malware scanner: inspects signatures, supports ClamAV/cloud-AV endpoint, and fails closed in production. */
+class ProductionMalwareScanner implements MalwareScanner {
+  constructor(private readonly allowNoopInDev: boolean) {}
+
+  async isClean(body: Buffer, _filename: string): Promise<boolean> {
+    const eicar = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
+    if (body.includes(Buffer.from(eicar))) {
+      return false;
+    }
+    const clamUrl = process.env.CLAMAV_URL;
+    if (clamUrl) {
+      try {
+        const resp = await fetch(clamUrl, { method: 'POST', body });
+        return resp.ok;
+      } catch {
+        return false;
+      }
+    }
+    if (!this.allowNoopInDev) {
+      // Fail-closed in production if no scanner backend is connected
+      return false;
+    }
     return true;
   }
 }
@@ -37,7 +56,14 @@ class NoopScanner implements MalwareScanner {
         });
       },
     },
-    { provide: MALWARE_SCANNER, useClass: NoopScanner },
+    {
+      provide: MALWARE_SCANNER,
+      inject: [AppConfigService],
+      useFactory: (c: AppConfigService): MalwareScanner => {
+        const isDev = !c.isProduction || process.env.ALLOW_NOOP_SCANNER === 'true';
+        return new ProductionMalwareScanner(isDev);
+      },
+    },
     StorageService,
   ],
   exports: [StorageService, MALWARE_SCANNER],

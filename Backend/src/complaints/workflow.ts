@@ -1,14 +1,14 @@
 import { ComplaintCategory, ComplaintStatus, Priority } from '@prisma/client';
 import { ROLE } from '../auth/permissions';
 
-/** Allowed status transitions. RESOLVED is not used as a resting state: resolving goes to AWAITING_FEEDBACK. */
+/** Allowed status transitions. */
 export const TRANSITIONS: Record<ComplaintStatus, ComplaintStatus[]> = {
   OPEN: ['ASSIGNED', 'ESCALATED', 'CLOSED'],
-  ASSIGNED: ['INVESTIGATING', 'AWAITING_FEEDBACK', 'ESCALATED'],
-  INVESTIGATING: ['AWAITING_FEEDBACK', 'ESCALATED', 'ASSIGNED'],
-  ESCALATED: ['ASSIGNED', 'INVESTIGATING', 'AWAITING_FEEDBACK'],
-  RESOLVED: ['CLOSED', 'REOPENED'],
-  AWAITING_FEEDBACK: ['CLOSED', 'REOPENED'],
+  ASSIGNED: ['INVESTIGATING', 'RESOLVED', 'AWAITING_FEEDBACK', 'ESCALATED'],
+  INVESTIGATING: ['AWAITING_FEEDBACK', 'RESOLVED', 'ESCALATED', 'ASSIGNED'],
+  ESCALATED: ['ASSIGNED', 'INVESTIGATING', 'RESOLVED', 'AWAITING_FEEDBACK'],
+  RESOLVED: ['AWAITING_FEEDBACK', 'CLOSED', 'REOPENED'],
+  AWAITING_FEEDBACK: ['RESOLVED', 'CLOSED', 'REOPENED'],
   CLOSED: [],
   REOPENED: ['ASSIGNED', 'INVESTIGATING', 'ESCALATED'],
 };

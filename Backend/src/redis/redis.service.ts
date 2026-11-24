@@ -19,12 +19,13 @@ export class RedisService implements OnModuleDestroy {
       lazyConnect: true,
       enableOfflineQueue: false,
       retryStrategy: (times) => {
-        if (process.env.VERCEL || times > 1) {
-          this._isHealthy = false;
-          this._lastFailureTime = Date.now();
+        this._isHealthy = false;
+        this._lastFailureTime = Date.now();
+        if (process.env.VERCEL) {
           return null;
         }
-        return 2000;
+        // Bounded exponential backoff with max 30s delay
+        return Math.min(times * 2000, 30_000);
       },
       reconnectOnError: () => false,
     });

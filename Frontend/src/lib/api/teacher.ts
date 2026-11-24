@@ -37,6 +37,39 @@ export interface TeacherAtRiskStudent {
 
 export const teacherApi = {
   getTodayClasses: async (): Promise<TeacherClass[]> => {
+    try {
+      const timetableSlots = await apiClient<any[]>("/timetable/teachers/me").catch(() => null);
+      const slots = Array.isArray(timetableSlots)
+        ? timetableSlots
+        : (timetableSlots as any)?.items || (timetableSlots as any)?.data || [];
+
+      if (Array.isArray(slots) && slots.length > 0) {
+        const currentDayIndex = new Date().getDay();
+        const days = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+        const todayName = days[currentDayIndex];
+
+        const todaySlots = slots.filter((s: any) => {
+          const slotDay = String(s.dayOfWeek || s.day || "").toUpperCase();
+          return slotDay === todayName;
+        });
+
+        if (todaySlots.length > 0) {
+          return todaySlots.map((slot: any) => ({
+            id: slot.id || slot.offeringId || "",
+            subjectCode: slot.offering?.subject?.code || slot.subjectCode || "Course",
+            subjectName: slot.offering?.subject?.name || slot.subjectName || "Subject Lecture",
+            section: slot.offering?.section?.name || slot.section || "A",
+            room: slot.room?.code || slot.room?.number || (typeof slot.room === "string" ? slot.room : "Room Assigned"),
+            time: slot.time || `${slot.startMinute ? Math.floor(slot.startMinute / 60) + ':' + String(slot.startMinute % 60).padStart(2, '0') : 'Scheduled'}`,
+            enrolledStudents: slot.offering?._count?.enrollments || slot.enrolledStudents || 0,
+            attendanceMarked: !!slot.attendanceMarked,
+          }));
+        }
+      }
+    } catch {
+      // Fallback to subject offerings if timetable not yet scheduled
+    }
+
     const raw = await apiClient<any[]>("/subject-offerings");
     const items = Array.isArray(raw) ? raw : (raw as any)?.items || (raw as any)?.data || [];
 
@@ -150,6 +183,7 @@ export const teacherApi = {
     description?: string;
     dueAt: string;
     maxMarks: number;
+    attachmentKeys?: string[];
   }) => {
     return apiClient<any>("/assignments", {
       method: "POST",
@@ -159,6 +193,7 @@ export const teacherApi = {
         description: data.description || "Course Assignment Specification",
         dueAt: new Date(data.dueAt).toISOString(),
         maxMarks: Number(data.maxMarks) || 30,
+        attachmentKeys: data.attachmentKeys ?? [],
       }),
     });
   },

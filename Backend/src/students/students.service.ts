@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AccessService } from '../access/access.service';
 import { OwnershipService } from '../access/ownership.service';
@@ -35,6 +35,7 @@ export class StudentsService {
     await this.own.assert('batch', dto.batchId, c);
     await this.own.assert('section', dto.sectionId, c);
     await this.own.assert('semester', dto.semesterId, c);
+    await this.assertHierarchy(c, dto);
 
     const student = await this.prisma.$transaction(async (tx) => {
       const user = await this.users.create(
@@ -77,6 +78,9 @@ export class StudentsService {
       entity: 'Student',
       entityId: student.id,
     });
+    if (!dto.initialPassword) {
+      await this.users.sendVerification(student.userId);
+    }
     return student;
   }
 
@@ -143,6 +147,13 @@ export class StudentsService {
     await this.own.assert('section', dto.sectionId, c);
     await this.own.assert('semester', dto.semesterId, c);
     const before = await this.prisma.student.findUniqueOrThrow({ where: { id } });
+    await this.assertHierarchy(c, {
+      departmentId: dto.departmentId ?? before.departmentId,
+      programId: dto.programId ?? before.programId,
+      batchId: dto.batchId ?? before.batchId,
+      semesterId: dto.semesterId !== undefined ? dto.semesterId : before.semesterId,
+      sectionId: dto.sectionId !== undefined ? dto.sectionId : before.sectionId,
+    });
     const { firstName, lastName, phone, ...rest } = dto;
     const student = await this.prisma.student.findUniqueOrThrow({ where: { id }, select: { userId: true } });
     if (firstName || lastName || phone)
@@ -180,5 +191,35 @@ export class StudentsService {
     if (!p.studentId) throw new ForbiddenException('Not a student account');
     const r = await this.prisma.studentPortfolioItem.deleteMany({ where: { id, studentId: p.studentId } });
     if (!r.count) throw new NotFoundException();
+  }
+
+  private async assertHierarchy(
+    c: string,
+    dto: {
+      departmentId?: string;
+      programId?: string;
+      batchId?: string;
+      semesterId?: string | null;
+      sectionId?: string | null;
+    },
+  ) {
+    if (dto.batchId && dto.programId && dto.departmentId) {
+      const batch = await this.prisma.batch.findFirst({ where: { id: dto.batchId, collegeId: c } });
+      if (!batch || batch.programId !== dto.programId || batch.departmentId !== dto.departmentId) {
+        throw new BadRequestException('Academic hierarchy mismatch: Batch does not match program and department');
+      }
+    }
+    if (dto.semesterId && dto.batchId) {
+      const sem = await this.prisma.semester.findFirst({ where: { id: dto.semesterId, collegeId: c } });
+      if (!sem || sem.batchId !== dto.batchId) {
+        throw new BadRequestException('Academic hierarchy mismatch: Semester does not match batch');
+      }
+    }
+    if (dto.sectionId && dto.semesterId) {
+      const sec = await this.prisma.section.findFirst({ where: { id: dto.sectionId, collegeId: c } });
+      if (!sec || sec.semesterId !== dto.semesterId) {
+        throw new BadRequestException('Academic hierarchy mismatch: Section does not match semester');
+      }
+    }
   }
 }

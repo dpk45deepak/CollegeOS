@@ -52,7 +52,7 @@ export default function StudentResultsPage() {
             Academic Performance • Semester {resultsData.semester}
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Academic Session: {resultsData.academicYear} • Class Rank: Top 8% of CSE Batch
+            Academic Session: {resultsData.academicYear}{(resultsData as any)?.rank ? ` • Class Rank: ${(resultsData as any).rank}` : ""}
           </p>
         </div>
 

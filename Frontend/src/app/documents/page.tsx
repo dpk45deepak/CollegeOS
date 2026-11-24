@@ -50,7 +50,7 @@ export default function DocumentsPage() {
 
   // Upload Form State
   const [uploadTitle, setUploadTitle] = useState("");
-  const [uploadType, setUploadType] = useState<DocumentType>("POLICY");
+  const [uploadType, setUploadType] = useState<DocumentType>("SYLLABUS");
   const [uploadVisibility, setUploadVisibility] = useState<DocumentVisibility>("PUBLIC");
   const [uploadDeptId, setUploadDeptId] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -277,11 +277,20 @@ export default function DocumentsPage() {
                 onChange={(e) => setUploadType(e.target.value as DocumentType)}
                 className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs"
               >
-                <option value="POLICY">Policy</option>
                 <option value="SYLLABUS">Syllabus</option>
-                <option value="CURRICULUM">Curriculum</option>
-                <option value="CIRCULAR">Circular</option>
-                <option value="PREVIOUS_EXAM">Previous Exam</option>
+                <option value="REGULATION">Academic Regulation</option>
+                <option value="ATTENDANCE_POLICY">Attendance Policy</option>
+                <option value="EXAM_RULES">Exam Rules</option>
+                <option value="SCHOLARSHIP">Scholarship Guidelines</option>
+                <option value="FEE_POLICY">Fee Policy</option>
+                <option value="HOSTEL_RULES">Hostel Rules</option>
+                <option value="PLACEMENT_POLICY">Placement Policy</option>
+                <option value="HANDBOOK">Student Handbook</option>
+                <option value="CIRCULAR">Official Circular</option>
+                <option value="NOTICE">Notice</option>
+                <option value="DEPARTMENT">Department Guidelines</option>
+                <option value="TIMETABLE_POLICY">Timetable Policy</option>
+                <option value="STUDENT_RECORD">Student Record</option>
                 <option value="OTHER">Other</option>
               </select>
             </div>
@@ -293,8 +302,11 @@ export default function DocumentsPage() {
                 className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs"
               >
                 <option value="PUBLIC">Public</option>
-                <option value="STUDENT_ONLY">Students Only</option>
-                <option value="FACULTY_ONLY">Faculty Only</option>
+                <option value="STUDENTS">Students Only</option>
+                <option value="TEACHERS">Teachers Only</option>
+                <option value="STAFF">Staff Only</option>
+                <option value="DEPARTMENT">Department Only</option>
+                <option value="ROLE_RESTRICTED">Role Restricted</option>
                 <option value="ADMIN_ONLY">Admin Only</option>
               </select>
             </div>

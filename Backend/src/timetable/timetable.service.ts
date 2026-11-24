@@ -1,8 +1,9 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { AccessService } from '../access/access.service';
+import { AccessService, isAdmin } from '../access/access.service';
 import { OwnershipService } from '../access/ownership.service';
 import { AuditService } from '../audit/audit.service';
+import { ROLE } from '../auth/permissions';
 import { Principal } from '../common/types/principal';
 import { PrismaService } from '../prisma/prisma.service';
 import { Conflict, SlotLike, findConflicts } from './conflicts';
@@ -31,6 +32,7 @@ export class TimetableService {
 
   /** Conflicts for a prospective slot (also used for the dry-run endpoint). */
   async check(
+    p: Principal,
     c: string,
     dto: D.CreateSlotDto,
     excludeSlotId?: string,
@@ -40,7 +42,13 @@ export class TimetableService {
     await this.own.assert('room', dto.roomId, c);
     const offering = await this.prisma.subjectOffering.findFirstOrThrow({
       where: { id: dto.subjectOfferingId, collegeId: c },
+      include: { subject: true },
     });
+    if (p.roleKeys.includes(ROLE.HOD) && !isAdmin(p)) {
+      if (!p.departmentIds.includes(offering.subject.departmentId)) {
+        throw new ForbiddenException('Cannot manage timetable for outside departments');
+      }
+    }
     const existing = await this.prisma.timetableSlot.findMany({
       where: {
         collegeId: c,
@@ -91,14 +99,14 @@ export class TimetableService {
     return { conflicts, warnings };
   }
 
-  async create(c: string, dto: D.CreateSlotDto, actorId: string) {
-    const { conflicts, warnings } = await this.check(c, dto);
+  async create(p: Principal, c: string, dto: D.CreateSlotDto) {
+    const { conflicts, warnings } = await this.check(p, c, dto);
     if (conflicts.length)
       throw new ConflictException({ message: 'Timetable conflict', errorCode: 'TIMETABLE_CONFLICT', conflicts });
     const slot = await this.prisma.timetableSlot.create({ data: { ...dto, collegeId: c }, include: SLOT_INCLUDE });
     await this.audit.log({
       collegeId: c,
-      userId: actorId,
+      userId: p.userId,
       action: 'TIMETABLE_CREATE',
       entity: 'TimetableSlot',
       entityId: slot.id,
@@ -107,12 +115,22 @@ export class TimetableService {
     return { slot, warnings };
   }
 
-  async remove(c: string, id: string, actorId: string) {
+  async remove(p: Principal, c: string, id: string) {
     await this.own.assert('timetableSlot', id, c);
+    const slot = await this.prisma.timetableSlot.findFirst({
+      where: { id, collegeId: c },
+      include: { subjectOffering: { include: { subject: true } } },
+    });
+    if (!slot) throw new NotFoundException();
+    if (p.roleKeys.includes(ROLE.HOD) && !isAdmin(p)) {
+      if (!p.departmentIds.includes(slot.subjectOffering.subject.departmentId)) {
+        throw new ForbiddenException('Cannot remove timetable for outside departments');
+      }
+    }
     await this.prisma.timetableSlot.delete({ where: { id } });
     await this.audit.log({
       collegeId: c,
-      userId: actorId,
+      userId: p.userId,
       action: 'TIMETABLE_DELETE',
       entity: 'TimetableSlot',
       entityId: id,
@@ -120,18 +138,26 @@ export class TimetableService {
   }
 
   forSection(c: string, sectionId: string) {
+    const now = new Date();
     return this.prisma.timetableSlot.findMany({
-      where: { collegeId: c, subjectOffering: { sectionId } },
+      where: {
+        collegeId: c,
+        subjectOffering: { sectionId },
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
+      },
       include: SLOT_INCLUDE,
       orderBy: [{ dayOfWeek: 'asc' }, { startMinute: 'asc' }],
     });
   }
   forStudent(c: string, studentId: string) {
+    const now = new Date();
     return this.prisma.timetableSlot.findMany({
       where: {
         collegeId: c,
         subjectOffering: { enrollments: { some: { studentId } } },
-        OR: [{ validTo: null }, { validTo: { gte: new Date() } }],
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
       },
       include: SLOT_INCLUDE,
       orderBy: [{ dayOfWeek: 'asc' }, { startMinute: 'asc' }],
@@ -139,15 +165,33 @@ export class TimetableService {
   }
   forTeacher(p: Principal, c: string) {
     if (!p.teacherId) throw new ForbiddenException('Not a teacher account');
+    const now = new Date();
     return this.prisma.timetableSlot.findMany({
-      where: { collegeId: c, subjectOffering: { teacherId: p.teacherId } },
+      where: {
+        collegeId: c,
+        subjectOffering: { teacherId: p.teacherId },
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
+      },
       include: SLOT_INCLUDE,
       orderBy: [{ dayOfWeek: 'asc' }, { startMinute: 'asc' }],
     });
   }
 
-  async setAvailability(c: string, teacherId: string, windows: D.AvailabilityDto[]) {
+  async setAvailability(p: Principal, c: string, teacherId: string, windows: D.AvailabilityDto[]) {
     await this.own.assert('teacher', teacherId, c);
+    const teacher = await this.prisma.teacher.findFirst({ where: { id: teacherId, collegeId: c } });
+    if (!teacher) throw new NotFoundException();
+    if (p.roleKeys.includes(ROLE.HOD) && !isAdmin(p)) {
+      if (!p.departmentIds.includes(teacher.departmentId)) {
+        throw new ForbiddenException('Cannot manage availability for outside departments');
+      }
+    }
+    for (const w of windows) {
+      if (w.endMinute <= w.startMinute) {
+        throw new BadRequestException('endMinute must be after startMinute');
+      }
+    }
     await this.prisma.$transaction([
       this.prisma.teacherAvailability.deleteMany({ where: { teacherId } }),
       this.prisma.teacherAvailability.createMany({ data: windows.map((w) => ({ ...w, teacherId })) }),

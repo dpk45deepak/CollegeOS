@@ -56,6 +56,13 @@ export class AttendanceController {
     return this.svc.getScheduledSessionRoster(u, t, slotId, q.date);
   }
 
+  @Get('register')
+  @RequirePermissions(P.ATTENDANCE_VIEW)
+  @ApiOperation({ summary: 'Monthly section attendance register matrix for a subject offering' })
+  register(@CurrentUser() u: Principal, @Tenant() t: string, @Query() q: D.SectionRegisterQueryDto) {
+    return this.svc.getSectionRegister(u, t, q.subjectOfferingId, q.month, q.year);
+  }
+
   @Get('sessions')
   @RequirePermissions(P.ATTENDANCE_VIEW)
   @ApiOperation({ summary: 'Attendance sessions + records for an offering on a date' })
@@ -120,6 +127,19 @@ export class AttendanceController {
   ) {
     await this.access.assertStudent(u, t, id);
     return this.svc.studentRecords(t, id, q);
+  }
+
+  @Get('students/:studentId/calendar')
+  @RequirePermissions(P.ATTENDANCE_VIEW)
+  @ApiOperation({ summary: 'Monthly attendance calendar view for a student' })
+  async calendar(
+    @CurrentUser() u: Principal,
+    @Tenant() t: string,
+    @Param('studentId') id: string,
+    @Query() q: D.StudentCalendarQueryDto,
+  ) {
+    await this.access.assertStudent(u, t, id);
+    return this.svc.getStudentCalendar(t, id, q.month, q.year, q.subjectId);
   }
 
   @Get('analytics/shortage')

@@ -54,6 +54,9 @@ export class PortalService {
   attendanceRecords(c: string, id: string, q: AD.AttendanceQueryDto) {
     return this.attendanceSvc.studentRecords(c, id, q);
   }
+  attendanceCalendar(c: string, id: string, q: AD.StudentCalendarQueryDto) {
+    return this.attendanceSvc.getStudentCalendar(c, id, q.month, q.year, q.subjectId);
+  }
   timetableFor(c: string, id: string) {
     return this.timetable.forStudent(c, id);
   }

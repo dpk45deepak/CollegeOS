@@ -69,9 +69,9 @@ export class AttendanceAnalyticsService {
         select: { studentId: true, subjectId: true, status: true, date: true },
         orderBy: { date: 'desc' },
       }),
-      this.prisma.subject.findMany({ where: { collegeId }, select: { id: true, name: true } }),
+      this.prisma.subject.findMany({ where: { collegeId }, select: { id: true, name: true, code: true } }),
     ]);
-    const names = new Map(subjects.map((s) => [s.id, s.name]));
+    const subjectMap = new Map(subjects.map((s) => [s.id, s]));
 
     const perStudent = new Map<string, Map<string, StatusCounts>>();
     for (const g of groups) {
@@ -91,7 +91,8 @@ export class AttendanceAnalyticsService {
       const subjects: SubjectAttendance[] = [];
       for (const [subjectId, counts] of subj) {
         (Object.keys(counts) as (keyof StatusCounts)[]).forEach((k) => (overallCounts[k] += counts[k]));
-        subjects.push(summarise(subjectId, counts, threshold, names.get(subjectId)));
+        const sub = subjectMap.get(subjectId);
+        subjects.push(summarise(subjectId, counts, threshold, sub?.name, sub?.code));
       }
       subjects.sort((a, b) => (a.percentage ?? 101) - (b.percentage ?? 101));
       const overall = summarise('ALL', overallCounts, threshold, 'Overall');
@@ -140,7 +141,7 @@ export class AttendanceAnalyticsService {
           flags.push({
             type: 'REPEATED_SUBJECT_ABSENCE',
             subjectId,
-            subjectName: names.get(subjectId),
+            subjectName: subjectMap.get(subjectId)?.name,
             detail: `${run} consecutive absences`,
           });
       }

@@ -2,7 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 import { P } from '../auth/permissions';
-import { AttendanceQueryDto } from '../attendance/dto/attendance.dto';
+import { AttendanceQueryDto, StudentCalendarQueryDto } from '../attendance/dto/attendance.dto';
 import { AssignmentListQueryDto } from '../assignments/dto/assignments.dto';
 import { CurrentUser, RequirePermissions, Tenant } from '../common/decorators/auth.decorators';
 import { Principal } from '../common/types/principal';
@@ -45,6 +45,12 @@ export class PortalController {
   @RequirePermissions(P.ATTENDANCE_VIEW_OWN)
   records(@CurrentUser() u: Principal, @Tenant() t: string, @Query() q: AttendanceRecordsQuery) {
     return this.svc.attendanceRecords(t, this.svc.studentId(u, q.studentId), q);
+  }
+  @Get('attendance/calendar')
+  @RequirePermissions(P.ATTENDANCE_VIEW_OWN)
+  @ApiOperation({ summary: 'Monthly subject attendance calendar view for student' })
+  calendar(@CurrentUser() u: Principal, @Tenant() t: string, @Query() q: StudentCalendarQueryDto) {
+    return this.svc.attendanceCalendar(t, this.svc.studentId(u, q.studentId), q);
   }
   @Get('timetable') @RequirePermissions(P.TIMETABLE_VIEW) timetable(
     @CurrentUser() u: Principal,

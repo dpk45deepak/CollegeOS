@@ -75,6 +75,7 @@ export function consecutiveAbsences(statusesNewestFirst: AttendanceStatus[]): nu
 
 export interface SubjectAttendance {
   subjectId: string;
+  subjectCode?: string;
   subjectName?: string;
   attended: number;
   total: number;
@@ -89,11 +90,13 @@ export function summarise(
   counts: StatusCounts,
   threshold: number,
   subjectName?: string,
+  subjectCode?: string,
 ): SubjectAttendance {
   const { attended, total } = attendedAndTotal(counts);
   const pct = percentage(attended, total);
   return {
     subjectId,
+    subjectCode,
     subjectName,
     attended,
     total,

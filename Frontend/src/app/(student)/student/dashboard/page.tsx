@@ -150,7 +150,11 @@ export default function StudentDashboardPage() {
               </span>
             </div>
             <h4 className="text-sm font-bold font-display text-[var(--text)] truncate">
-              {worstSubject ? `${worstSubject.subjectName || worstSubject.subjectId}` : "All Courses Monitored"}
+              {worstSubject
+                ? worstSubject.subjectName && !/^[c][a-z0-9]{20,}$/i.test(worstSubject.subjectName)
+                  ? worstSubject.subjectName
+                  : "Course Subject"
+                : "All Courses Monitored"}
             </h4>
             <p className="text-xs font-semibold text-[var(--text-muted)] mt-1 leading-relaxed">
               {isAttendanceShort && worstSubject?.classesNeeded

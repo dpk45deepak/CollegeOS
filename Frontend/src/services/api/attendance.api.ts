@@ -101,6 +101,115 @@ export interface ScheduledSessionRosterResponse {
   roster: SessionRosterStudent[];
 }
 
+export interface StudentCalendarRecord {
+  id: string;
+  status: "PRESENT" | "ABSENT" | "LATE";
+  subjectId: string;
+  subjectCode: string;
+  subjectName: string;
+  periodKey: string;
+  remark?: string | null;
+  subjectOfferingId?: string;
+}
+
+export interface StudentCalendarDay {
+  date: string;
+  day: number;
+  dayOfWeek: string;
+  total: number;
+  attended: number;
+  absent: number;
+  late: number;
+  records: StudentCalendarRecord[];
+}
+
+export interface StudentCalendarResponse {
+  month: number;
+  year: number;
+  monthName: string;
+  daysInMonth: number;
+  stats: {
+    totalClasses: number;
+    attended: number;
+    absent: number;
+    late: number;
+    percentage: number;
+  };
+  dailyBreakdown: Record<string, StudentCalendarDay>;
+  subjects: Array<{
+    id: string;
+    offeringId: string;
+    code: string;
+    name: string;
+    section: string;
+  }>;
+}
+
+export interface RegisterSession {
+  id: string;
+  date: string;
+  day: number;
+  dayOfWeek: string;
+  periodKey: string;
+  mode: string;
+  totalEnrolled: number;
+  presentCount: number;
+  absentCount: number;
+  lateCount: number;
+  percentage: number;
+}
+
+export interface RegisterStudent {
+  studentId: string;
+  rollNumber: string;
+  name: string;
+  email?: string;
+  stats: {
+    held: number;
+    attended: number;
+    absent: number;
+    late: number;
+    percentage: number;
+  };
+  attendanceBySession: Record<
+    string,
+    {
+      status: "PRESENT" | "ABSENT" | "LATE" | "NOT_MARKED";
+      remark?: string | null;
+      recordId?: string;
+    }
+  >;
+}
+
+export interface SectionRegisterResponse {
+  subjectOffering: {
+    id: string;
+    subject: { id: string; code: string; name: string };
+    section: { id: string; name: string };
+    semester: { id: string; number: number; academicYear?: string };
+    teacher: { id: string; name: string };
+  };
+  month: number;
+  year: number;
+  monthName: string;
+  daysInMonth: number;
+  sessions: RegisterSession[];
+  students: RegisterStudent[];
+  summary: {
+    totalStudents: number;
+    totalLectures: number;
+    averagePercentage: number;
+    defaultersCount: number;
+  };
+}
+
+export interface TeacherOfferingItem {
+  id: string;
+  subject: { code: string; name: string };
+  section: { name: string };
+  teacher?: { id: string; user?: { firstName: string; lastName: string } };
+}
+
 export const attendanceApi = {
   getTeacherScheduledSessions: async (date?: string): Promise<TeacherScheduledSession[]> => {
     const raw = await apiClient<any>("/attendance/teacher/scheduled-sessions", {
@@ -170,6 +279,28 @@ export const attendanceApi = {
 
   getStudentRecords: async (studentId: string, params?: { subjectOfferingId?: string; from?: string; to?: string }) => {
     return apiClient<any>(`/attendance/students/${studentId}/records`, { params });
+  },
+
+  getStudentCalendar: async (params?: {
+    month?: number;
+    year?: number;
+    subjectId?: string;
+    studentId?: string;
+  }): Promise<StudentCalendarResponse> => {
+    return apiClient<StudentCalendarResponse>("/students/me/attendance/calendar", { params });
+  },
+
+  getSectionRegister: async (params: {
+    subjectOfferingId: string;
+    month?: number;
+    year?: number;
+  }): Promise<SectionRegisterResponse> => {
+    return apiClient<SectionRegisterResponse>("/attendance/register", { params });
+  },
+
+  getTeacherOfferings: async (params?: { limit?: number }): Promise<TeacherOfferingItem[]> => {
+    const raw = await apiClient<any>("/subject-offerings", { params: { limit: params?.limit ?? 100 } });
+    return Array.isArray(raw) ? raw : raw?.data || raw?.items || [];
   },
 
   getShortageAnalytics: async (params?: { page?: number; limit?: number }): Promise<AttendanceShortageItem[]> => {

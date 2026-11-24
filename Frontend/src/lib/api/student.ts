@@ -92,9 +92,30 @@ export const studentApi = {
         totalHeld: report.overall?.total ?? 0,
         totalAttended: report.overall?.attended ?? 0,
         subjects: (report.subjects || []).map((s) => {
-          const parts = (s.subjectName || s.subjectId).split(" - ");
-          const code = parts.length > 1 ? parts[0] : s.subjectId;
-          const name = parts.length > 1 ? parts[1] : s.subjectName || s.subjectId;
+          const rawCode = (s as any).subjectCode || (s as any).code || "";
+          const rawName = s.subjectName || "";
+          const parts = rawName.split(" - ");
+
+          let code = rawCode;
+          let name = rawName;
+
+          if (parts.length > 1) {
+            if (!code || code === s.subjectId) {
+              code = parts[0].trim();
+            }
+            name = parts.slice(1).join(" - ").trim();
+          }
+
+          // Strip raw database cuid or long random IDs from displaying as course code or name
+          const isRawId = (val: string) =>
+            !val || val === s.subjectId || val.length > 15 || /^[c][a-z0-9]{20,}$/i.test(val);
+
+          if (isRawId(code)) {
+            code = "";
+          }
+          if (isRawId(name)) {
+            name = "Course Subject";
+          }
 
           return {
             id: s.subjectId,
@@ -117,6 +138,10 @@ export const studentApi = {
     }
 
     return raw as AttendanceSummary;
+  },
+
+  getAttendanceCalendar: async (params?: { month?: number; year?: number; subjectId?: string }) => {
+    return apiClient<any>("/students/me/attendance/calendar", { params });
   },
 
   getTimetable: async (): Promise<TimetableSlot[]> => {

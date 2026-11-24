@@ -7,6 +7,8 @@ import {
   TeacherScheduledSession,
   SessionRosterStudent,
   AttendanceCorrection,
+  SectionRegisterResponse,
+  TeacherOfferingItem,
 } from "@/services/api/attendance.api";
 import {
   CalendarCheck2,
@@ -23,6 +25,13 @@ import {
   ShieldAlert,
   ThumbsUp,
   ThumbsDown,
+  BookOpen,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,13 +43,21 @@ import { toast } from "sonner";
 export default function TeacherAttendancePage() {
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<"rollcall" | "disputes">("rollcall");
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [activeTab, setActiveTab] = useState<"rollcall" | "register" | "disputes">("rollcall");
+  const today = new Date();
+  const [selectedDate, setSelectedDate] = useState(() => today.toISOString().split("T")[0]);
   const [selectedSlotId, setSelectedSlotId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [roster, setRoster] = useState<SessionRosterStudent[]>([]);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [submittedMessage, setSubmittedMessage] = useState<string | null>(null);
+
+  // Register state
+  const [registerOfferingId, setRegisterOfferingId] = useState<string>("");
+  const [registerMonth, setRegisterMonth] = useState<number>(today.getMonth() + 1);
+  const [registerYear, setRegisterYear] = useState<number>(today.getFullYear());
+  const [registerSearch, setRegisterSearch] = useState("");
+  const [registerFilter, setRegisterFilter] = useState<"all" | "defaulters" | "regular">("all");
 
   // Review Dialog State
   const [reviewingIssue, setReviewingIssue] = useState<AttendanceCorrection | null>(null);
@@ -78,11 +95,170 @@ export default function TeacherAttendancePage() {
     }
   }, [rosterData]);
 
-  // 3. Fetch Attendance Disputes for this Teacher
+  // 3. Fetch Teacher's assigned subject offerings for register selector
+  const { data: teacherOfferings, isLoading: offeringsLoading } = useQuery({
+    queryKey: ["teacher_offerings"],
+    queryFn: () => attendanceApi.getTeacherOfferings(),
+  });
+
+  // Auto-select first offering if none is selected
+  useEffect(() => {
+    if (teacherOfferings && teacherOfferings.length > 0 && !registerOfferingId) {
+      setRegisterOfferingId(teacherOfferings[0].id);
+    } else if (!registerOfferingId && scheduledSessions && scheduledSessions.length > 0) {
+      setRegisterOfferingId(scheduledSessions[0].subjectOfferingId);
+    }
+  }, [teacherOfferings, scheduledSessions, registerOfferingId]);
+
+  // 4. Fetch Register Data for Selected Offering & Month
+  const {
+    data: registerData,
+    isLoading: registerLoading,
+    refetch: refetchRegister,
+  } = useQuery({
+    queryKey: ["section_register", registerOfferingId, registerMonth, registerYear],
+    queryFn: () =>
+      attendanceApi.getSectionRegister({
+        subjectOfferingId: registerOfferingId,
+        month: registerMonth,
+        year: registerYear,
+      }),
+    enabled: activeTab === "register" && !!registerOfferingId,
+  });
+
+  // 5. Fetch Attendance Disputes for this Teacher
   const { data: disputes, isLoading: disputesLoading, refetch: refetchDisputes } = useQuery({
     queryKey: ["teacher_attendance_corrections"],
     queryFn: () => attendanceApi.listCorrections(),
     enabled: activeTab === "disputes",
+  });
+
+  const handleRegisterPrevMonth = () => {
+    if (registerMonth === 1) {
+      setRegisterMonth(12);
+      setRegisterYear((y) => y - 1);
+    } else {
+      setRegisterMonth((m) => m - 1);
+    }
+  };
+
+  const handleRegisterNextMonth = () => {
+    if (registerMonth === 12) {
+      setRegisterMonth(1);
+      setRegisterYear((y) => y + 1);
+    } else {
+      setRegisterMonth((m) => m + 1);
+    }
+  };
+
+  const handleRegisterCurrentMonth = () => {
+    const n = new Date();
+    setRegisterMonth(n.getMonth() + 1);
+    setRegisterYear(n.getFullYear());
+  };
+
+  const handleExportCSV = () => {
+    if (!registerData) return;
+
+    const sessionHeaders = registerData.sessions.map(
+      (s) => `"${s.day} ${s.dayOfWeek} (${s.date})"`
+    );
+    const headers = [
+      "Roll Number",
+      "Student Name",
+      "Email",
+      ...sessionHeaders,
+      "Classes Attended",
+      "Classes Held",
+      "Attendance Percentage",
+    ];
+
+    const rows = (registerData.students || []).map((st) => {
+      const sessionValues = registerData.sessions.map((s) => {
+        const att = st.attendanceBySession[s.id];
+        if (!att || att.status === "NOT_MARKED") return "-";
+        return att.status;
+      });
+
+      return [
+        `"${st.rollNumber}"`,
+        `"${st.name}"`,
+        `"${st.email || ""}"`,
+        ...sessionValues.map((v) => `"${v}"`),
+        st.stats.attended,
+        st.stats.held,
+        `"${st.stats.percentage}%"`,
+      ].join(",");
+    });
+
+    const dailyPresent = registerData.sessions.map((s) => s.presentCount);
+    const dailyAbsent = registerData.sessions.map((s) => s.absentCount);
+    const dailyRate = registerData.sessions.map((s) => `"${s.percentage}%"`);
+
+    const summaryRowPresent = [
+      '"DAILY PRESENT"',
+      '""',
+      '""',
+      ...dailyPresent,
+      '""',
+      '""',
+      '""',
+    ].join(",");
+    const summaryRowAbsent = [
+      '"DAILY ABSENT"',
+      '""',
+      '""',
+      ...dailyAbsent,
+      '""',
+      '""',
+      '""',
+    ].join(",");
+    const summaryRowRate = [
+      '"DAILY ATTENDANCE %"',
+      '""',
+      '""',
+      ...dailyRate,
+      '""',
+      '""',
+      '""',
+    ].join(",");
+
+    const csvContent = [
+      headers.join(","),
+      ...rows,
+      summaryRowPresent,
+      summaryRowAbsent,
+      summaryRowRate,
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const filename = `Attendance_Register_${registerData.subjectOffering.section.name}_${registerData.subjectOffering.subject.code}_${registerData.monthName}_${registerYear}.csv`;
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Register exported to CSV successfully.");
+  };
+
+  const filteredRegisterStudents = (registerData?.students || []).filter((st) => {
+    const q = registerSearch.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      st.name.toLowerCase().includes(q) ||
+      st.rollNumber.toLowerCase().includes(q);
+
+    if (!matchesSearch) return false;
+
+    if (registerFilter === "defaulters") {
+      return st.stats.percentage < 75;
+    }
+    if (registerFilter === "regular") {
+      return st.stats.percentage >= 75;
+    }
+    return true;
   });
 
   const selectedSession = scheduledSessions?.find((s) => s.slotId === selectedSlotId);
@@ -184,6 +360,17 @@ export default function TeacherAttendancePage() {
             }`}
           >
             Timetable Roll Call
+          </button>
+          <button
+            onClick={() => setActiveTab("register")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              activeTab === "register"
+                ? "bg-brand-600 text-white shadow-xs"
+                : "border border-border bg-card text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Attendance Register
           </button>
           <button
             onClick={() => setActiveTab("disputes")}
@@ -505,6 +692,423 @@ export default function TeacherAttendancePage() {
               </div>
             </div>
           </Dialog>
+        </div>
+      )}
+
+      {activeTab === "register" && (
+        <div className="space-y-6">
+          {/* Top Controls: Section Selector, Month Navigation & Filter */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              {/* Offering & Section Selector */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                    Course & Section
+                  </label>
+                  <select
+                    value={registerOfferingId}
+                    onChange={(e) => setRegisterOfferingId(e.target.value)}
+                    className="h-10 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground focus:ring-2 focus:ring-brand-500 min-w-[260px] cursor-pointer"
+                  >
+                    {offeringsLoading ? (
+                      <option value="">Loading offerings...</option>
+                    ) : teacherOfferings && teacherOfferings.length > 0 ? (
+                      teacherOfferings.map((off) => (
+                        <option key={off.id} value={off.id}>
+                          {off.subject.code} - {off.subject.name} (Sec {off.section.name})
+                        </option>
+                      ))
+                    ) : scheduledSessions && scheduledSessions.length > 0 ? (
+                      scheduledSessions.map((s) => (
+                        <option key={s.subjectOfferingId} value={s.subjectOfferingId}>
+                          {s.subject.code} - {s.subject.name} (Sec {s.section.name})
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No course offerings found</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* Month Navigation */}
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                    Attendance Month
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRegisterPrevMonth}
+                      className="h-10 w-9 p-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="px-3 h-10 bg-muted/30 rounded-xl border border-input flex items-center justify-center min-w-[150px]">
+                      <span className="text-xs font-bold text-foreground">
+                        {registerData?.monthName || "Month"} {registerYear}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRegisterNextMonth}
+                      className="h-10 w-9 p-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRegisterCurrentMonth}
+                      className="h-10 text-xs text-muted-foreground hover:text-foreground px-2"
+                    >
+                      Current
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions & CSV Export */}
+              <div className="flex items-center gap-2 self-start lg:self-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportCSV}
+                  disabled={!registerData || registerData.students.length === 0}
+                  className="h-10 text-xs gap-1.5 border-slate-200 dark:border-slate-700 bg-background hover:bg-muted font-medium"
+                >
+                  <Download className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
+                  Export Register (CSV)
+                </Button>
+              </div>
+            </div>
+
+            {/* Register Summary KPIs */}
+            {registerData && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-border/60">
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border text-center">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                    Section Students
+                  </span>
+                  <span className="text-xl font-black font-mono text-foreground">
+                    {registerData.summary.totalStudents}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border text-center">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                    Lectures Conducted
+                  </span>
+                  <span className="text-xl font-black font-mono text-foreground">
+                    {registerData.summary.totalLectures}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                  <span className="text-[10px] text-emerald-700 dark:text-emerald-400 uppercase font-bold tracking-wider block">
+                    Section Average
+                  </span>
+                  <span
+                    className={`text-xl font-black font-mono ${
+                      registerData.summary.averagePercentage >= 75
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-rose-600 dark:text-rose-400"
+                    }`}
+                  >
+                    {registerData.summary.averagePercentage.toFixed(1)}%
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
+                  <span className="text-[10px] text-rose-700 dark:text-rose-400 uppercase font-bold tracking-wider block">
+                    Defaulters (&lt;75%)
+                  </span>
+                  <span className="text-xl font-black font-mono text-rose-600 dark:text-rose-400">
+                    {registerData.summary.defaultersCount}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border/60">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRegisterFilter("all")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                    registerFilter === "all"
+                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                      : "bg-muted/50 text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  All ({registerData?.students.length ?? 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRegisterFilter("defaulters")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 ${
+                    registerFilter === "defaulters"
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100"
+                  }`}
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  Below 75% ({registerData?.summary.defaultersCount ?? 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRegisterFilter("regular")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                    registerFilter === "regular"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"
+                  }`}
+                >
+                  Eligible &ge;75% (
+                  {Math.max(
+                    0,
+                    (registerData?.students.length ?? 0) - (registerData?.summary.defaultersCount ?? 0)
+                  )}
+                  )
+                </button>
+              </div>
+
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Filter student name or roll no..."
+                  value={registerSearch}
+                  onChange={(e) => setRegisterSearch(e.target.value)}
+                  className="pl-8 text-xs h-8 bg-background"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Authentic Register Ledger Table */}
+          <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            {registerLoading ? (
+              <div className="p-8 space-y-3">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : !registerData || registerData.students.length === 0 ? (
+              <div className="p-12 text-center text-muted-foreground text-xs space-y-2">
+                <BookOpen className="h-8 w-8 mx-auto text-muted-foreground/60 mb-1" />
+                <p className="font-semibold text-foreground text-sm">No students enrolled in this offering</p>
+                <p>Please select another subject offering or verify student section enrollments.</p>
+              </div>
+            ) : registerData.sessions.length === 0 ? (
+              <div className="p-12 text-center text-muted-foreground text-xs space-y-3">
+                <CalendarDays className="h-8 w-8 mx-auto text-muted-foreground/60 mb-1" />
+                <p className="font-semibold text-foreground text-sm">
+                  No attendance sessions recorded for {registerData.monthName} {registerYear}
+                </p>
+                <p>
+                  Switch to the &quot;Timetable Roll Call&quot; tab to record attendance for scheduled lectures.
+                </p>
+                <div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveTab("rollcall")}
+                    className="text-xs gap-1.5"
+                  >
+                    Go to Timetable Roll Call
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-h-[650px] relative">
+                <table className="w-full text-xs text-left border-collapse">
+                  {/* Ledger Header */}
+                  <thead className="bg-slate-100 dark:bg-slate-800/90 text-foreground text-[11px] font-bold sticky top-0 z-30 border-b border-border shadow-xs">
+                    <tr>
+                      <th className="p-3 pl-4 sticky left-0 bg-slate-100 dark:bg-slate-800 z-40 min-w-[100px] border-r border-border/60">
+                        Roll Number
+                      </th>
+                      <th className="p-3 sticky left-[100px] bg-slate-100 dark:bg-slate-800 z-40 min-w-[180px] border-r border-border/60">
+                        Student Name
+                      </th>
+
+                      {/* Date Columns for Each Lecture Session */}
+                      {registerData.sessions.map((s) => (
+                        <th
+                          key={s.id}
+                          className="p-2 text-center min-w-[56px] border-r border-border/40 font-mono"
+                          title={`${s.date} (Slot: ${s.periodKey})`}
+                        >
+                          <div className="font-bold text-xs text-foreground">{s.day}</div>
+                          <div className="text-[10px] uppercase font-semibold text-muted-foreground">
+                            {s.dayOfWeek}
+                          </div>
+                          <div className="text-[9px] text-brand-600 dark:text-brand-400 font-mono">
+                            {s.periodKey === "DAY" ? "Day" : s.periodKey.slice(-4)}
+                          </div>
+                        </th>
+                      ))}
+
+                      {/* Sticky Right Columns */}
+                      <th className="p-3 text-center sticky right-[80px] bg-slate-100 dark:bg-slate-800 z-40 min-w-[80px] border-l border-border/60 font-mono">
+                        Attended
+                      </th>
+                      <th className="p-3 text-center sticky right-0 bg-slate-100 dark:bg-slate-800 z-40 min-w-[80px] border-l border-border/60 font-mono pr-4">
+                        Rate %
+                      </th>
+                    </tr>
+                  </thead>
+
+                  {/* Ledger Rows */}
+                  <tbody className="divide-y divide-border/60 bg-card">
+                    {filteredRegisterStudents.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={registerData.sessions.length + 4}
+                          className="p-8 text-center text-muted-foreground text-xs"
+                        >
+                          No students match the current filter criteria.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredRegisterStudents.map((st, idx) => {
+                        const isDefaulter = st.stats.percentage < 75;
+
+                        return (
+                          <tr
+                            key={st.studentId}
+                            className={`hover:bg-muted/30 transition-colors ${
+                              idx % 2 === 0 ? "bg-card" : "bg-muted/10"
+                            } ${isDefaulter ? "hover:bg-rose-500/5" : ""}`}
+                          >
+                            <td className="p-2.5 pl-4 sticky left-0 bg-inherit z-20 font-mono font-bold text-foreground border-r border-border/60 whitespace-nowrap">
+                              {st.rollNumber}
+                            </td>
+                            <td className="p-2.5 sticky left-[100px] bg-inherit z-20 font-semibold text-foreground border-r border-border/60 whitespace-nowrap max-w-[200px] truncate">
+                              {st.name}
+                            </td>
+
+                            {/* Attendance Cells */}
+                            {registerData.sessions.map((s) => {
+                              const att = st.attendanceBySession[s.id];
+                              const status = att?.status;
+
+                              return (
+                                <td
+                                  key={s.id}
+                                  className="p-1 text-center border-r border-border/40"
+                                  title={
+                                    att
+                                      ? `${st.name}: ${status}${att.remark ? ` (${att.remark})` : ""}`
+                                      : `${st.name}: No Record`
+                                  }
+                                >
+                                  {status === "PRESENT" ? (
+                                    <span className="inline-flex w-7 h-7 rounded-lg items-center justify-center font-black font-mono text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+                                      P
+                                    </span>
+                                  ) : status === "ABSENT" ? (
+                                    <span className="inline-flex w-7 h-7 rounded-lg items-center justify-center font-black font-mono text-xs bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25">
+                                      A
+                                    </span>
+                                  ) : status === "LATE" ? (
+                                    <span className="inline-flex w-7 h-7 rounded-lg items-center justify-center font-black font-mono text-xs bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                                      L
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground/30 font-mono text-xs">
+                                      -
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            })}
+
+                            {/* Summary Attended / Held */}
+                            <td className="p-2 text-center sticky right-[80px] bg-inherit z-20 border-l border-border/60 font-mono font-bold text-xs">
+                              <span className="text-emerald-600 dark:text-emerald-400">
+                                {st.stats.attended}
+                              </span>
+                              <span className="text-muted-foreground">/{st.stats.held}</span>
+                            </td>
+
+                            {/* Summary Percentage */}
+                            <td className="p-2 pr-4 text-center sticky right-0 bg-inherit z-20 border-l border-border/60 font-mono">
+                              <span
+                                className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-black ${
+                                  !isDefaulter
+                                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                    : "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                                }`}
+                              >
+                                {st.stats.percentage.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+
+                  {/* Ledger Footer: Daily Totals */}
+                  <tfoot className="bg-slate-100 dark:bg-slate-800 text-[11px] font-bold sticky bottom-0 z-30 border-t-2 border-border shadow-xs">
+                    <tr className="border-b border-border/40">
+                      <td className="p-2.5 pl-4 sticky left-0 bg-slate-100 dark:bg-slate-800 z-40 text-muted-foreground border-r border-border/60">
+                        DAILY PRESENT
+                      </td>
+                      <td className="p-2.5 sticky left-[100px] bg-slate-100 dark:bg-slate-800 z-40 text-muted-foreground border-r border-border/60">
+                        Students Present
+                      </td>
+                      {registerData.sessions.map((s) => (
+                        <td
+                          key={s.id}
+                          className="p-1 text-center font-mono text-xs text-emerald-600 dark:text-emerald-400 font-bold border-r border-border/40"
+                        >
+                          {s.presentCount + s.lateCount}
+                        </td>
+                      ))}
+                      <td className="p-2 text-center sticky right-[80px] bg-slate-100 dark:bg-slate-800 z-40 border-l border-border/60 font-mono text-emerald-600">
+                        {registerData.sessions.reduce(
+                          (acc, s) => acc + s.presentCount + s.lateCount,
+                          0
+                        )}
+                      </td>
+                      <td className="p-2 pr-4 text-center sticky right-0 bg-slate-100 dark:bg-slate-800 z-40 border-l border-border/60 font-mono text-emerald-600">
+                        {registerData.summary.averagePercentage.toFixed(1)}%
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td className="p-2.5 pl-4 sticky left-0 bg-slate-100 dark:bg-slate-800 z-40 text-muted-foreground border-r border-border/60">
+                        DAILY ABSENT
+                      </td>
+                      <td className="p-2.5 sticky left-[100px] bg-slate-100 dark:bg-slate-800 z-40 text-muted-foreground border-r border-border/60">
+                        Students Absent
+                      </td>
+                      {registerData.sessions.map((s) => (
+                        <td
+                          key={s.id}
+                          className="p-1 text-center font-mono text-xs text-rose-600 dark:text-rose-400 font-bold border-r border-border/40"
+                        >
+                          {s.absentCount}
+                        </td>
+                      ))}
+                      <td className="p-2 text-center sticky right-[80px] bg-slate-100 dark:bg-slate-800 z-40 border-l border-border/60 font-mono text-rose-600">
+                        {registerData.sessions.reduce((acc, s) => acc + s.absentCount, 0)}
+                      </td>
+                      <td className="p-2 pr-4 text-center sticky right-0 bg-slate-100 dark:bg-slate-800 z-40 border-l border-border/60 font-mono text-rose-600">
+                        {(100 - registerData.summary.averagePercentage).toFixed(1)}%
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

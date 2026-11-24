@@ -82,6 +82,52 @@ export class SessionRosterQueryDto {
   date?: Date;
 }
 
+export class StudentCalendarQueryDto {
+  @ApiPropertyOptional({ description: 'Month (1-12)', example: 11 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month?: number;
+
+  @ApiPropertyOptional({ description: 'Full year (e.g. 2026)', example: 2026 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  year?: number;
+
+  @ApiPropertyOptional({ description: 'Filter to a specific subject offering or subject ID' })
+  @IsOptional()
+  @IsString()
+  subjectId?: string;
+
+  @ApiPropertyOptional({ description: 'Parents: which ward' })
+  @IsOptional()
+  @IsString()
+  studentId?: string;
+}
+
+export class SectionRegisterQueryDto {
+  @ApiProperty({ description: 'Subject Offering ID to view register for' })
+  @IsString()
+  subjectOfferingId!: string;
+
+  @ApiPropertyOptional({ description: 'Month (1-12)', example: 11 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month?: number;
+
+  @ApiPropertyOptional({ description: 'Full year (e.g. 2026)', example: 2026 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  year?: number;
+}
+
 export class AttendanceQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() subjectId?: string;
   @ApiPropertyOptional() @IsOptional() @Type(() => Date) @IsDate() from?: Date;

@@ -618,6 +618,362 @@ export class AttendanceService {
     return paginate(items, total, q);
   }
 
+  async getStudentCalendar(c: string, studentId: string, month?: number, year?: number, subjectId?: string) {
+    const now = new Date();
+    const targetYear = year ?? now.getFullYear();
+    const targetMonth = month ?? now.getMonth() + 1; // 1-indexed
+
+    const startDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0, 0));
+    const endDate = new Date(Date.UTC(targetYear, targetMonth, 0, 23, 59, 59, 999));
+    const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    const monthName = monthNames[targetMonth - 1];
+
+    const where: Prisma.AttendanceWhereInput = {
+      collegeId: c,
+      studentId,
+      date: { gte: startDate, lte: endDate },
+      ...(subjectId ? { subjectId } : {}),
+    };
+
+    const [records, enrolledOfferings] = await Promise.all([
+      this.prisma.attendance.findMany({
+        where,
+        orderBy: { date: 'asc' },
+        select: {
+          id: true,
+          date: true,
+          status: true,
+          remark: true,
+          subjectId: true,
+          session: {
+            select: {
+              id: true,
+              periodKey: true,
+              subjectOffering: {
+                select: {
+                  id: true,
+                  subject: { select: { id: true, code: true, name: true } },
+                  section: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.enrollment.findMany({
+        where: { studentId, collegeId: c },
+        include: {
+          subjectOffering: {
+            include: {
+              subject: { select: { id: true, code: true, name: true } },
+              section: { select: { id: true, name: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const subjects = enrolledOfferings.map((e) => ({
+      id: e.subjectOffering.subject.id,
+      offeringId: e.subjectOffering.id,
+      code: e.subjectOffering.subject.code,
+      name: e.subjectOffering.subject.name,
+      section: e.subjectOffering.section.name,
+    }));
+
+    const dailyBreakdown: Record<
+      string,
+      {
+        date: string;
+        day: number;
+        dayOfWeek: string;
+        total: number;
+        attended: number;
+        absent: number;
+        late: number;
+        records: Array<{
+          id: string;
+          status: AttendanceStatus;
+          subjectId: string;
+          subjectCode: string;
+          subjectName: string;
+          periodKey: string;
+          remark?: string | null;
+          subjectOfferingId?: string;
+        }>;
+      }
+    > = {};
+
+    let totalClasses = 0;
+    let attended = 0;
+    let absent = 0;
+    let late = 0;
+
+    for (const rec of records) {
+      const dateStr = rec.date.toISOString().split('T')[0];
+      const d = new Date(rec.date);
+      const day = d.getUTCDate();
+      const dayOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getUTCDay()];
+
+      if (!dailyBreakdown[dateStr]) {
+        dailyBreakdown[dateStr] = {
+          date: dateStr,
+          day,
+          dayOfWeek,
+          total: 0,
+          attended: 0,
+          absent: 0,
+          late: 0,
+          records: [],
+        };
+      }
+
+      const dayGroup = dailyBreakdown[dateStr];
+      dayGroup.total += 1;
+      totalClasses += 1;
+
+      if (rec.status === 'PRESENT') {
+        dayGroup.attended += 1;
+        attended += 1;
+      } else if (rec.status === 'ABSENT') {
+        dayGroup.absent += 1;
+        absent += 1;
+      } else if (rec.status === 'LATE') {
+        dayGroup.late += 1;
+        late += 1;
+        attended += 1;
+      }
+
+      const sub = rec.session?.subjectOffering?.subject;
+      dayGroup.records.push({
+        id: rec.id,
+        status: rec.status,
+        subjectId: rec.subjectId,
+        subjectCode: sub?.code || '',
+        subjectName: sub?.name || 'Course Subject',
+        periodKey: rec.session?.periodKey || 'DAY',
+        remark: rec.remark,
+        subjectOfferingId: rec.session?.subjectOffering?.id,
+      });
+    }
+
+    const percentage = totalClasses > 0 ? (attended / totalClasses) * 100 : 0;
+
+    return {
+      month: targetMonth,
+      year: targetYear,
+      monthName,
+      daysInMonth,
+      stats: {
+        totalClasses,
+        attended,
+        absent,
+        late,
+        percentage: Number(percentage.toFixed(1)),
+      },
+      dailyBreakdown,
+      subjects,
+    };
+  }
+
+  async getSectionRegister(p: Principal, c: string, subjectOfferingId: string, month?: number, year?: number) {
+    await this.access.assertManagesOffering(p, c, subjectOfferingId);
+
+    const now = new Date();
+    const targetYear = year ?? now.getFullYear();
+    const targetMonth = month ?? now.getMonth() + 1; // 1-indexed
+
+    const startDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0, 0));
+    const endDate = new Date(Date.UTC(targetYear, targetMonth, 0, 23, 59, 59, 999));
+    const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    const monthName = monthNames[targetMonth - 1];
+
+    const [offering, enrollments, sessions] = await Promise.all([
+      this.prisma.subjectOffering.findUniqueOrThrow({
+        where: { id: subjectOfferingId },
+        include: {
+          subject: { select: { id: true, code: true, name: true } },
+          section: { select: { id: true, name: true } },
+          semester: { select: { id: true, number: true, academicYear: true } },
+          teacher: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
+        },
+      }),
+      this.prisma.enrollment.findMany({
+        where: { subjectOfferingId, collegeId: c },
+        include: {
+          student: {
+            include: {
+              user: { select: { firstName: true, lastName: true, email: true, loginId: true } },
+            },
+          },
+        },
+        orderBy: [
+          { student: { rollNumber: 'asc' } },
+          { student: { user: { lastName: 'asc' } } },
+        ],
+      }),
+      this.prisma.attendanceSession.findMany({
+        where: {
+          collegeId: c,
+          subjectOfferingId,
+          date: { gte: startDate, lte: endDate },
+        },
+        include: {
+          records: {
+            select: { id: true, studentId: true, status: true, remark: true },
+          },
+        },
+        orderBy: [{ date: 'asc' }, { periodKey: 'asc' }],
+      }),
+    ]);
+
+    const dayOfWeekMap: Record<number, string> = {
+      0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat',
+    };
+
+    const sessionList = sessions.map((s) => {
+      const d = new Date(s.date);
+      const dateStr = s.date.toISOString().split('T')[0];
+      const day = d.getUTCDate();
+      const dayOfWeek = dayOfWeekMap[d.getUTCDay()];
+
+      let presentCount = 0;
+      let absentCount = 0;
+      let lateCount = 0;
+
+      for (const rec of s.records) {
+        if (rec.status === 'PRESENT') presentCount += 1;
+        else if (rec.status === 'ABSENT') absentCount += 1;
+        else if (rec.status === 'LATE') lateCount += 1;
+      }
+
+      return {
+        id: s.id,
+        date: dateStr,
+        day,
+        dayOfWeek,
+        periodKey: s.periodKey,
+        mode: s.mode,
+        totalEnrolled: enrollments.length,
+        presentCount,
+        absentCount,
+        lateCount,
+        percentage:
+          enrollments.length > 0
+            ? Number((((presentCount + lateCount) / enrollments.length) * 100).toFixed(1))
+            : 0,
+      };
+    });
+
+    const sessionRecordMaps = new Map<
+      string,
+      Map<string, { id: string; status: AttendanceStatus; remark?: string | null }>
+    >();
+    for (const s of sessions) {
+      const m = new Map<string, { id: string; status: AttendanceStatus; remark?: string | null }>();
+      for (const r of s.records) {
+        m.set(r.studentId, { id: r.id, status: r.status, remark: r.remark });
+      }
+      sessionRecordMaps.set(s.id, m);
+    }
+
+    let overallAttendedSum = 0;
+    let overallHeldSum = 0;
+    let defaultersCount = 0;
+
+    const studentRows = enrollments.map((e) => {
+      const firstName = e.student.user.firstName || '';
+      const lastName = e.student.user.lastName || '';
+      const name = `${firstName} ${lastName}`.trim() || e.student.user.loginId;
+      const rollNumber = e.student.rollNumber || e.student.collegeStudentId || 'ID';
+
+      const attendanceBySession: Record<
+        string,
+        { status: AttendanceStatus | 'NOT_MARKED'; remark?: string | null; recordId?: string }
+      > = {};
+      let attended = 0;
+      let absent = 0;
+      let late = 0;
+      let held = 0;
+
+      for (const s of sessions) {
+        const rec = sessionRecordMaps.get(s.id)?.get(e.studentId);
+        if (rec) {
+          held += 1;
+          attendanceBySession[s.id] = { status: rec.status, remark: rec.remark, recordId: rec.id };
+          if (rec.status === 'PRESENT') attended += 1;
+          else if (rec.status === 'ABSENT') absent += 1;
+          else if (rec.status === 'LATE') {
+            late += 1;
+            attended += 1;
+          }
+        } else {
+          attendanceBySession[s.id] = { status: 'NOT_MARKED' };
+        }
+      }
+
+      const pct = held > 0 ? (attended / held) * 100 : 0;
+      const percentage = Number(pct.toFixed(1));
+
+      overallAttendedSum += attended;
+      overallHeldSum += held;
+      if (pct < 75 && held > 0) defaultersCount += 1;
+
+      return {
+        studentId: e.studentId,
+        rollNumber,
+        name,
+        email: e.student.user.email,
+        stats: {
+          held,
+          attended,
+          absent,
+          late,
+          percentage,
+        },
+        attendanceBySession,
+      };
+    });
+
+    const averagePercentage =
+      overallHeldSum > 0 ? Number(((overallAttendedSum / overallHeldSum) * 100).toFixed(1)) : 0;
+
+    return {
+      subjectOffering: {
+        id: offering.id,
+        subject: offering.subject,
+        section: offering.section,
+        semester: offering.semester,
+        teacher: {
+          id: offering.teacher.id,
+          name: `${offering.teacher.user.firstName} ${offering.teacher.user.lastName}`.trim(),
+        },
+      },
+      month: targetMonth,
+      year: targetYear,
+      monthName,
+      daysInMonth,
+      sessions: sessionList,
+      students: studentRows,
+      summary: {
+        totalStudents: enrollments.length,
+        totalLectures: sessions.length,
+        averagePercentage,
+        defaultersCount,
+      },
+    };
+  }
+
   private async reviewerUserIds(c: string, departmentId: string): Promise<string[]> {
     const [dept, admins] = await Promise.all([
       this.prisma.department.findUnique({ where: { id: departmentId }, select: { hodUserId: true } }),

@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { studentApi } from "@/lib/api/student";
+import { attendanceApi } from "@/services/api/attendance.api";
+import { toast } from "sonner";
 import {
   CalendarCheck2,
   AlertTriangle,
@@ -12,6 +14,7 @@ import {
   TrendingUp,
   Clock,
   Sparkles,
+  ShieldAlert,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,30 +43,38 @@ export default function StudentAttendancePage() {
 
   const queryClient = useQueryClient();
 
+  const { data: myDisputes, refetch: refetchDisputes } = useQuery({
+    queryKey: ["student_attendance_corrections"],
+    queryFn: () => attendanceApi.listCorrections(),
+  });
+
   const disputeMutation = useMutation({
-    mutationFn: async (data: { subjectName: string; requestedStatus: string; reason: string }) => {
-      return studentApi.createComplaint({
-        category: "ATTENDANCE",
-        subject: `Attendance Dispute: ${data.subjectName} (${data.requestedStatus})`,
-        description: `Official student attendance dispute for ${data.subjectName}. Requested status: ${data.requestedStatus}. Justification: ${data.reason}`,
+    mutationFn: async (data: { subjectOfferingId?: string; requestedStatus: "PRESENT" | "LATE"; reason: string }) => {
+      return attendanceApi.requestCorrection({
+        subjectOfferingId: data.subjectOfferingId,
+        newStatus: data.requestedStatus,
+        reason: data.reason,
       });
     },
     onSuccess: () => {
-      setDisputeSuccess("Attendance dispute ticket successfully submitted to Department Grievance Desk.");
+      setDisputeSuccess("Attendance rectification appeal submitted successfully to faculty and department head.");
       setIsDisputeOpen(false);
       setDisputeReason("");
+      toast.success("Dispute appeal registered with institutional audit logging.");
+      refetchDisputes();
+      refetch();
       setTimeout(() => setDisputeSuccess(null), 4000);
     },
     onError: (err: any) => {
-      alert(err?.message || "Failed to submit attendance dispute.");
+      toast.error(err?.message || "Failed to submit attendance dispute.");
     },
   });
 
   const handleDisputeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const subjName = disputeSubject || data?.subjects?.[0]?.name || "Class Lecture";
+    const subjId = disputeSubject || data?.subjects?.[0]?.id;
     disputeMutation.mutate({
-      subjectName: subjName,
+      subjectOfferingId: subjId,
       requestedStatus: disputeStatus,
       reason: disputeReason,
     });
@@ -366,6 +377,73 @@ export default function StudentAttendancePage() {
           </div>
         )}
       </div>
+
+      {/* Attendance Dispute Appeals History */}
+      <Card>
+        <CardHeader className="p-4 border-b border-border">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-brand-600" />
+            My Attendance Rectification Appeals
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 overflow-x-auto">
+          {(myDisputes || []).length === 0 ? (
+            <div className="p-6 text-center text-muted-foreground text-xs">
+              No attendance rectification appeals filed. If you notice an incorrect roll call entry, click &quot;Dispute / Request Correction&quot; above.
+            </div>
+          ) : (
+            <table className="w-full text-xs text-left">
+              <thead className="bg-muted/40 text-muted-foreground uppercase text-[10px] font-semibold border-b border-border">
+                <tr>
+                  <th className="p-3 pl-4">Subject</th>
+                  <th className="p-3">Lecture Date</th>
+                  <th className="p-3">Current → Requested</th>
+                  <th className="p-3">Reason</th>
+                  <th className="p-3">Decision</th>
+                  <th className="p-3 pr-4">Review Remarks</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {(myDisputes || []).map((d: any) => (
+                  <tr key={d.id} className="hover:bg-muted/20">
+                    <td className="p-3 pl-4 font-semibold text-foreground">
+                      {d.attendance?.session?.subjectOffering?.subject?.name || "Course Subject"}
+                    </td>
+                    <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                      {d.attendance?.date ? new Date(d.attendance.date).toLocaleDateString() : "Lecture Date"}
+                    </td>
+                    <td className="p-3 font-mono font-semibold">
+                      <span className="text-rose-600">{d.oldStatus || "ABSENT"}</span>
+                      {" → "}
+                      <span className="text-emerald-600">{d.newStatus || "PRESENT"}</span>
+                    </td>
+                    <td className="p-3 text-muted-foreground max-w-xs truncate">
+                      {d.reason}
+                    </td>
+                    <td className="p-3">
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          d.status === "APPROVED"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                            : d.status === "REJECTED"
+                            ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                        }`}
+                      >
+                        {d.status}
+                      </span>
+                    </td>
+                    <td className="p-3 pr-4 text-muted-foreground italic">
+                      {d.reviewNote || (d.status === "PENDING" ? "Awaiting review" : "No notes")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Request Correction Modal */}
       <Dialog
         isOpen={isDisputeOpen}

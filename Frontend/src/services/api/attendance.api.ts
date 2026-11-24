@@ -23,10 +23,12 @@ export interface AttendanceSession {
 export interface AttendanceCorrection {
   id: string;
   attendanceId: string;
-  studentId: string;
-  requestedStatus: "PRESENT" | "ABSENT" | "LATE";
+  studentId?: string;
+  oldStatus?: "PRESENT" | "ABSENT" | "LATE";
+  newStatus?: "PRESENT" | "ABSENT" | "LATE";
+  requestedStatus?: "PRESENT" | "ABSENT" | "LATE";
   reason: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
   reviewerNote?: string | null;
   createdAt: string;
   attendance?: {
@@ -53,13 +55,75 @@ export interface AttendanceShortageItem {
   shortageGap: number;
 }
 
+export interface TeacherScheduledSession {
+  slotId: string;
+  subjectOfferingId: string;
+  subject: { id: string; code: string; name: string };
+  section: { id: string; name: string };
+  semester: { id: string; number: number; academicYear?: string };
+  teacher: { id: string; name: string };
+  room: { id: string; code: string; capacity?: number } | null;
+  date: string;
+  startMinute: number;
+  endMinute: number;
+  startTime: string;
+  endTime: string;
+  enrolledStudents: number;
+  isMarked: boolean;
+  markedCount: number;
+  sessionId?: string;
+}
+
+export interface SessionRosterStudent {
+  studentId: string;
+  rollNumber: string;
+  name: string;
+  email?: string;
+  status: "PRESENT" | "ABSENT" | "LATE";
+  remark?: string;
+  isAlreadyMarked: boolean;
+  recordId?: string;
+}
+
+export interface ScheduledSessionRosterResponse {
+  session: {
+    slotId: string;
+    subjectOfferingId: string;
+    subject: { id: string; code: string; name: string };
+    section: { id: string; name: string };
+    semester: { id: string; number: number };
+    room: { id: string; code: string } | null;
+    date: string;
+    isMarked: boolean;
+    markedCount: number;
+    sessionId?: string;
+  };
+  roster: SessionRosterStudent[];
+}
+
 export const attendanceApi = {
+  getTeacherScheduledSessions: async (date?: string): Promise<TeacherScheduledSession[]> => {
+    const raw = await apiClient<any>("/attendance/teacher/scheduled-sessions", {
+      params: date ? { date } : undefined,
+    });
+    return Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
+  },
+
+  getScheduledSessionRoster: async (slotId: string, date?: string): Promise<ScheduledSessionRosterResponse> => {
+    return apiClient<ScheduledSessionRosterResponse>(`/attendance/scheduled-sessions/${slotId}/roster`, {
+      params: date ? { date } : undefined,
+    });
+  },
+
   mark: async (dto: {
     subjectOfferingId: string;
+    timetableSlotId?: string;
+    periodKey?: string;
     date: string;
-    records: Array<{ studentId: string; status: "PRESENT" | "ABSENT" | "LATE" }>;
+    records: Array<{ studentId: string; status: "PRESENT" | "ABSENT" | "LATE"; remark?: string }>;
+    defaultStatus?: "PRESENT" | "ABSENT" | "LATE";
   }) => {
-    return apiClient<{ success: boolean; count: number }>("/attendance", {
+    return apiClient<{ sessionId: string; created: number; skippedAlreadyMarked: string[] }>("/attendance", {
       method: "POST",
       body: JSON.stringify(dto),
     });
@@ -72,7 +136,9 @@ export const attendanceApi = {
   },
 
   requestCorrection: async (dto: {
-    attendanceId: string;
+    attendanceId?: string;
+    subjectOfferingId?: string;
+    date?: string;
     newStatus: "PRESENT" | "ABSENT" | "LATE";
     reason: string;
   }) => {
@@ -85,6 +151,10 @@ export const attendanceApi = {
   listCorrections: async (params?: { studentId?: string; page?: number; limit?: number }) => {
     const raw = await apiClient<any>("/attendance/corrections", { params });
     return Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
+  },
+
+  getCorrection: async (id: string): Promise<AttendanceCorrection> => {
+    return apiClient<AttendanceCorrection>(`/attendance/corrections/${id}`);
   },
 
   reviewCorrection: async (id: string, dto: { approve: boolean; note?: string }) => {

@@ -4,22 +4,20 @@ export interface StatusCounts {
   present: number;
   late: number;
   absent: number;
-  excused: number;
 }
 export type AttendanceHealth = 'NO_DATA' | 'OK' | 'WARNING' | 'SHORTAGE';
 
 export const WARNING_BUFFER = 5; // percentage points above the threshold that count as "approaching"
 
-export const emptyCounts = (): StatusCounts => ({ present: 0, late: 0, absent: 0, excused: 0 });
+export const emptyCounts = (): StatusCounts => ({ present: 0, late: 0, absent: 0 });
 
 export function addStatus(c: StatusCounts, s: AttendanceStatus, n = 1): void {
   if (s === 'PRESENT') c.present += n;
   else if (s === 'LATE') c.late += n;
   else if (s === 'ABSENT') c.absent += n;
-  else c.excused += n;
 }
 
-/** PRESENT and LATE count as attended; EXCUSED sessions are removed from the denominator. */
+/** PRESENT and LATE count as attended; ABSENT counts as not attended. */
 export function attendedAndTotal(c: StatusCounts): { attended: number; total: number } {
   const attended = c.present + c.late;
   return { attended, total: attended + c.absent };
@@ -70,7 +68,6 @@ export function consecutiveAbsences(statusesNewestFirst: AttendanceStatus[]): nu
   let n = 0;
   for (const s of statusesNewestFirst) {
     if (s === 'ABSENT') n++;
-    else if (s === 'EXCUSED') continue;
     else break;
   }
   return n;

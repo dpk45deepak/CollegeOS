@@ -38,10 +38,10 @@ export class AnalyticsService {
     const [students, att, shortage, pass, cgpa, asg, fees, placed, complaints, schol] = await Promise.all([
       this.prisma.student.count({ where: this.studentWhere(c, deps) }),
       this.prisma.$queryRaw<{ pct: number | null }[]>(
-        Prisma.sql`SELECT 100.0 * SUM(CASE WHEN status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN status <> 'EXCUSED' THEN 1 ELSE 0 END),0) AS pct FROM "Attendance" WHERE "collegeId" = ${c} ${scope}`,
+        Prisma.sql`SELECT 100.0 * SUM(CASE WHEN status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) AS pct FROM "Attendance" WHERE "collegeId" = ${c} ${scope}`,
       ),
       this.prisma.$queryRaw<{ n: bigint }[]>(
-        Prisma.sql`SELECT COUNT(*)::bigint AS n FROM (SELECT "studentId" FROM "Attendance" WHERE "collegeId" = ${c} ${scope} GROUP BY "studentId" HAVING 100.0 * SUM(CASE WHEN status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN status <> 'EXCUSED' THEN 1 ELSE 0 END),0) < ${threshold}) t`,
+        Prisma.sql`SELECT COUNT(*)::bigint AS n FROM (SELECT "studentId" FROM "Attendance" WHERE "collegeId" = ${c} ${scope} GROUP BY "studentId" HAVING 100.0 * SUM(CASE WHEN status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) < ${threshold}) t`,
       ),
       this.prisma.$queryRaw<{ pct: number | null }[]>(
         Prisma.sql`SELECT 100.0 * SUM(CASE WHEN r."marksObtained" >= x."passMarks" THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) AS pct FROM "ExamResult" r JOIN "Exam" x ON x.id = r."examId" WHERE r."collegeId" = ${c} AND r.status = 'PUBLISHED' ${deps ? Prisma.sql`AND r."studentId" IN (SELECT id FROM "Student" WHERE "departmentId" = ANY(${deps}::text[]))` : Prisma.empty}`,
@@ -104,7 +104,7 @@ export class AnalyticsService {
   attendanceTrend(c: string, days = 30, deps?: string[]) {
     const scope = this.studentSql(deps);
     return this.prisma.$queryRaw<{ date: Date; pct: number }[]>(
-      Prisma.sql`SELECT date, ROUND((100.0 * SUM(CASE WHEN status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN status <> 'EXCUSED' THEN 1 ELSE 0 END),0))::numeric, 2)::float AS pct FROM "Attendance" WHERE "collegeId" = ${c} ${scope} AND date >= now() - make_interval(days => ${days}) GROUP BY date ORDER BY date`,
+      Prisma.sql`SELECT date, ROUND((100.0 * SUM(CASE WHEN status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0))::numeric, 2)::float AS pct FROM "Attendance" WHERE "collegeId" = ${c} ${scope} AND date >= now() - make_interval(days => ${days}) GROUP BY date ORDER BY date`,
     );
   }
   departmentBreakdown(c: string, deps?: string[]) {
@@ -115,7 +115,7 @@ export class AnalyticsService {
       { department: string; students: number; attendancePct: number | null; avgCgpa: number | null }[]
     >(Prisma.sql`
       SELECT d.code AS department, COUNT(DISTINCT s.id)::int AS students,
-             ROUND((100.0 * SUM(CASE WHEN a.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN a.status <> 'EXCUSED' THEN 1 ELSE 0 END),0))::numeric, 2)::float AS "attendancePct",
+             ROUND((100.0 * SUM(CASE WHEN a.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0))::numeric, 2)::float AS "attendancePct",
              ROUND(AVG(s.cgpa)::numeric, 2)::float AS "avgCgpa"
       FROM "Department" d LEFT JOIN "Student" s ON s."departmentId" = d.id LEFT JOIN "Attendance" a ON a."studentId" = s.id
       WHERE d."collegeId" = ${c} ${deptScope} GROUP BY d.code ORDER BY d.code`);

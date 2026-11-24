@@ -377,8 +377,8 @@ async function main() {
         const status: AttendanceStatus =
           r < profile(i, j, sessions.length)
             ? 'PRESENT'
-            : r < profile(i, j, sessions.length) + 0.02
-              ? 'EXCUSED'
+            : r < profile(i, j, sessions.length) + 0.05
+              ? 'LATE'
               : 'ABSENT';
         rows.push({
           collegeId: c,

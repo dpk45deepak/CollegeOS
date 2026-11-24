@@ -1,7 +1,9 @@
 import { apiClient } from "./client";
+import { attendanceApi } from "@/services/api/attendance.api";
 
 export interface TeacherClass {
   id: string;
+  offeringId?: string;
   subjectCode: string;
   subjectName: string;
   section: string;
@@ -127,23 +129,19 @@ export const teacherApi = {
     classId: string,
     records: { studentId: string; status: "PRESENT" | "ABSENT" | "LATE" }[],
     date?: string,
-    periodKey?: string
+    slotIdOrPeriodKey?: string
   ) => {
-    return apiClient<{ success: boolean; message: string }>(
-      "/attendance",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          subjectOfferingId: classId,
-          date: date ? new Date(date).toISOString() : new Date().toISOString(),
-          periodKey: periodKey || "LEC_1",
-          records: records.map((r) => ({
-            studentId: r.studentId,
-            status: r.status,
-          })),
-        }),
-      }
-    );
+    const res = await attendanceApi.mark({
+      subjectOfferingId: classId,
+      timetableSlotId: slotIdOrPeriodKey,
+      periodKey: slotIdOrPeriodKey,
+      date: date || new Date().toISOString().split("T")[0],
+      records,
+    });
+    return {
+      success: true,
+      message: `Successfully marked attendance for ${res.created} student(s).${res.skippedAlreadyMarked?.length ? ` (${res.skippedAlreadyMarked.length} already recorded)` : ""}`,
+    };
   },
 
   getPendingAssignmentsToGrade: async (): Promise<PendingAssignmentItem[]> => {

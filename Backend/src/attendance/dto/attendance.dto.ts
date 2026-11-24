@@ -49,7 +49,9 @@ export class MarkAttendanceDto {
 }
 
 export class CorrectionRequestDto {
-  @ApiProperty() @IsString() attendanceId!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() attendanceId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() subjectOfferingId?: string;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Date) @IsDate() date?: Date;
   @ApiProperty({ enum: AttendanceStatus }) @IsEnum(AttendanceStatus) newStatus!: AttendanceStatus;
   @ApiProperty({ minLength: 10 }) @IsString() @MinLength(10) @MaxLength(500) reason!: string;
 }
@@ -62,6 +64,22 @@ export class ReviewCorrectionDto {
 export class CorrectionListQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: CorrectionStatus }) @IsOptional() @IsEnum(CorrectionStatus) status?: CorrectionStatus;
   @ApiPropertyOptional() @IsOptional() @IsString() studentId?: string;
+}
+
+export class ScheduledSessionsQueryDto {
+  @ApiPropertyOptional({ example: '2026-11-24' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  date?: Date;
+}
+
+export class SessionRosterQueryDto {
+  @ApiPropertyOptional({ example: '2026-11-24' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  date?: Date;
 }
 
 export class AttendanceQueryDto extends PaginationQueryDto {

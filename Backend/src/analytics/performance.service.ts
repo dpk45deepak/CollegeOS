@@ -159,7 +159,7 @@ export class PerformanceService {
       : Prisma.empty;
     const rows = await this.prisma.$queryRaw<{ att: number; exam: number }[]>(Prisma.sql`
       SELECT a.pct AS att, e.pct AS exam FROM
-        (SELECT "studentId", 100.0 * SUM(CASE WHEN status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN status <> 'EXCUSED' THEN 1 ELSE 0 END),0) AS pct
+        (SELECT "studentId", 100.0 * SUM(CASE WHEN status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) AS pct
          FROM "Attendance" WHERE "collegeId" = ${collegeId} ${scope} GROUP BY "studentId") a
       JOIN (SELECT r."studentId", AVG(100.0 * r."marksObtained" / NULLIF(x."maxMarks",0)) AS pct
             FROM "ExamResult" r JOIN "Exam" x ON x.id = r."examId" WHERE r."collegeId" = ${collegeId} AND r.status = 'PUBLISHED' ${deps && deps.length ? Prisma.sql`AND r."studentId" IN (SELECT id FROM "Student" WHERE "departmentId" = ANY(${deps}::text[]))` : Prisma.empty} GROUP BY r."studentId") e

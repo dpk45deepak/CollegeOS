@@ -37,6 +37,25 @@ export class AttendanceController {
     return this.svc.mark(u, t, dto);
   }
 
+  @Get('teacher/scheduled-sessions')
+  @RequirePermissions(P.ATTENDANCE_MARK)
+  @ApiOperation({ summary: "Teacher's timetable scheduled sessions for a date" })
+  scheduledSessions(@CurrentUser() u: Principal, @Tenant() t: string, @Query() q: D.ScheduledSessionsQueryDto) {
+    return this.svc.getTeacherScheduledSessions(u, t, q.date);
+  }
+
+  @Get('scheduled-sessions/:slotId/roster')
+  @RequirePermissions(P.ATTENDANCE_MARK)
+  @ApiOperation({ summary: 'Student roster for a scheduled timetable session on a date' })
+  sessionRoster(
+    @CurrentUser() u: Principal,
+    @Tenant() t: string,
+    @Param('slotId') slotId: string,
+    @Query() q: D.SessionRosterQueryDto,
+  ) {
+    return this.svc.getScheduledSessionRoster(u, t, slotId, q.date);
+  }
+
   @Get('sessions')
   @RequirePermissions(P.ATTENDANCE_VIEW)
   @ApiOperation({ summary: 'Attendance sessions + records for an offering on a date' })
@@ -74,6 +93,13 @@ export class AttendanceController {
     @Body() dto: D.ReviewCorrectionDto,
   ) {
     return this.svc.reviewCorrection(u, t, id, dto);
+  }
+
+  @Get('corrections/:id')
+  @RequirePermissions(P.ATTENDANCE_VIEW)
+  @ApiOperation({ summary: 'Get details of an attendance correction request' })
+  correctionDetail(@CurrentUser() u: Principal, @Tenant() t: string, @Param('id') id: string) {
+    return this.svc.getCorrectionDetail(u, t, id);
   }
 
   @Get('students/:studentId/report')

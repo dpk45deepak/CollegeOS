@@ -45,7 +45,7 @@ const corr = (o: Record<string, unknown> = {}) => ({
   attendance: {
     studentId: 'st',
     student: { userId: 'su' },
-    session: { subjectOffering: { subject: { id: 'sub', name: 'DBMS', departmentId: 'cse' } } },
+    session: { subjectOffering: { teacherId: 'assignedTeacher', subject: { id: 'sub', name: 'DBMS', departmentId: 'cse' } } },
   },
   ...o,
 });
@@ -86,11 +86,66 @@ describe('attendance correction workflow', () => {
       svc.reviewCorrection(p({ departmentIds: ['ce'] }), 'c1', 'k1', { approve: true }),
     ).rejects.toMatchObject({ response: { errorCode: 'SCOPE_DENIED' } });
   });
-  it('a plain teacher cannot review, even in the same department', async () => {
+  it('a plain teacher not assigned to the offering cannot review', async () => {
     const { svc } = build(corr());
     await expect(
-      svc.reviewCorrection(p({ roleKeys: ['TEACHER'] }), 'c1', 'k1', { approve: true }),
+      svc.reviewCorrection(p({ roleKeys: ['TEACHER'], teacherId: 'otherTeacher' }), 'c1', 'k1', { approve: true }),
     ).rejects.toMatchObject({ response: { errorCode: 'SCOPE_DENIED' } });
+  });
+  it('the assigned teacher of the offering can review a student dispute', async () => {
+    const { svc, tx } = build(corr({ requestedById: 'studentUser1' }));
+    await svc.reviewCorrection(p({ roleKeys: ['TEACHER'], teacherId: 'assignedTeacher' }), 'c1', 'k1', { approve: true, note: 'Approved by course instructor' });
+    expect(tx.attendance.update).toHaveBeenCalledWith({
+      where: { id: 'a1' },
+      data: { status: 'PRESENT', version: { increment: 1 } },
+    });
+  });
+  it('a student can dispute their own attendance record', async () => {
+    const attendanceRecord = {
+      id: 'a1',
+      studentId: 'st1',
+      status: 'ABSENT',
+      session: { subjectOfferingId: 'off1', subjectOffering: { teacherId: 't1', subject: { id: 'sub1', name: 'DSA', departmentId: 'cse' } } },
+    };
+    const prisma = {
+      attendance: { findFirst: jest.fn(async () => attendanceRecord) },
+      attendanceCorrection: {
+        count: jest.fn(async () => 0),
+        create: jest.fn(async (args) => ({ id: 'corr1', ...args.data })),
+      },
+      department: { findUnique: jest.fn(async () => ({ hodUserId: 'hod1' })) },
+      userRole: { findMany: jest.fn(async () => []) },
+      teacher: { findUnique: jest.fn(async () => ({ userId: 'tUser' })) },
+    };
+    const audit = { log: jest.fn(async () => undefined) };
+    const events = { emit: jest.fn() };
+    const svc = new AttendanceService(prisma as never, new AccessService(prisma as never), audit as never, events as never);
+    const res = await svc.requestCorrection(p({ userId: 'stUser', studentId: 'st1', roleKeys: ['STUDENT'] }), 'c1', {
+      attendanceId: 'a1',
+      newStatus: 'PRESENT',
+      reason: 'Biometric device failed during roll call',
+    });
+    expect(res.attendanceId).toBe('a1');
+    expect(res.newStatus).toBe('PRESENT');
+  });
+  it('a student cannot dispute another students attendance record', async () => {
+    const attendanceRecord = {
+      id: 'a1',
+      studentId: 'st1',
+      status: 'ABSENT',
+      session: { subjectOfferingId: 'off1', subjectOffering: { teacherId: 't1', subject: { id: 'sub1', name: 'DSA', departmentId: 'cse' } } },
+    };
+    const prisma = {
+      attendance: { findFirst: jest.fn(async () => attendanceRecord) },
+    };
+    const svc = new AttendanceService(prisma as never, new AccessService(prisma as never), {} as never, {} as never);
+    await expect(
+      svc.requestCorrection(p({ userId: 'stUser2', studentId: 'st2', roleKeys: ['STUDENT'] }), 'c1', {
+        attendanceId: 'a1',
+        newStatus: 'PRESENT',
+        reason: 'Attempting to change peer attendance',
+      }),
+    ).rejects.toMatchObject({ response: { errorCode: 'NOT_OWN_ATTENDANCE' } });
   });
   it('a second review of an already-decided correction fails and changes nothing (race-safe)', async () => {
     const { svc, tx } = build(corr(), 0);

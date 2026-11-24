@@ -18,9 +18,8 @@ for root, dirs, files in os.walk(app_dir):
                 route_path = "/"
             frontend_routes.append({"file": os.path.relpath(os.path.join(root, f), base_dir), "route": route_path})
 
-# 2. Discover Frontend API Calls (more robust regex for apiClient)
+# 2. Discover Frontend API Calls
 frontend_api_calls = []
-# Match: apiClient<...>(ENDPOINT, { ... method: "POST" ... })
 pattern = re.compile(r'apiClient(?:<[^>]+>)?\(\s*([`\'"][^`\'"]+[`\'"]|\`[^\`]+\`|[a-zA-Z0-9_\.]+)(?:,\s*(\{[\s\S]*?\}))?\)', re.MULTILINE)
 
 api_src_dir = os.path.join(frontend_dir, "src")
@@ -39,7 +38,6 @@ for root, dirs, files in os.walk(api_src_dir):
                     if method_match:
                         method = method_match.group(1)
                     
-                    # Clean endpoint string
                     endpoint = raw_endpoint.strip("\"'`")
                     frontend_api_calls.append({
                         "file": os.path.relpath(fp, base_dir),
@@ -47,11 +45,11 @@ for root, dirs, files in os.walk(api_src_dir):
                         "method": method
                     })
 
-# 3. Discover Backend Controllers & Endpoints
+# 3. Discover Backend Controllers & Endpoints (multi-controller aware)
 backend_endpoints = []
 src_dir = os.path.join(backend_dir, "src")
-controller_decorator_regex = re.compile(r'@Controller\(\s*(?:[\'"`]([^\'"`]*)[\'"`])?\s*\)', re.MULTILINE)
-method_decorator_regex = re.compile(r'@(Get|Post|Put|Delete|Patch)\(\s*(?:[\'"`]([^\'"`]*)[\'"`])?\s*\)', re.MULTILINE)
+controller_decorator_regex = re.compile(r'@Controller\(\s*(?:[\'"`]([^\'"`]*)[\'"`])?\s*\)')
+method_decorator_regex = re.compile(r'@(Get|Post|Put|Delete|Patch)\(\s*(?:[\'"`]([^\'"`]*)[\'"`])?\s*\)')
 
 for root, dirs, files in os.walk(src_dir):
     for f in files:
@@ -59,50 +57,64 @@ for root, dirs, files in os.walk(src_dir):
             fp = os.path.join(root, f)
             with open(fp, "r", encoding="utf-8", errors="ignore") as file_obj:
                 content = file_obj.read()
-                ctrl_match = controller_decorator_regex.search(content)
-                prefix = ctrl_match.group(1) if ctrl_match and ctrl_match.group(1) else ""
-                
                 lines = content.splitlines()
+                current_prefix = ""
                 for i, line in enumerate(lines):
+                    ctrl_m = controller_decorator_regex.search(line)
+                    if ctrl_m:
+                        current_prefix = ctrl_m.group(1) if ctrl_m.group(1) else ""
+                        continue
+                    
                     m = method_decorator_regex.search(line)
                     if m:
                         http_verb = m.group(1).upper()
                         subpath = m.group(2) if m.group(2) else ""
-                        full_path = f"/{prefix}/{subpath}".replace("//", "/").rstrip("/")
+                        
+                        full_path = ""
+                        if current_prefix:
+                            full_path += "/" + current_prefix.strip("/")
+                        if subpath:
+                            full_path += "/" + subpath.strip("/")
+                        if not full_path:
+                            full_path = "/"
+                        
                         backend_endpoints.append({
                             "file": os.path.relpath(fp, base_dir),
                             "line": i + 1,
                             "verb": http_verb,
-                            "prefix": prefix,
+                            "prefix": current_prefix,
                             "subpath": subpath,
                             "path": full_path
                         })
 
 # 4. Discover Prisma Models
-prisma_schema = os.path.join(backend_dir, "prisma", "schema.prisma")
-models = []
-if os.path.exists(prisma_schema):
-    with open(prisma_schema, "r", encoding="utf-8", errors="ignore") as f:
-        for line in f:
-            if line.startswith("model "):
-                models.append(line.split()[1])
+prisma_file = os.path.join(backend_dir, "prisma", "schema.prisma")
+prisma_models = []
+with open(prisma_file, "r", encoding="utf-8") as f:
+    schema = f.read()
+    for m in re.finditer(r'model\s+(\w+)\s*\{([\s\S]*?)\n\}', schema):
+        model_name = m.group(1)
+        fields = []
+        for line in m.group(2).splitlines():
+            line = line.strip()
+            if line and not line.startswith("//") and not line.startswith("@@"):
+                parts = line.split()
+                if len(parts) >= 2:
+                    fields.append({"name": parts[0], "type": parts[1]})
+        prisma_models.append({"name": model_name, "field_count": len(fields)})
 
-inventory = {
-    "frontend_routes_count": len(frontend_routes),
+summary = {
     "frontend_routes": frontend_routes,
-    "frontend_api_calls_count": len(frontend_api_calls),
     "frontend_api_calls": frontend_api_calls,
-    "backend_endpoints_count": len(backend_endpoints),
     "backend_endpoints": backend_endpoints,
-    "prisma_models_count": len(models),
-    "prisma_models": models
+    "prisma_models": prisma_models
 }
 
 with open("inventory_summary.json", "w", encoding="utf-8") as f:
-    json.dump(inventory, f, indent=2)
+    json.dump(summary, f, indent=2)
 
-print(f"Inventory Summary:")
+print("Inventory Summary:")
 print(f"- Frontend Routes: {len(frontend_routes)}")
 print(f"- Frontend API Calls: {len(frontend_api_calls)}")
 print(f"- Backend Endpoints: {len(backend_endpoints)}")
-print(f"- Prisma Models: {len(models)}")
+print(f"- Prisma Models: {len(prisma_models)}")

@@ -43,10 +43,11 @@ describe('attendance math', () => {
     expect(health(90, 75)).toBe('OK');
   });
 
-  it('excuses are excluded from the denominator', () => {
-    const c = { ...emptyCounts(), present: 6, absent: 2, excused: 4 };
-    expect(summarise('s', c, 75).total).toBe(8);
-    expect(summarise('s', c, 75).percentage).toBe(75);
+  it('computes attended and total from present, late, and absent', () => {
+    const c = { ...emptyCounts(), present: 6, late: 2, absent: 2 };
+    expect(summarise('s', c, 75).total).toBe(10);
+    expect(summarise('s', c, 75).attended).toBe(8);
+    expect(summarise('s', c, 75).percentage).toBe(80);
   });
 
   it('detects sudden decline only with enough data', () => {
@@ -56,7 +57,7 @@ describe('attendance math', () => {
   });
 
   it('counts the current absence streak', () => {
-    expect(consecutiveAbsences(['ABSENT', 'ABSENT', 'EXCUSED', 'ABSENT', 'PRESENT', 'ABSENT'])).toBe(3);
+    expect(consecutiveAbsences(['ABSENT', 'ABSENT', 'ABSENT', 'PRESENT', 'ABSENT'])).toBe(3);
     expect(consecutiveAbsences(['PRESENT', 'ABSENT'])).toBe(0);
   });
 });

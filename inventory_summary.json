@@ -1,5 +1,4 @@
 {
-  "frontend_routes_count": 37,
   "frontend_routes": [
     {
       "file": "Frontend\\src\\app\\page.tsx",
@@ -150,7 +149,6 @@
       "route": "/settings"
     }
   ],
-  "frontend_api_calls_count": 243,
   "frontend_api_calls": [
     {
       "file": "Frontend\\src\\app\\(admin)\\admin\\analytics\\page.tsx",
@@ -369,7 +367,7 @@
     },
     {
       "file": "Frontend\\src\\lib\\api\\student.ts",
-      "endpoint": "/fees/receipts/${paymentId}",
+      "endpoint": "/fees/payments/${paymentId}/receipt",
       "method": "GET"
     },
     {
@@ -419,6 +417,11 @@
     },
     {
       "file": "Frontend\\src\\lib\\api\\teacher.ts",
+      "endpoint": "/timetable/teachers/me",
+      "method": "GET"
+    },
+    {
+      "file": "Frontend\\src\\lib\\api\\teacher.ts",
       "endpoint": "/subject-offerings",
       "method": "GET"
     },
@@ -426,11 +429,6 @@
       "file": "Frontend\\src\\lib\\api\\teacher.ts",
       "endpoint": "/subject-offerings/${classId}/students",
       "method": "GET"
-    },
-    {
-      "file": "Frontend\\src\\lib\\api\\teacher.ts",
-      "endpoint": "/attendance",
-      "method": "POST"
     },
     {
       "file": "Frontend\\src\\lib\\api\\teacher.ts",
@@ -679,6 +677,16 @@
     },
     {
       "file": "Frontend\\src\\services\\api\\attendance.api.ts",
+      "endpoint": "/attendance/teacher/scheduled-sessions",
+      "method": "GET"
+    },
+    {
+      "file": "Frontend\\src\\services\\api\\attendance.api.ts",
+      "endpoint": "/attendance/scheduled-sessions/${slotId}/roster",
+      "method": "GET"
+    },
+    {
+      "file": "Frontend\\src\\services\\api\\attendance.api.ts",
       "endpoint": "/attendance",
       "method": "POST"
     },
@@ -695,6 +703,11 @@
     {
       "file": "Frontend\\src\\services\\api\\attendance.api.ts",
       "endpoint": "/attendance/corrections",
+      "method": "GET"
+    },
+    {
+      "file": "Frontend\\src\\services\\api\\attendance.api.ts",
+      "endpoint": "/attendance/corrections/${id}",
       "method": "GET"
     },
     {
@@ -1368,7 +1381,6 @@
       "method": "GET"
     }
   ],
-  "backend_endpoints_count": 194,
   "backend_endpoints": [
     {
       "file": "Backend\\src\\academic\\academic.controller.ts",
@@ -1526,25 +1538,25 @@
       "file": "Backend\\src\\academic\\academic.controller.ts",
       "line": 129,
       "verb": "GET",
-      "prefix": "",
+      "prefix": "subjects",
       "subpath": "",
-      "path": ""
+      "path": "/subjects"
     },
     {
       "file": "Backend\\src\\academic\\academic.controller.ts",
       "line": 139,
       "verb": "POST",
-      "prefix": "",
+      "prefix": "subjects",
       "subpath": "",
-      "path": ""
+      "path": "/subjects"
     },
     {
       "file": "Backend\\src\\academic\\academic.controller.ts",
       "line": 142,
       "verb": "PATCH",
-      "prefix": "",
+      "prefix": "subjects",
       "subpath": ":id",
-      "path": "/:id"
+      "path": "/subjects/:id"
     },
     {
       "file": "Backend\\src\\admin\\admin.controller.ts",
@@ -1767,12 +1779,28 @@
       "line": 40,
       "verb": "GET",
       "prefix": "attendance",
+      "subpath": "teacher/scheduled-sessions",
+      "path": "/attendance/teacher/scheduled-sessions"
+    },
+    {
+      "file": "Backend\\src\\attendance\\attendance.controller.ts",
+      "line": 47,
+      "verb": "GET",
+      "prefix": "attendance",
+      "subpath": "scheduled-sessions/:slotId/roster",
+      "path": "/attendance/scheduled-sessions/:slotId/roster"
+    },
+    {
+      "file": "Backend\\src\\attendance\\attendance.controller.ts",
+      "line": 59,
+      "verb": "GET",
+      "prefix": "attendance",
       "subpath": "sessions",
       "path": "/attendance/sessions"
     },
     {
       "file": "Backend\\src\\attendance\\attendance.controller.ts",
-      "line": 47,
+      "line": 66,
       "verb": "POST",
       "prefix": "attendance",
       "subpath": "correction-request",
@@ -1780,7 +1808,7 @@
     },
     {
       "file": "Backend\\src\\attendance\\attendance.controller.ts",
-      "line": 57,
+      "line": 76,
       "verb": "GET",
       "prefix": "attendance",
       "subpath": "corrections",
@@ -1788,7 +1816,7 @@
     },
     {
       "file": "Backend\\src\\attendance\\attendance.controller.ts",
-      "line": 64,
+      "line": 83,
       "verb": "POST",
       "prefix": "attendance",
       "subpath": "corrections/:id/review",
@@ -1796,7 +1824,15 @@
     },
     {
       "file": "Backend\\src\\attendance\\attendance.controller.ts",
-      "line": 79,
+      "line": 98,
+      "verb": "GET",
+      "prefix": "attendance",
+      "subpath": "corrections/:id",
+      "path": "/attendance/corrections/:id"
+    },
+    {
+      "file": "Backend\\src\\attendance\\attendance.controller.ts",
+      "line": 105,
       "verb": "GET",
       "prefix": "attendance",
       "subpath": "students/:studentId/report",
@@ -1804,7 +1840,7 @@
     },
     {
       "file": "Backend\\src\\attendance\\attendance.controller.ts",
-      "line": 87,
+      "line": 113,
       "verb": "GET",
       "prefix": "attendance",
       "subpath": "students/:studentId/records",
@@ -1812,7 +1848,7 @@
     },
     {
       "file": "Backend\\src\\attendance\\attendance.controller.ts",
-      "line": 99,
+      "line": 125,
       "verb": "GET",
       "prefix": "attendance",
       "subpath": "analytics/shortage",
@@ -1820,7 +1856,7 @@
     },
     {
       "file": "Backend\\src\\attendance\\attendance.controller.ts",
-      "line": 106,
+      "line": 132,
       "verb": "GET",
       "prefix": "attendance",
       "subpath": "analytics/anomalies",
@@ -2263,12 +2299,20 @@
       "line": 68,
       "verb": "GET",
       "prefix": "fees",
+      "subpath": "receipts/:paymentId",
+      "path": "/fees/receipts/:paymentId"
+    },
+    {
+      "file": "Backend\\src\\fees\\fees.controller.ts",
+      "line": 73,
+      "verb": "GET",
+      "prefix": "fees",
       "subpath": "payments/:paymentId/receipt/admin",
       "path": "/fees/payments/:paymentId/receipt/admin"
     },
     {
       "file": "Backend\\src\\fees\\fees.controller.ts",
-      "line": 73,
+      "line": 78,
       "verb": "POST",
       "prefix": "fees",
       "subpath": "payments/:paymentId/refunds",
@@ -2276,11 +2320,11 @@
     },
     {
       "file": "Backend\\src\\fees\\fees.controller.ts",
-      "line": 88,
+      "line": 93,
       "verb": "POST",
-      "prefix": "fees",
+      "prefix": "webhooks/payments",
       "subpath": ":gateway",
-      "path": "/fees/:gateway"
+      "path": "/webhooks/payments/:gateway"
     },
     {
       "file": "Backend\\src\\health\\health.controller.ts",
@@ -2288,7 +2332,7 @@
       "verb": "GET",
       "prefix": "",
       "subpath": "",
-      "path": ""
+      "path": "/"
     },
     {
       "file": "Backend\\src\\health\\health.controller.ts",
@@ -2923,70 +2967,258 @@
       "path": "/users/:id/status"
     }
   ],
-  "prisma_models_count": 63,
   "prisma_models": [
-    "College",
-    "Campus",
-    "Department",
-    "Program",
-    "Batch",
-    "Semester",
-    "Section",
-    "User",
-    "Role",
-    "Permission",
-    "RolePermission",
-    "UserRole",
-    "AuthSession",
-    "LoginAttempt",
-    "OneTimeToken",
-    "OAuthAccount",
-    "Student",
-    "Guardian",
-    "StudentSkill",
-    "StudentPortfolioItem",
-    "Teacher",
-    "LeaveRequest",
-    "Subject",
-    "SubjectOffering",
-    "Enrollment",
-    "Room",
-    "TeacherAvailability",
-    "TimetableSlot",
-    "AttendanceSession",
-    "Attendance",
-    "AttendanceCorrection",
-    "Assignment",
-    "Submission",
-    "GradingScheme",
-    "Exam",
-    "ExamResult",
-    "FeeStructure",
-    "StudentFee",
-    "Payment",
-    "Refund",
-    "Scholarship",
-    "ScholarshipApplication",
-    "Company",
-    "Job",
-    "PlacementDrive",
-    "JobApplication",
-    "Interview",
-    "Offer",
-    "Complaint",
-    "ComplaintEvent",
-    "Notice",
-    "Club",
-    "CampusEvent",
-    "Conversation",
-    "ConversationParticipant",
-    "Message",
-    "Notification",
-    "PushDevice",
-    "Document",
-    "DocumentChunk",
-    "AcademicRiskAssessment",
-    "AuditLog",
-    "AiCallLog"
+    {
+      "name": "College",
+      "field_count": 50
+    },
+    {
+      "name": "Campus",
+      "field_count": 10
+    },
+    {
+      "name": "Department",
+      "field_count": 19
+    },
+    {
+      "name": "Program",
+      "field_count": 11
+    },
+    {
+      "name": "Batch",
+      "field_count": 14
+    },
+    {
+      "name": "Semester",
+      "field_count": 13
+    },
+    {
+      "name": "Section",
+      "field_count": 9
+    },
+    {
+      "name": "User",
+      "field_count": 42
+    },
+    {
+      "name": "Role",
+      "field_count": 8
+    },
+    {
+      "name": "Permission",
+      "field_count": 5
+    },
+    {
+      "name": "RolePermission",
+      "field_count": 4
+    },
+    {
+      "name": "UserRole",
+      "field_count": 7
+    },
+    {
+      "name": "AuthSession",
+      "field_count": 12
+    },
+    {
+      "name": "LoginAttempt",
+      "field_count": 8
+    },
+    {
+      "name": "OneTimeToken",
+      "field_count": 8
+    },
+    {
+      "name": "OAuthAccount",
+      "field_count": 6
+    },
+    {
+      "name": "Student",
+      "field_count": 34
+    },
+    {
+      "name": "Guardian",
+      "field_count": 9
+    },
+    {
+      "name": "StudentSkill",
+      "field_count": 5
+    },
+    {
+      "name": "StudentPortfolioItem",
+      "field_count": 9
+    },
+    {
+      "name": "Teacher",
+      "field_count": 14
+    },
+    {
+      "name": "LeaveRequest",
+      "field_count": 12
+    },
+    {
+      "name": "Subject",
+      "field_count": 12
+    },
+    {
+      "name": "SubjectOffering",
+      "field_count": 16
+    },
+    {
+      "name": "Enrollment",
+      "field_count": 8
+    },
+    {
+      "name": "Room",
+      "field_count": 10
+    },
+    {
+      "name": "TeacherAvailability",
+      "field_count": 6
+    },
+    {
+      "name": "TimetableSlot",
+      "field_count": 12
+    },
+    {
+      "name": "AttendanceSession",
+      "field_count": 14
+    },
+    {
+      "name": "Attendance",
+      "field_count": 17
+    },
+    {
+      "name": "AttendanceCorrection",
+      "field_count": 16
+    },
+    {
+      "name": "Assignment",
+      "field_count": 15
+    },
+    {
+      "name": "Submission",
+      "field_count": 14
+    },
+    {
+      "name": "GradingScheme",
+      "field_count": 7
+    },
+    {
+      "name": "Exam",
+      "field_count": 18
+    },
+    {
+      "name": "ExamResult",
+      "field_count": 14
+    },
+    {
+      "name": "FeeStructure",
+      "field_count": 12
+    },
+    {
+      "name": "StudentFee",
+      "field_count": 14
+    },
+    {
+      "name": "Payment",
+      "field_count": 14
+    },
+    {
+      "name": "Refund",
+      "field_count": 8
+    },
+    {
+      "name": "Scholarship",
+      "field_count": 15
+    },
+    {
+      "name": "ScholarshipApplication",
+      "field_count": 7
+    },
+    {
+      "name": "Company",
+      "field_count": 7
+    },
+    {
+      "name": "Job",
+      "field_count": 17
+    },
+    {
+      "name": "PlacementDrive",
+      "field_count": 8
+    },
+    {
+      "name": "JobApplication",
+      "field_count": 13
+    },
+    {
+      "name": "Interview",
+      "field_count": 7
+    },
+    {
+      "name": "Offer",
+      "field_count": 6
+    },
+    {
+      "name": "Complaint",
+      "field_count": 26
+    },
+    {
+      "name": "ComplaintEvent",
+      "field_count": 8
+    },
+    {
+      "name": "Notice",
+      "field_count": 14
+    },
+    {
+      "name": "Club",
+      "field_count": 6
+    },
+    {
+      "name": "CampusEvent",
+      "field_count": 10
+    },
+    {
+      "name": "Conversation",
+      "field_count": 11
+    },
+    {
+      "name": "ConversationParticipant",
+      "field_count": 6
+    },
+    {
+      "name": "Message",
+      "field_count": 9
+    },
+    {
+      "name": "Notification",
+      "field_count": 13
+    },
+    {
+      "name": "PushDevice",
+      "field_count": 6
+    },
+    {
+      "name": "Document",
+      "field_count": 26
+    },
+    {
+      "name": "DocumentChunk",
+      "field_count": 19
+    },
+    {
+      "name": "AcademicRiskAssessment",
+      "field_count": 11
+    },
+    {
+      "name": "AuditLog",
+      "field_count": 13
+    },
+    {
+      "name": "AiCallLog",
+      "field_count": 14
+    }
   ]
 }

@@ -61,13 +61,17 @@ async function bootstrap() {
 
 export default async function handler(req: Request, res: Response): Promise<void> {
     try {
-        if (req.headers['x-matched-path'] && typeof req.headers['x-matched-path'] === 'string') {
-            const originalPath = req.headers['x-matched-path'];
-            if (originalPath && originalPath !== '/api') {
-                const queryIdx = req.url.indexOf('?');
-                const queryString = queryIdx !== -1 ? req.url.slice(queryIdx) : '';
-                req.url = `${originalPath}${queryString}`;
-            }
+        const rawPath =
+            (req.headers['x-forwarded-uri'] as string) ||
+            (req.headers['x-invoke-path'] as string) ||
+            (req.headers['x-matched-path'] as string) ||
+            req.url;
+
+        if (rawPath && rawPath !== '/api') {
+            const queryIdx = req.url.indexOf('?');
+            const queryString = queryIdx !== -1 ? req.url.slice(queryIdx) : '';
+            const pathOnly = rawPath.split('?')[0];
+            req.url = `${pathOnly}${queryString}`;
         }
         await bootstrap();
         return new Promise<void>((resolve, reject) => {

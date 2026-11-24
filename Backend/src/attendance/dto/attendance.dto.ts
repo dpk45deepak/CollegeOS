@@ -7,9 +7,12 @@ import {
   IsBoolean,
   IsDate,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';

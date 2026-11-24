@@ -2,3 +2,5 @@
 .env*
 .script
 .scripts/*
+.audit_package
+.audit_package/*

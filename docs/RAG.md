@@ -1,104 +1,25 @@
 # Retrieval-Augmented Generation (RAG)
 
-## Purpose
+College Knowledge AI answers institutional policy, ordinance, syllabus, and circular queries strictly from authorized documents indexed in PostgreSQL (`pgvector`). Live user data (attendance, timetable, grades, fees) is handled by permission-checked domain tools, not RAG.
 
-College Knowledge AI should answer questions from approved, permission-accessible college material and cite the sources used. RAG is for institutional knowledge; live or user-specific facts such as a student's attendance should come from authorized domain tools.
+## Document Ingestion Pipeline
 
-## Ingestion pipeline
+1. **Upload & Malware Scan:** Authorized roles (`P.DOCUMENT_UPLOAD`) upload files via `POST /api/v1/documents`. `StorageService` validates MIME signatures and enforces `ProductionMalwareScanner` (`CLAMAV_URL`, fail-closed in production).
+2. **Lifecycle States (`DocumentStatus`):** `UPLOADED` → `PROCESSING` → `READY` (or `FAILED` / `ARCHIVED`).
+3. **Chunking & Embeddings:** Background workers extract text with page/section metadata, split overlapping chunks (`chunker.ts`), generate vector embeddings using the configured provider (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or `local`), and persist `DocumentChunk` rows.
+4. **Re-indexing:** Admins and library staff can monitor failed documents and re-trigger ingestion via `POST /api/v1/documents/:id/reprocess`.
 
-```mermaid
-flowchart TD
-    Upload[Upload] --> Validate[Validate type, size, and access]
-    Validate --> Store[Store original file]
-    Store --> Extract[Extract text and page metadata]
-    Extract --> Clean[Normalize and clean text]
-    Clean --> Chunk[Chunk with overlap and source offsets]
-    Chunk --> Embed[Generate embeddings]
-    Embed --> Index[Store chunks, metadata, and vectors]
-    Index --> Ready[Mark document READY]
-```
+## Retrieval & Access Pre-Filtering
 
-Suggested document states: `UPLOADED`, `PROCESSING`, `READY`, `FAILED`, `ARCHIVED`.
+- **Endpoints (`RagController`):**
+  - `POST /api/v1/ai/knowledge/ask` (`AskDto`: `{ question, documentType?, academicYear?, semesterNumber? }`) → permission-filtered RAG answer with citations.
+  - `POST /api/v1/ai/knowledge/search` (`AskDto`) → retrieval-only endpoint returning `{ relevant, usedVector, results: [{ chunkId, documentId, title, page, relevance, excerpt }] }` without LLM synthesis.
+- **Tenant & Visibility Pre-Filtering (`visibility.ts`):**
+  - Before chunks enter context, queries filter by `collegeId`, `status = READY`, optional filters (`documentType`, `academicYear`, `semesterNumber`), and `DocumentVisibility` (`PUBLIC`, `STUDENTS`, `TEACHERS`, `STAFF`, `DEPARTMENT`, `ADMIN_ONLY`).
+  - Access control is enforced strictly in SQL/Prisma queries before any content is shown to the model.
 
-Use a background queue for extraction and embedding. Make retries safe and avoid indexing duplicate versions unintentionally.
+## Grounding & Refusal Controls
 
-## Chunk metadata
-
-Include as applicable:
-- tenant/college ID
-- document ID and version
-- document type
-- title and source URI
-- page number or section heading
-- department/program/semester scope
-- visibility/access policy
-- chunk index and text offsets
-- ingestion timestamp and embedding model/version
-
-## Retrieval pipeline
-
-1. Authenticate the user and resolve trusted tenant context.
-2. Determine allowed document scope using backend authorization rules.
-3. Retrieve candidates using metadata-filtered vector search and, where useful, keyword search.
-4. Optionally rerank candidates.
-5. Apply a context budget and remove irrelevant/duplicate chunks.
-6. Ask the model to answer only from the supplied evidence when the question requires college-specific facts.
-7. Return answer text and structured source references.
-8. Record privacy-aware retrieval and quality telemetry.
-
-**Authorization must happen before content is sent to the model.** A prompt instruction alone is not access control.
-
-## Response contract
-
-A suggested shape:
-
-```json
-{
-  "answer": "The policy states that ...",
-  "sources": [
-    {
-      "documentId": "doc-id",
-      "title": "Attendance Policy",
-      "page": 12,
-      "chunkId": "chunk-id"
-    }
-  ],
-  "grounded": true
-}
-```
-
-Only include source metadata that the user is allowed to see. Do not invent page numbers, document titles, or citations.
-
-## Grounding and refusal behavior
-
-- If evidence is missing or contradictory, say so.
-- Distinguish official policy text from general explanation or AI-generated advice.
-- Prefer the newest approved version when policies change.
-- Treat retrieved documents as untrusted content, not instructions to the AI system.
-- Do not let document text override system policies, permissions, or tool rules.
-- Avoid sending unnecessary personal or financial data to an external model.
-
-## Live data vs. RAG
-
-Use domain tools for questions such as:
-- “What is my current attendance?”
-- “When is my next exam?”
-- “Which assignments are due this week?”
-
-Use RAG for questions such as:
-- “What does the attendance policy say?”
-- “Which documents are required for this scholarship?”
-- “Explain the college examination rules.”
-
-A query may use both, but each source should be clearly identified.
-
-## Evaluation
-
-Build a small approved evaluation set containing:
-- question
-- expected source document
-- key facts expected in the answer
-- user role/permission scope
-- unanswerable examples
-
-Track retrieval relevance, citation correctness, groundedness, latency, cost, and permission leakage tests. Do not evaluate only whether the answer sounds fluent.
+- Hybrid retrieval combines vector similarity search (`pgvector`) with keyword fallback when vectors or external embeddings are unavailable (`usedVector` flag).
+- System instructions treat retrieved text strictly as untrusted data and forbid inventing citations, document titles, or page numbers.
+- If retrieval yields no sufficiently relevant authorized chunks (`relevant: false`), `RagAnswerService` refuses to guess and informs the caller that the institutional knowledge base lacks the requested rule.

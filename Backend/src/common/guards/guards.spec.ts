@@ -41,6 +41,18 @@ describe('PermissionsGuard', () => {
     expect(new PermissionsGuard(reflector({})).canActivate(ctx({ user: user() }))).toBe(true);
     expect(new PermissionsGuard(reflector({ isPublic: true })).canActivate(ctx({}))).toBe(true);
   });
+  it('supports RequireAnyPermission (OR semantics)', () => {
+    expect(
+      new PermissionsGuard(reflector({ anyRequiredPermissions: ['ATTENDANCE_VIEW', 'ATTENDANCE_VIEW_OWN'] })).canActivate(
+        ctx({ user: user({ permissions: ['ATTENDANCE_VIEW_OWN'] }) }),
+      ),
+    ).toBe(true);
+    expect(() =>
+      new PermissionsGuard(reflector({ anyRequiredPermissions: ['ATTENDANCE_VIEW', 'ATTENDANCE_MARK'] })).canActivate(
+        ctx({ user: user({ permissions: ['ATTENDANCE_VIEW_OWN'] }) }),
+      ),
+    ).toThrow(ForbiddenException);
+  });
 });
 
 describe('TenantGuard (tenant isolation)', () => {

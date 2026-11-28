@@ -38,15 +38,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { teacherApi } from "@/lib/api/teacher";
+import { useAuthStore } from "@/lib/auth/authStore";
 import { toast } from "sonner";
 
 export default function TeacherAttendancePage() {
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<"rollcall" | "register" | "disputes">("rollcall");
   const today = new Date();
-  const [selectedDate, setSelectedDate] = useState(() => today.toISOString().split("T")[0]);
-  const [selectedSlotId, setSelectedSlotId] = useState<string>("");
+  const todayLocal = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const [selectedDate, setSelectedDate] = useState(() => todayLocal);
+  const [selectedSlotId, setSelectedSlotId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return new URLSearchParams(window.location.search).get("slotId") || "";
+    }
+    return "";
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [roster, setRoster] = useState<SessionRosterStudent[]>([]);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -62,6 +71,20 @@ export default function TeacherAttendancePage() {
   // Review Dialog State
   const [reviewingIssue, setReviewingIssue] = useState<AttendanceCorrection | null>(null);
   const [reviewNote, setReviewNote] = useState("");
+
+  // Teacher Attendance Correction Request (for already-marked records)
+  const [correctingStudent, setCorrectingStudent] = useState<SessionRosterStudent | null>(null);
+  const [corrNewStatus, setCorrNewStatus] = useState<"PRESENT" | "LATE" | "ABSENT">("PRESENT");
+  const [corrReason, setCorrReason] = useState("");
+
+  // Lecture Cancel / Exception Dialog
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+
+  // Session History Lookup Dialog (GET /attendance/sessions)
+  const [isSessionLookupOpen, setIsSessionLookupOpen] = useState(false);
+  const [lookupOfferingId, setLookupOfferingId] = useState("");
+  const [lookupDate, setLookupDate] = useState(() => todayLocal);
 
   // 1. Fetch Teacher's Assigned Timetable for Selected Date
   const { data: scheduledSessions, isLoading: sessionsLoading } = useQuery({
@@ -88,7 +111,11 @@ export default function TeacherAttendancePage() {
     enabled: !!selectedSlotId,
   });
 
-  // Sync roster state when session roster loads
+  // Sync roster state when session roster loads (and clear stale roster on date/slot switch)
+  useEffect(() => {
+    setRoster([]);
+  }, [selectedSlotId, selectedDate]);
+
   useEffect(() => {
     if (rosterData?.roster) {
       setRoster(rosterData.roster);
@@ -131,6 +158,14 @@ export default function TeacherAttendancePage() {
     queryKey: ["teacher_attendance_corrections"],
     queryFn: () => attendanceApi.listCorrections(),
     enabled: activeTab === "disputes",
+  });
+
+  // 6. Session History Lookup by Offering + Date (GET /attendance/sessions)
+  const effectiveLookupOffering = lookupOfferingId || registerOfferingId || teacherOfferings?.[0]?.id || "";
+  const { data: lookupSessions = [], isLoading: lookupLoading } = useQuery({
+    queryKey: ["teacher_session_lookup", effectiveLookupOffering, lookupDate],
+    queryFn: () => attendanceApi.getSession(effectiveLookupOffering, lookupDate),
+    enabled: isSessionLookupOpen && !!effectiveLookupOffering && !!lookupDate,
   });
 
   const handleRegisterPrevMonth = () => {
@@ -180,18 +215,19 @@ export default function TeacherAttendancePage() {
         return att.status;
       });
 
+      const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
       return [
-        `"${st.rollNumber}"`,
-        `"${st.name}"`,
-        `"${st.email || ""}"`,
-        ...sessionValues.map((v) => `"${v}"`),
+        esc(st.rollNumber),
+        esc(st.name),
+        esc(st.email || ""),
+        ...sessionValues.map((v) => esc(v)),
         st.stats.attended,
         st.stats.held,
-        `"${st.stats.percentage}%"`,
+        esc(`${st.stats.percentage}%`),
       ].join(",");
     });
 
-    const dailyPresent = registerData.sessions.map((s) => s.presentCount);
+    const dailyPresent = registerData.sessions.map((s) => s.presentCount + (s.lateCount || 0));
     const dailyAbsent = registerData.sessions.map((s) => s.absentCount);
     const dailyRate = registerData.sessions.map((s) => `"${s.percentage}%"`);
 
@@ -240,6 +276,7 @@ export default function TeacherAttendancePage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
     toast.success("Register exported to CSV successfully.");
   };
 
@@ -323,6 +360,54 @@ export default function TeacherAttendancePage() {
     },
   });
 
+  const requestCorrectionMutation = useMutation({
+    mutationFn: () => {
+      if (!correctingStudent?.recordId) throw new Error("No attendance record found");
+      return attendanceApi.requestCorrection({
+        attendanceId: correctingStudent.recordId,
+        newStatus: corrNewStatus,
+        reason: corrReason.trim(),
+      });
+    },
+    onSuccess: () => {
+      toast.success("Correction request sent to HOD for audit & approval");
+      setCorrectingStudent(null);
+      setCorrReason("");
+      queryClient.invalidateQueries({ queryKey: ["teacher_attendance_corrections"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to submit correction request");
+    },
+  });
+
+  const cancelLectureMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedSession) throw new Error("No session selected");
+      return teacherApi.createTimetableException({
+        slotId: selectedSession.slotId,
+        date: selectedDate,
+        type: "CANCELLED",
+        reason: cancelReason.trim(),
+      });
+    },
+    onSuccess: () => {
+      toast.success("Lecture cancelled for this date");
+      setIsCancelModalOpen(false);
+      setCancelReason("");
+      queryClient.invalidateQueries({ queryKey: ["teacher_scheduled_sessions", selectedDate] });
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to cancel lecture"),
+  });
+
+  const restoreLectureMutation = useMutation({
+    mutationFn: (exceptionId: string) => teacherApi.removeTimetableException(exceptionId),
+    onSuccess: () => {
+      toast.success("Lecture restored to regular schedule");
+      queryClient.invalidateQueries({ queryKey: ["teacher_scheduled_sessions", selectedDate] });
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to restore lecture"),
+  });
+
   const q = (searchQuery || "").toLowerCase().trim();
   const filteredRoster = (roster || []).filter((s) => {
     if (!s) return false;
@@ -382,6 +467,14 @@ export default function TeacherAttendancePage() {
           >
             Disputes & Issue Review
           </button>
+          <button
+            type="button"
+            onClick={() => setIsSessionLookupOpen(true)}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border bg-card text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+          >
+            <Search className="h-3.5 w-3.5" />
+            Session Lookup
+          </button>
         </div>
       </div>
 
@@ -397,6 +490,7 @@ export default function TeacherAttendancePage() {
                   </label>
                   <input
                     type="date"
+                    max={todayLocal}
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
                     className="h-9 rounded-lg border border-input bg-background px-3 text-xs font-semibold"
@@ -408,33 +502,56 @@ export default function TeacherAttendancePage() {
               </div>
 
               {selectedSession && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleMarkAll("PRESENT")}
-                    disabled={roster.length === 0}
-                    className="text-xs gap-1.5"
-                  >
-                    <Check className="h-3.5 w-3.5 text-emerald-600" /> Mark All Present
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleMarkAll("ABSENT")}
-                    disabled={roster.length === 0}
-                    className="text-xs gap-1.5"
-                  >
-                    <XCircle className="h-3.5 w-3.5 text-rose-600" /> Mark All Absent
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => setIsConfirmOpen(true)}
-                    disabled={roster.length === 0}
-                    className="text-xs gap-1.5 shadow-md shadow-brand-500/20"
-                  >
-                    <Send className="h-3.5 w-3.5" /> Submit to Register
-                  </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedSession.exception?.type === "CANCELLED" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      isLoading={restoreLectureMutation.isPending}
+                      onClick={() => restoreLectureMutation.mutate(selectedSession.exception!.id)}
+                      className="text-xs gap-1.5 border-emerald-300 text-emerald-700"
+                    >
+                      Restore Lecture
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsCancelModalOpen(true)}
+                        disabled={selectedSession.isMarked}
+                        className="text-xs gap-1.5 text-rose-600"
+                      >
+                        Cancel Date
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleMarkAll("PRESENT")}
+                        disabled={roster.length === 0 || roster.every((r) => r.isAlreadyMarked)}
+                        className="text-xs gap-1.5"
+                      >
+                        <Check className="h-3.5 w-3.5 text-emerald-600" /> Mark All Present
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleMarkAll("ABSENT")}
+                        disabled={roster.length === 0 || roster.every((r) => r.isAlreadyMarked)}
+                        className="text-xs gap-1.5"
+                      >
+                        <XCircle className="h-3.5 w-3.5 text-rose-600" /> Mark All Absent
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => setIsConfirmOpen(true)}
+                        disabled={roster.length === 0 || roster.every((r) => r.isAlreadyMarked)}
+                        className="text-xs gap-1.5 shadow-md shadow-brand-500/20"
+                      >
+                        <Send className="h-3.5 w-3.5" /> Submit to Register
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -485,7 +602,15 @@ export default function TeacherAttendancePage() {
                           <span className="font-mono font-bold text-xs text-foreground">
                             {session.subject.code}
                           </span>
-                          {session.isMarked ? (
+                          {session.exception?.type === "CANCELLED" ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded-full">
+                              Cancelled
+                            </span>
+                          ) : session.exception?.type === "SUBSTITUTED" ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded-full">
+                              Substitute Covered
+                            </span>
+                          ) : session.isMarked ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
                               <CheckCircle2 className="h-3 w-3" /> Recorded ({session.markedCount})
                             </span>
@@ -593,41 +718,57 @@ export default function TeacherAttendancePage() {
                               </span>
                             </td>
                             <td className="p-3 pr-4 text-right">
-                              <div className="inline-flex rounded-lg border border-border bg-card p-0.5 text-xs">
-                                <button
+                              {student.isAlreadyMarked && student.recordId ? (
+                                <Button
                                   type="button"
-                                  onClick={() => handleStatusChange(student.studentId, "PRESENT")}
-                                  className={`px-3 py-1 rounded-md font-bold text-xs transition-colors ${
-                                    student.status === "PRESENT"
-                                      ? "bg-emerald-600 text-white shadow-xs"
-                                      : "text-muted-foreground hover:text-foreground"
-                                  }`}
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setCorrectingStudent(student);
+                                    setCorrNewStatus(student.status === "PRESENT" ? "ABSENT" : "PRESENT");
+                                    setCorrReason("");
+                                  }}
+                                  className="h-7 text-[11px]"
                                 >
-                                  P
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleStatusChange(student.studentId, "LATE")}
-                                  className={`px-3 py-1 rounded-md font-bold text-xs transition-colors ${
-                                    student.status === "LATE"
-                                      ? "bg-amber-500 text-white shadow-xs"
-                                      : "text-muted-foreground hover:text-foreground"
-                                  }`}
-                                >
-                                  L
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleStatusChange(student.studentId, "ABSENT")}
-                                  className={`px-3 py-1 rounded-md font-bold text-xs transition-colors ${
-                                    student.status === "ABSENT"
-                                      ? "bg-rose-600 text-white shadow-xs"
-                                      : "text-muted-foreground hover:text-foreground"
-                                  }`}
-                                >
-                                  A
-                                </button>
-                              </div>
+                                  Request Correction
+                                </Button>
+                              ) : (
+                                <div className="inline-flex rounded-lg border border-border bg-card p-0.5 text-xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStatusChange(student.studentId, "PRESENT")}
+                                    className={`px-3 py-1 rounded-md font-bold text-xs transition-colors ${
+                                      student.status === "PRESENT"
+                                        ? "bg-emerald-600 text-white shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                  >
+                                    P
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStatusChange(student.studentId, "LATE")}
+                                    className={`px-3 py-1 rounded-md font-bold text-xs transition-colors ${
+                                      student.status === "LATE"
+                                        ? "bg-amber-500 text-white shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                  >
+                                    L
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStatusChange(student.studentId, "ABSENT")}
+                                    className={`px-3 py-1 rounded-md font-bold text-xs transition-colors ${
+                                      student.status === "ABSENT"
+                                        ? "bg-rose-600 text-white shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                  >
+                                    A
+                                  </button>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         );
@@ -691,6 +832,89 @@ export default function TeacherAttendancePage() {
                 </Button>
               </div>
             </div>
+          </Dialog>
+
+          {/* Teacher Attendance Correction Request Modal */}
+          <Dialog
+            isOpen={!!correctingStudent}
+            onClose={() => setCorrectingStudent(null)}
+            title={`Request Correction: ${correctingStudent?.name || ""}`}
+            description="Already-marked attendance cannot be overwritten directly. Submit an audited correction request to your HOD."
+          >
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (corrReason.trim().length < 10) {
+                  toast.error("Please enter at least 10 characters explaining the correction");
+                  return;
+                }
+                requestCorrectionMutation.mutate();
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div>
+                <label className="font-semibold block mb-1">Current Status: {correctingStudent?.status}</label>
+                <select
+                  value={corrNewStatus}
+                  onChange={(e) => setCorrNewStatus(e.target.value as any)}
+                  className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
+                >
+                  <option value="PRESENT">PRESENT</option>
+                  <option value="LATE">LATE</option>
+                  <option value="ABSENT">ABSENT</option>
+                </select>
+              </div>
+              <div>
+                <label className="font-semibold block mb-1">Correction Reason * (Min 10 characters)</label>
+                <Input
+                  placeholder="e.g. Marked absent by mistake during roll call"
+                  value={corrReason}
+                  onChange={(e) => setCorrReason(e.target.value)}
+                  minLength={10}
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setCorrectingStudent(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" size="sm" isLoading={requestCorrectionMutation.isPending}>
+                  Submit Request
+                </Button>
+              </div>
+            </form>
+          </Dialog>
+
+          {/* Cancel Lecture Date Modal */}
+          <Dialog
+            isOpen={isCancelModalOpen}
+            onClose={() => setIsCancelModalOpen(false)}
+            title="Cancel Lecture Occurrence"
+            description={`Mark ${selectedSession?.subject.code || ""} (${selectedDate}) as cancelled on the schedule.`}
+          >
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (cancelReason.trim().length < 3) return;
+                cancelLectureMutation.mutate();
+              }}
+              className="space-y-4 text-xs"
+            >
+              <Input
+                placeholder="Reason for cancellation (e.g. Official Workshop / Faculty Leave)"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                required
+              />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsCancelModalOpen(false)}>
+                  Keep Scheduled
+                </Button>
+                <Button type="submit" size="sm" className="bg-rose-600 text-white" isLoading={cancelLectureMutation.isPending}>
+                  Confirm Cancellation
+                </Button>
+              </div>
+            </form>
           </Dialog>
         </div>
       )}
@@ -1190,17 +1414,34 @@ export default function TeacherAttendancePage() {
                           </td>
                           <td className="p-3 pr-4 text-right">
                             {d.status === "PENDING" ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setReviewingIssue(d);
-                                  setReviewNote("");
-                                }}
-                                className="text-xs h-7"
-                              >
-                                Review Dispute
-                              </Button>
+                              (() => {
+                                const canApprove =
+                                  user?.role === "HOD" ||
+                                  user?.role === "ADMIN" ||
+                                  user?.role === "COLLEGE_ADMIN" ||
+                                  user?.role === "SUPER_ADMIN" ||
+                                  user?.roleKeys?.some((rk: string) => ["HOD", "COLLEGE_ADMIN", "SUPER_ADMIN"].includes(rk));
+                                const isSelf = (d as { requestedById?: string }).requestedById === user?.id;
+                                if (!canApprove) {
+                                  return <span className="text-[11px] text-amber-600 font-medium">Awaiting HOD Review</span>;
+                                }
+                                if (isSelf) {
+                                  return <span className="text-[11px] text-muted-foreground">Self-review restricted</span>;
+                                }
+                                return (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setReviewingIssue(d);
+                                      setReviewNote("");
+                                    }}
+                                    className="text-xs h-7"
+                                  >
+                                    Review Dispute
+                                  </Button>
+                                );
+                              })()
                             ) : (
                               <span className="text-[11px] text-muted-foreground">Reviewed</span>
                             )}
@@ -1227,8 +1468,8 @@ export default function TeacherAttendancePage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Student:</span>
                     <span className="font-bold text-foreground">
-                      {reviewingIssue.student?.user
-                        ? `${reviewingIssue.student.user.firstName} ${reviewingIssue.student.user.lastName}`
+                      {((reviewingIssue as any).attendance?.student || (reviewingIssue as any).student)?.user
+                        ? `${((reviewingIssue as any).attendance?.student || (reviewingIssue as any).student).user.firstName} ${((reviewingIssue as any).attendance?.student || (reviewingIssue as any).student).user.lastName}`
                         : "Student"}
                     </span>
                   </div>
@@ -1239,7 +1480,7 @@ export default function TeacherAttendancePage() {
                     </span>
                   </div>
                   <div className="pt-1">
-                    <span className="text-muted-foreground block mb-0.5">Student's Stated Reason:</span>
+                    <span className="text-muted-foreground block mb-0.5">Student&apos;s Stated Reason:</span>
                     <p className="p-2 rounded bg-background border border-border text-foreground">
                       {reviewingIssue.reason}
                     </p>
@@ -1287,6 +1528,90 @@ export default function TeacherAttendancePage() {
           </Dialog>
         </div>
       )}
+
+      {/* Historical Session Lookup Modal */}
+      <Dialog
+        isOpen={isSessionLookupOpen}
+        onClose={() => setIsSessionLookupOpen(false)}
+        title="Marked Attendance Session Lookup"
+        description="Inspect stored roll-call records for any course offering and date."
+      >
+        <div className="space-y-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Offering</label>
+              <select
+                value={effectiveLookupOffering}
+                onChange={(e) => setLookupOfferingId(e.target.value)}
+                className="w-full h-9 rounded-lg border border-input bg-background px-2.5 text-xs"
+              >
+                {(teacherOfferings || []).map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.subject?.code} — Sec {o.section?.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Date</label>
+              <input
+                type="date"
+                value={lookupDate}
+                onChange={(e) => setLookupDate(e.target.value)}
+                className="w-full h-9 rounded-lg border border-input bg-background px-2.5 text-xs"
+              />
+            </div>
+          </div>
+
+          {lookupLoading ? (
+            <Skeleton className="h-28 w-full" />
+          ) : lookupSessions.length === 0 ? (
+            <p className="text-muted-foreground py-4 text-center">
+              No attendance sessions recorded for this offering on {lookupDate}.
+            </p>
+          ) : (
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {lookupSessions.map((sess) => (
+                <div key={sess.id} className="rounded-xl border border-border p-3 space-y-2">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>Session ({sess.mode})</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {sess.records?.length ?? 0} record(s)
+                    </span>
+                  </div>
+                  <div className="divide-y divide-border/60">
+                    {(sess.records || []).map((rec) => (
+                      <div key={rec.id} className="py-1.5 flex items-center justify-between">
+                        <span>
+                          <strong className="font-mono mr-2">{rec.student?.rollNumber || rec.studentId.slice(0, 6)}</strong>
+                          {rec.student?.user ? `${rec.student.user.firstName} ${rec.student.user.lastName}` : ""}
+                        </span>
+                        <span
+                          className={`font-mono font-bold ${
+                            rec.status === "PRESENT"
+                              ? "text-emerald-600"
+                              : rec.status === "LATE"
+                              ? "text-amber-600"
+                              : "text-rose-600"
+                          }`}
+                        >
+                          {rec.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <Button type="button" size="sm" variant="outline" onClick={() => setIsSessionLookupOpen(false)}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

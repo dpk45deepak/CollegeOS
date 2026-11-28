@@ -20,11 +20,15 @@ export interface StudentFeeItem {
   id: string;
   studentId: string;
   feeStructureId: string;
-  amount: number;
-  paidAmount: number;
+  amountDue: number;
+  amountPaid: number;
+  discount?: number;
+  scholarshipAdjustment?: number;
+  netPayable?: number;
   outstanding: number;
   dueDate: string;
-  status: "PENDING" | "PARTIAL" | "PAID" | "OVERDUE";
+  status: "PENDING" | "PARTIAL" | "PAID" | "OVERDUE" | "WAIVED";
+  computedStatus?: string;
   feeStructure?: FeeStructure;
   student?: {
     id: string;
@@ -39,11 +43,10 @@ export interface PaymentRecord {
   id: string;
   studentFeeId: string;
   amount: number;
-  status: "SUCCESS" | "PENDING" | "FAILED";
+  status: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED" | "PARTIALLY_REFUNDED";
   paidAt: string;
   gateway: string;
   receiptNo?: string;
-  mode?: string;
 }
 
 export interface CreateFeeStructureDto {
@@ -87,13 +90,15 @@ export const feesApi = {
   },
 
   startPayment: async (studentFeeId: string, dto?: { gateway?: string; amount?: number }) => {
-    return apiClient<any>(`/fees/${studentFeeId}/payments`, {
+    const gateway = dto?.gateway || process.env.NEXT_PUBLIC_PAYMENT_GATEWAY || "mock";
+    const res = await apiClient<any>(`/fees/${studentFeeId}/payments`, {
       method: "POST",
       body: JSON.stringify({
-        gateway: dto?.gateway || "mock",
+        gateway,
         amount: dto?.amount,
       }),
     });
+    return { ...res, gateway };
   },
 
   recordManualPayment: async (studentFeeId: string, dto: { amount: number; mode: string; reference?: string }) => {

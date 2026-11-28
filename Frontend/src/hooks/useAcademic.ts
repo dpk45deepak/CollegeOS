@@ -3,6 +3,7 @@ import { academicApi } from "@/services/api/academic.api";
 
 export const academicKeys = {
   all: ["academic"] as const,
+  colleges: () => [...academicKeys.all, "colleges"] as const,
   settings: () => [...academicKeys.all, "settings"] as const,
   campuses: () => [...academicKeys.all, "campuses"] as const,
   departments: () => [...academicKeys.all, "departments"] as const,
@@ -12,6 +13,22 @@ export const academicKeys = {
   sections: (semesterId?: string) => [...academicKeys.all, "sections", semesterId] as const,
   subjects: (params?: any) => [...academicKeys.all, "subjects", params] as const,
 };
+
+export function useColleges(enabled = true) {
+  return useQuery({
+    queryKey: academicKeys.colleges(),
+    queryFn: () => academicApi.listColleges(),
+    enabled,
+  });
+}
+
+export function useCreateCollege() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: academicApi.createCollege,
+    onSuccess: () => qc.invalidateQueries({ queryKey: academicKeys.colleges() }),
+  });
+}
 
 export function useCollegeSettings() {
   return useQuery({
@@ -39,6 +56,15 @@ export function useCreateCampus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: academicApi.createCampus,
+    onSuccess: () => qc.invalidateQueries({ queryKey: academicKeys.campuses() }),
+  });
+}
+
+export function useUpdateCampus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: string; dto: Partial<{ code: string; name: string; address?: string }> }) =>
+      academicApi.updateCampus(id, dto),
     onSuccess: () => qc.invalidateQueries({ queryKey: academicKeys.campuses() }),
   });
 }
@@ -81,6 +107,15 @@ export function useCreateProgram() {
   });
 }
 
+export function useUpdateProgram() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: string; dto: Partial<{ code: string; name: string; durationSemesters: number }> }) =>
+      academicApi.updateProgram(id, dto),
+    onSuccess: () => qc.invalidateQueries({ queryKey: academicKeys.programs() }),
+  });
+}
+
 export function useBatches(params?: { departmentId?: string; programId?: string }) {
   return useQuery({
     queryKey: academicKeys.batches(params),
@@ -111,6 +146,14 @@ export function useCreateSemester() {
   });
 }
 
+export function useUpdateSemester() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: string; dto: any }) => academicApi.updateSemester(id, dto),
+    onSuccess: () => qc.invalidateQueries({ queryKey: academicKeys.all }),
+  });
+}
+
 export function useSections(semesterId?: string) {
   return useQuery({
     queryKey: academicKeys.sections(semesterId),
@@ -126,7 +169,16 @@ export function useCreateSection() {
   });
 }
 
-export function useSubjects(params?: { departmentId?: string; search?: string }) {
+export function useUpdateSection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: string; dto: Partial<{ name: string; capacity: number }> }) =>
+      academicApi.updateSection(id, dto),
+    onSuccess: () => qc.invalidateQueries({ queryKey: academicKeys.all }),
+  });
+}
+
+export function useSubjects(params?: { departmentId?: string; search?: string; page?: number; limit?: number }) {
   return useQuery({
     queryKey: academicKeys.subjects(params),
     queryFn: () => academicApi.listSubjects(params),
@@ -137,7 +189,7 @@ export function useCreateSubject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: academicApi.createSubject,
-    onSuccess: () => qc.invalidateQueries({ queryKey: academicKeys.subjects() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...academicKeys.all, "subjects"] }),
   });
 }
 
@@ -145,7 +197,7 @@ export function useUpdateSubject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: any }) => academicApi.updateSubject(id, dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: academicKeys.subjects() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...academicKeys.all, "subjects"] }),
   });
 }
 

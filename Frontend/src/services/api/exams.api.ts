@@ -12,7 +12,7 @@ export interface ExamItem {
   maxMarks: number;
   passMarks: number;
   roomId?: string | null;
-  status: "SCHEDULED" | "CONDUCTED" | "RESULTS_PENDING" | "PUBLISHED" | "CANCELLED";
+  status: "SCHEDULED" | "ONGOING" | "COMPLETED" | "CANCELLED";
   subjectOffering?: {
     id: string;
     subject?: { code: string; name: string; credits?: number };

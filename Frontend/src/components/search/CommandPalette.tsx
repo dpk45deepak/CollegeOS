@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUIStore } from "@/stores/useUIStore";
+import { useAuthStore } from "@/lib/auth/authStore";
+import { useAIStore } from "@/stores/useAIStore";
+import { isAuthorizedForPath } from "@/lib/roles";
 import { useSearch } from "@/hooks/useSearch";
 import {
   Search,
@@ -106,6 +109,8 @@ function getHitMetadata(type?: string) {
 
 export function CommandPalette() {
   const router = useRouter();
+  const { user } = useAuthStore();
+  const { sendMessage } = useAIStore();
   const { isCommandPaletteOpen, setCommandPaletteOpen, setCopilotOpen } = useUIStore();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -126,6 +131,8 @@ export function CommandPalette() {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setCommandPaletteOpen(!isCommandPaletteOpen);
+      } else if (e.key === "Escape" && isCommandPaletteOpen) {
+        setCommandPaletteOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -135,17 +142,19 @@ export function CommandPalette() {
   if (!isCommandPaletteOpen) return null;
 
   const q = (query || "").toLowerCase().trim();
+  const role = user?.role || "STUDENT";
   const filteredNav = allSearchDatabase
     .map((category) => ({
       ...category,
-      items: (category.items || []).filter(
-        (item) =>
-          !item
-            ? false
-            : !q ||
-              String(item.title || "").toLowerCase().includes(q) ||
-              String(item.subtitle || "").toLowerCase().includes(q)
-      ),
+      items: (category.items || []).filter((item) => {
+        if (!item) return false;
+        if (!isAuthorizedForPath(item.href, role, user)) return false;
+        if (!q) return true;
+        return (
+          String(item.title || "").toLowerCase().includes(q) ||
+          String(item.subtitle || "").toLowerCase().includes(q)
+        );
+      }),
     }))
     .filter((category) => (category.items || []).length > 0);
 
@@ -156,8 +165,13 @@ export function CommandPalette() {
   };
 
   const handleAskAI = () => {
+    const prompt = query.trim();
     setCommandPaletteOpen(false);
     setCopilotOpen(true);
+    if (prompt) {
+      void sendMessage(prompt);
+      setQuery("");
+    }
   };
 
   const hasLiveHits = (searchResults || []).length > 0;

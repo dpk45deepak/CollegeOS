@@ -104,6 +104,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('verify-email')
   @HttpCode(204)
   @ApiOperation({ summary: 'Verify email using an emailed token' })
@@ -112,13 +113,14 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @Post('resend-verification')
   @HttpCode(202)
   @ApiOperation({ summary: 'Resend verification email' })
   async resend(@Body() dto?: ResendVerificationDto, @CurrentUser() user?: Principal) {
     const target = dto?.email || user?.userId;
     if (target) {
-      await this.auth.resendVerification(target);
+      await this.auth.resendVerification(target, dto?.collegeCode);
     }
   }
 

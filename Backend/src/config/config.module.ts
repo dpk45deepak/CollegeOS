@@ -5,7 +5,14 @@ import { validateEnv } from './env.validation';
 
 @Global()
 @Module({
-  imports: [NestConfigModule.forRoot({ isGlobal: true, validate: validateEnv, cache: true })],
+  imports: [
+    NestConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env.local', '.env'],
+      validate: validateEnv,
+      cache: true,
+    }),
+  ],
   providers: [AppConfigService],
   exports: [AppConfigService],
 })

@@ -41,13 +41,13 @@ export class JwtAuthGuard implements CanActivate {
     if (this.redis.isHealthy()) {
       isRevoked = await this.redis.safeExists(revokedKey(payload.sid));
     }
-    if (!isRevoked && !this.redis.isHealthy()) {
-      // Redis is offline/unreachable in serverless environments; fallback to PostgreSQL session lookup
+    if (!isRevoked) {
+      // Always verify authoritative session state in PostgreSQL so Redis restarts/flushes cannot un-revoke sessions.
       const session = await this.prisma.authSession.findUnique({
         where: { id: payload.sid },
-        select: { revokedAt: true },
+        select: { revokedAt: true, expiresAt: true },
       });
-      isRevoked = !session || !!session.revokedAt;
+      isRevoked = !session || !!session.revokedAt || session.expiresAt < new Date();
     }
 
     if (isRevoked) {
@@ -57,6 +57,9 @@ export class JwtAuthGuard implements CanActivate {
     const principal = await this.principals.load(payload.sub);
     if (!principal || principal.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException({ message: 'Account is not active', errorCode: 'ACCOUNT_INACTIVE' });
+    }
+    if (principal.collegeStatus && principal.collegeStatus !== 'ACTIVE') {
+      throw new UnauthorizedException({ message: 'Institution is suspended', errorCode: 'COLLEGE_SUSPENDED' });
     }
     const { status: _status, ...rest } = principal;
     req.user = { ...rest, sessionId: payload.sid };

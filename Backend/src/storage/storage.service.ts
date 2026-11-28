@@ -1,6 +1,11 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { isAdmin } from '../access/access.service';
+import { P, ROLE } from '../auth/permissions';
+import { Principal } from '../common/types/principal';
 import { AppConfigService } from '../config/app-config.service';
+import { canViewDocument } from '../documents/visibility';
+import { PrismaService } from '../prisma/prisma.service';
 import { validateUpload } from './file-validation';
 import { MALWARE_SCANNER, MalwareScanner, STORAGE_DRIVER, StorageDriver } from './storage.types';
 
@@ -17,6 +22,7 @@ export class StorageService {
     @Inject(STORAGE_DRIVER) private readonly driver: StorageDriver,
     @Inject(MALWARE_SCANNER) private readonly scanner: MalwareScanner,
     private readonly config: AppConfigService,
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   get maxBytes(): number {
@@ -59,6 +65,113 @@ export class StorageService {
       if (parts[0] !== collegeId || k.includes('..') || (ownerId && parts[2] !== ownerId)) {
         throw new ForbiddenException({ message: 'Invalid file reference', errorCode: 'FILE_REF_DENIED' });
       }
+    }
+  }
+
+  /**
+   * Enforce object-level ACLs on /files/download so tenant users cannot download other users'
+   * private documents, student submissions, complaints, or staff reports by guessing storage keys.
+   */
+  async authorizeDownload(p: Principal, collegeId: string, key: string): Promise<void> {
+    this.assertKeysBelong([key], collegeId);
+    if (isAdmin(p)) return;
+
+    const parts = key.split('/');
+    const scope = parts[1];
+    const ownerId = parts[2];
+
+    if (scope === 'reports') {
+      if (!p.permissions.includes(P.REPORT_EXPORT)) {
+        throw new ForbiddenException('Not authorized to download exported reports');
+      }
+      return;
+    }
+
+    if (!this.prisma) {
+      if (ownerId !== p.userId) throw new ForbiddenException('Not authorized to download this file');
+      return;
+    }
+
+    if (scope === 'documents') {
+      const doc = await this.prisma.document.findFirst({
+        where: { collegeId, storageKey: key },
+        select: { visibility: true, departmentId: true, allowedRoleKeys: true, uploadedById: true },
+      });
+      if (doc) {
+        if (!canViewDocument(p, doc)) {
+          throw new ForbiddenException('Not authorized to download this document');
+        }
+        return;
+      }
+      if (ownerId !== p.userId) throw new ForbiddenException('Not authorized to download this document');
+      return;
+    }
+
+    const [submission, assignment, notice] = await Promise.all([
+      this.prisma.submission.findFirst({
+        where: { fileKeys: { has: key }, assignment: { collegeId } },
+        select: {
+          studentId: true,
+          assignment: {
+            select: {
+              createdById: true,
+              subjectOffering: {
+                select: { teacherId: true, subject: { select: { departmentId: true } } },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.assignment.findFirst({
+        where: { collegeId, attachmentKeys: { has: key } },
+        select: {
+          createdById: true,
+          subjectOffering: {
+            select: { sectionId: true, teacherId: true, subject: { select: { departmentId: true } } },
+          },
+        },
+      }),
+      this.prisma.notice.findFirst({
+        where: { collegeId, attachmentKeys: { has: key } },
+        select: { authorId: true, departmentId: true, audienceRoles: true },
+      }),
+    ]);
+
+    if (submission) {
+      const deptId = submission.assignment.subjectOffering.subject.departmentId;
+      const isOwner = p.studentId === submission.studentId;
+      const isGuardian = p.guardianOfStudentIds.includes(submission.studentId);
+      const isTeacher =
+        submission.assignment.createdById === p.userId ||
+        (!!p.teacherId && submission.assignment.subjectOffering.teacherId === p.teacherId);
+      const isDeptHod = p.roleKeys.includes(ROLE.HOD) && p.departmentIds.includes(deptId);
+      if (isOwner || isGuardian || isTeacher || isDeptHod) return;
+      throw new ForbiddenException('Not authorized to download this submission attachment');
+    }
+
+    if (assignment) {
+      const deptId = assignment.subjectOffering.subject.departmentId;
+      const isTeacher =
+        assignment.createdById === p.userId ||
+        (!!p.teacherId && assignment.subjectOffering.teacherId === p.teacherId);
+      const isDeptHod = p.roleKeys.includes(ROLE.HOD) && p.departmentIds.includes(deptId);
+      const isStudentOrParent =
+        (p.roleKeys.includes(ROLE.STUDENT) && !!p.studentId) || p.guardianOfStudentIds.length > 0;
+      if (isTeacher || isDeptHod || isStudentOrParent) return;
+      throw new ForbiddenException('Not authorized to download this assignment attachment');
+    }
+
+    if (notice) {
+      if (notice.authorId === p.userId) return;
+      const deptOk = !notice.departmentId || p.departmentIds.includes(notice.departmentId);
+      const roleOk = notice.audienceRoles.length === 0 || notice.audienceRoles.some((r) => p.roleKeys.includes(r));
+      if (deptOk && roleOk) return;
+      throw new ForbiddenException('Not authorized to download this notice attachment');
+    }
+
+    // Unattached draft file: strictly limited to original uploader
+    if (ownerId !== p.userId) {
+      throw new ForbiddenException('Not authorized to download this file');
     }
   }
 }

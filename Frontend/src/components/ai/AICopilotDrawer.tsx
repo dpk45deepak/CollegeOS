@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useUIStore } from "@/stores/useUIStore";
 import { useAIStore } from "@/stores/useAIStore";
+import { getPreferences } from "@/lib/preferences";
 import {
   X,
   Send,
@@ -21,8 +22,27 @@ import { Badge } from "@/components/ui/badge";
 
 export function AICopilotDrawer() {
   const { isCopilotOpen, setCopilotOpen } = useUIStore();
-  const { messages, isStreaming, suggestedPrompts, sendMessage, resetConversation } =
-    useAIStore();
+  const {
+    messages,
+    conversations,
+    conversationId,
+    isStreaming,
+    isConfirmingDraft,
+    suggestedPrompts,
+    sendMessage,
+    loadConversations,
+    selectConversation,
+    resetConversation,
+    confirmDraft,
+    cancelDraft,
+  } = useAIStore();
+  const showCitations = getPreferences().citationVerbosity;
+
+  useEffect(() => {
+    if (isCopilotOpen) {
+      loadConversations();
+    }
+  }, [isCopilotOpen, loadConversations]);
 
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -70,7 +90,23 @@ export function AICopilotDrawer() {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {conversations.length > 0 && (
+              <select
+                aria-label="Recent conversations"
+                value={conversationId || ""}
+                onChange={(e) => (e.target.value ? selectConversation(e.target.value) : resetConversation())}
+                className="h-7 max-w-[140px] rounded-lg border border-border bg-background px-1.5 text-[10px] font-medium"
+              >
+                <option value="">New Chat</option>
+                {conversations.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title || new Date(c.updatedAt).toLocaleDateString()}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
+              type="button"
               onClick={resetConversation}
               className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               title="Reset conversation"
@@ -160,7 +196,7 @@ export function AICopilotDrawer() {
                   )}
 
                   {/* Grounded Citation Chips */}
-                  {msg.citations && msg.citations.length > 0 && (
+                  {showCitations && msg.citations && msg.citations.length > 0 && (
                     <div className="pt-1">
                       <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1">
                         <BookOpen className="h-2.5 w-2.5" />
@@ -196,6 +232,31 @@ export function AICopilotDrawer() {
                           {action.label}
                         </button>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Pending Draft Confirmation Actions */}
+                  {msg.pendingDraftId && (
+                    <div className="flex items-center gap-2 pt-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={isConfirmingDraft}
+                        onClick={() => confirmDraft(msg.pendingDraftId!)}
+                        className="h-7 text-[11px] px-3"
+                      >
+                        {isConfirmingDraft ? "Submitting..." : "Confirm & File Ticket"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isConfirmingDraft}
+                        onClick={() => cancelDraft(msg.pendingDraftId!)}
+                        className="h-7 text-[11px] px-3"
+                      >
+                        Discard Draft
+                      </Button>
                     </div>
                   )}
                 </div>

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { studentApi } from "@/lib/api/student";
 import { attendanceApi, StudentCalendarDay } from "@/services/api/attendance.api";
+import { useStudentAttendanceRecords } from "@/hooks/useStudents";
 import { toast } from "sonner";
 import {
   CalendarCheck2,
@@ -39,8 +40,9 @@ export default function StudentAttendancePage() {
     queryFn: () => studentApi.getAttendance(),
   });
 
-  // View mode: summary cards vs monthly calendar
-  const [viewMode, setViewMode] = useState<"summary" | "calendar">("summary");
+  // View mode: summary cards, monthly calendar, or records log
+  const [viewMode, setViewMode] = useState<"summary" | "calendar" | "records">("summary");
+  const [recordsSubjectId, setRecordsSubjectId] = useState<string>("");
   const today = new Date();
   const [calendarMonth, setCalendarMonth] = useState<number>(today.getMonth() + 1);
   const [calendarYear, setCalendarYear] = useState<number>(today.getFullYear());
@@ -74,6 +76,13 @@ export default function StudentAttendancePage() {
     queryFn: () => attendanceApi.listCorrections(),
   });
 
+  const { data: rawRecords, isLoading: recordsLoading } = useStudentAttendanceRecords(
+    recordsSubjectId ? { subjectId: recordsSubjectId } : undefined
+  );
+  const attendanceRecordsList = Array.isArray(rawRecords)
+    ? rawRecords
+    : (rawRecords as any)?.items || (rawRecords as any)?.data || [];
+
   const handlePrevMonth = () => {
     if (calendarMonth === 1) {
       setCalendarMonth(12);
@@ -105,9 +114,12 @@ export default function StudentAttendancePage() {
     return isRealCode ? `${s.code}: ${cleanName}${pct}` : `${cleanName}${pct}`;
   };
 
+  const [disputeAttendanceId, setDisputeAttendanceId] = useState<string | undefined>(undefined);
+
   const disputeMutation = useMutation({
-    mutationFn: async (data: { subjectOfferingId?: string; requestedStatus: "PRESENT" | "LATE"; reason: string }) => {
+    mutationFn: async (data: { attendanceId?: string; subjectOfferingId?: string; requestedStatus: "PRESENT" | "LATE"; reason: string }) => {
       return attendanceApi.requestCorrection({
+        attendanceId: data.attendanceId,
         subjectOfferingId: data.subjectOfferingId,
         newStatus: data.requestedStatus,
         reason: data.reason,
@@ -116,6 +128,7 @@ export default function StudentAttendancePage() {
     onSuccess: () => {
       setDisputeSuccess("Attendance rectification appeal submitted successfully to faculty and department head.");
       setIsDisputeOpen(false);
+      setDisputeAttendanceId(undefined);
       setDisputeReason("");
       toast.success("Dispute appeal registered with institutional audit logging.");
       refetchDisputes();
@@ -131,6 +144,7 @@ export default function StudentAttendancePage() {
     e.preventDefault();
     const subjId = disputeSubject || data?.subjects?.[0]?.id;
     disputeMutation.mutate({
+      attendanceId: disputeAttendanceId,
       subjectOfferingId: subjId,
       requestedStatus: disputeStatus,
       reason: disputeReason,
@@ -204,7 +218,11 @@ export default function StudentAttendancePage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsDisputeOpen(true)}
+                onClick={() => {
+                  setDisputeAttendanceId(undefined);
+                  setDisputeReason("");
+                  setIsDisputeOpen(true);
+                }}
                 className="text-xs gap-1.5 h-8 border-slate-200 dark:border-slate-700 dark:bg-slate-800/80 hover:dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium"
               >
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
@@ -255,6 +273,7 @@ export default function StudentAttendancePage() {
             Subject Cards & Simulator
           </button>
           <button
+            type="button"
             onClick={() => setViewMode("calendar")}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
               viewMode === "calendar"
@@ -264,6 +283,18 @@ export default function StudentAttendancePage() {
           >
             <CalendarIcon className="h-3.5 w-3.5" />
             Monthly Attendance Calendar
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("records")}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              viewMode === "records"
+                ? "bg-brand-600 text-white shadow-xs"
+                : "border border-border bg-card text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            Lecture Records Log
           </button>
         </div>
 
@@ -721,6 +752,100 @@ export default function StudentAttendancePage() {
         </div>
       )}
 
+      {/* VIEW MODE 3: CHRONOLOGICAL LECTURE RECORDS LOG (GET /students/me/attendance/records) */}
+      {viewMode === "records" && (
+        <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm rounded-2xl overflow-hidden">
+          <CardHeader className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Clock className="h-4 w-4 text-brand-600" />
+              Chronological Lecture Attendance Records
+            </CardTitle>
+            <select
+              aria-label="Filter attendance records by subject"
+              value={recordsSubjectId}
+              onChange={(e) => setRecordsSubjectId(e.target.value)}
+              className="h-8 rounded-lg border border-input bg-background px-2.5 text-xs"
+            >
+              <option value="">All Subjects</option>
+              {(data.subjects || []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {formatCourseOption(s)}
+                </option>
+              ))}
+            </select>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            {recordsLoading ? (
+              <div className="p-6"><Skeleton className="h-36 w-full" /></div>
+            ) : attendanceRecordsList.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground">
+                No lecture attendance entries found for the selected filter.
+              </div>
+            ) : (
+              <table className="w-full text-xs text-left">
+                <thead className="bg-muted/50 text-muted-foreground uppercase text-[10px] font-semibold border-b border-border">
+                  <tr>
+                    <th className="p-3 pl-4">Date</th>
+                    <th className="p-3">Subject</th>
+                    <th className="p-3">Period</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3 pr-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {attendanceRecordsList.map((rec: any) => {
+                    const subj = rec.subject || rec.session?.subjectOffering?.subject;
+                    const recSubjId = rec.subjectId || subj?.id;
+                    return (
+                      <tr key={rec.id} className="hover:bg-muted/20">
+                        <td className="p-3 pl-4 font-mono text-[11px]">
+                          {rec.date ? new Date(rec.date).toLocaleDateString() : "—"}
+                        </td>
+                        <td className="p-3 font-semibold text-foreground">
+                          {subj?.code ? `${subj.code} — ${subj.name}` : subj?.name || "Course Lecture"}
+                        </td>
+                        <td className="p-3 font-mono text-muted-foreground">{rec.periodKey || rec.session?.periodKey || "—"}</td>
+                        <td className="p-3">
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              rec.status === "PRESENT"
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                : rec.status === "LATE"
+                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                                : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                            }`}
+                          >
+                            {rec.status}
+                          </span>
+                        </td>
+                        <td className="p-3 pr-4 text-right">
+                          {rec.status !== "PRESENT" && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px]"
+                              onClick={() => {
+                                setDisputeAttendanceId(rec.id);
+                                if (recSubjId) setDisputeSubject(recSubjId);
+                                setDisputeReason("");
+                                setIsDisputeOpen(true);
+                              }}
+                            >
+                              Dispute
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Attendance Dispute Appeals History */}
       <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850/50">
@@ -790,7 +915,10 @@ export default function StudentAttendancePage() {
       {/* Request Correction Modal */}
       <Dialog
         isOpen={isDisputeOpen}
-        onClose={() => setIsDisputeOpen(false)}
+        onClose={() => {
+          setIsDisputeOpen(false);
+          setDisputeAttendanceId(undefined);
+        }}
         title="Dispute Attendance / Request Correction"
         description="Formal appeal submitted to the Department Head with institutional audit logging."
       >
@@ -839,7 +967,15 @@ export default function StudentAttendancePage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setIsDisputeOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsDisputeOpen(false);
+                setDisputeAttendanceId(undefined);
+              }}
+            >
               Cancel
             </Button>
             <Button size="sm" type="submit" isLoading={disputeMutation.isPending}>
@@ -927,6 +1063,7 @@ export default function StudentAttendancePage() {
                         size="sm"
                         onClick={() => {
                           setSelectedDayModal(null);
+                          setDisputeAttendanceId(rec.id);
                           setDisputeSubject(rec.subjectOfferingId || rec.subjectId);
                           setIsDisputeOpen(true);
                         }}

@@ -26,10 +26,16 @@ export class RedisHealthIndicator extends HealthIndicator {
   async check(key: string): Promise<HealthIndicatorResult> {
     try {
       const pong = await this.redis.ping();
-      return this.getStatus(key, pong === 'PONG');
-    } catch {
-      // Degraded cache state: do not throw 503 so serverless functions & uptime monitors remain healthy
-      return this.getStatus(key, false, { message: 'Redis cache offline; PostgreSQL fallback active' });
+      if (pong !== 'PONG') {
+        throw new HealthCheckError('Redis check failed', this.getStatus(key, false, { message: `Unexpected ping: ${pong}` }));
+      }
+      return this.getStatus(key, true);
+    } catch (err) {
+      if (err instanceof HealthCheckError) throw err;
+      throw new HealthCheckError(
+        'Redis check failed',
+        this.getStatus(key, false, { message: 'Redis unreachable' }),
+      );
     }
   }
 }

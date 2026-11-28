@@ -4,7 +4,7 @@ export interface NoticeItem {
   id: string;
   title: string;
   body: string;
-  published: boolean;
+  published?: boolean;
   publishedAt?: string | null;
   expiresAt?: string | null;
   createdAt: string;

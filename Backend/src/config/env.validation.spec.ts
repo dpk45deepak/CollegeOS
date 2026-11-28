@@ -34,4 +34,20 @@ describe('validateEnv', () => {
   it('rejects an unknown AI provider', () => {
     expect(() => validateEnv({ ...valid, AI_PROVIDER: 'skynet' })).toThrow(/AI_PROVIDER/);
   });
+
+  it('accepts optional payment gateway, push, and clamav overrides', () => {
+    const env = validateEnv({
+      ...valid,
+      PAYMENT_GATEWAY: 'razorpay',
+      RAZORPAY_KEY_ID: 'rzp_test_1',
+      RAZORPAY_KEY_SECRET: 'rzp_secret_1',
+      PUSH_APP_ID: 'os-app',
+      PUSH_API_URL: 'https://push.local/send',
+      CLAMAV_URL: 'http://localhost:3310',
+      ALLOW_NOOP_SCANNER: 'true',
+    });
+    expect(env.PAYMENT_GATEWAY).toBe('razorpay');
+    expect(env.PUSH_APP_ID).toBe('os-app');
+    expect(env.CLAMAV_URL).toBe('http://localhost:3310');
+  });
 });

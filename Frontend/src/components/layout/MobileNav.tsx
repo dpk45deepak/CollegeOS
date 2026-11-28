@@ -26,6 +26,8 @@ export function MobileNav() {
   const getNavConfig = () => {
     switch (role) {
       case "ADMIN":
+      case "COLLEGE_ADMIN":
+      case "SUPER_ADMIN":
         return {
           hubPath: "/admin/dashboard",
           hubLabel: "Hub",
@@ -57,6 +59,72 @@ export function MobileNav() {
           fourthPath: "/teacher/assignments",
           fourthLabel: "Tasks",
           FourthIcon: CalendarDays,
+        };
+      case "PARENT":
+        return {
+          hubPath: "/parent/dashboard",
+          hubLabel: "Ward",
+          secondPath: "/student/attendance",
+          secondLabel: "Attend",
+          SecondIcon: CalendarCheck2,
+          fourthPath: "/student/fees",
+          fourthLabel: "Fees",
+          FourthIcon: BarChart3,
+        };
+      case "ACCOUNTANT":
+        return {
+          hubPath: "/accountant/dashboard",
+          hubLabel: "Ledger",
+          secondPath: "/student/fees",
+          secondLabel: "Fees",
+          SecondIcon: BarChart3,
+          fourthPath: "/admin/analytics",
+          fourthLabel: "Reports",
+          FourthIcon: CalendarDays,
+        };
+      case "EXAM_CONTROLLER":
+        return {
+          hubPath: "/exam-controller/dashboard",
+          hubLabel: "Exams",
+          secondPath: "/admin/analytics",
+          secondLabel: "Stats",
+          SecondIcon: BarChart3,
+          fourthPath: "/notices",
+          fourthLabel: "Notices",
+          FourthIcon: CalendarDays,
+        };
+      case "PLACEMENT_OFFICER":
+        return {
+          hubPath: "/placement-officer/dashboard",
+          hubLabel: "TPO",
+          secondPath: "/student/placements",
+          secondLabel: "Jobs",
+          SecondIcon: Users,
+          fourthPath: "/admin/analytics",
+          fourthLabel: "Stats",
+          FourthIcon: BarChart3,
+        };
+      case "SUPPORT_STAFF":
+        return {
+          hubPath: "/support/dashboard",
+          hubLabel: "Desk",
+          secondPath: "/notices",
+          secondLabel: "Notices",
+          SecondIcon: CalendarDays,
+          fourthPath: "/messages",
+          fourthLabel: "Chat",
+          FourthIcon: Users,
+        };
+      case "LIBRARY_STAFF":
+        return {
+          hubPath: "/library/dashboard",
+          hubLabel: "Library",
+          secondPath: "/documents",
+          secondLabel: "Docs",
+          SecondIcon: CalendarDays,
+          fourthPath: "/notices",
+          fourthLabel: "Notices",
+          FourthIcon: Users,
         };
       case "STUDENT":
       default:

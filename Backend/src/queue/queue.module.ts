@@ -31,7 +31,8 @@ import { ALL_QUEUES } from './queue.constants';
             maxRetriesPerRequest: null,
             lazyConnect: true,
             enableOfflineQueue: false,
-            retryStrategy: () => (process.env.VERCEL ? null : 3000),
+            retryStrategy: () =>
+              process.env.VERCEL || (process.env.NODE_ENV === 'test' && process.env.E2E_DB !== '1') ? null : 3000,
             reconnectOnError: () => false,
           },
           prefix: 'collegeos',

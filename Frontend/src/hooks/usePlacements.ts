@@ -8,7 +8,7 @@ export const placementKeys = {
   recs: () => [...placementKeys.all, "recommendations"] as const,
   drives: () => [...placementKeys.all, "drives"] as const,
   mine: () => [...placementKeys.all, "mine"] as const,
-  jobApplications: (jobId: string) => [...placementKeys.all, "applications", jobId] as const,
+  jobApplications: (jobId: string, params?: any) => [...placementKeys.all, "applications", jobId, params] as const,
 };
 
 export function useCompanies() {
@@ -44,7 +44,7 @@ export function useCreateJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: placementsApi.createJob,
-    onSuccess: () => qc.invalidateQueries({ queryKey: placementKeys.jobs() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...placementKeys.all, "jobs"] }),
   });
 }
 
@@ -54,7 +54,8 @@ export function useApplyJob() {
     mutationFn: (jobId: string) => placementsApi.applyForJob(jobId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: placementKeys.mine() });
-      qc.invalidateQueries({ queryKey: placementKeys.jobs() });
+      qc.invalidateQueries({ queryKey: [...placementKeys.all, "jobs"] });
+      qc.invalidateQueries({ queryKey: placementKeys.recs() });
     },
   });
 }
@@ -68,7 +69,7 @@ export function useMyJobApplications() {
 
 export function useJobApplications(jobId: string, params?: { search?: string; page?: number; limit?: number }) {
   return useQuery({
-    queryKey: placementKeys.jobApplications(jobId),
+    queryKey: placementKeys.jobApplications(jobId, params),
     queryFn: () => placementsApi.getApplicationsForJob(jobId, params),
     enabled: !!jobId,
   });

@@ -36,6 +36,7 @@ export class TimetableService {
     c: string,
     dto: D.CreateSlotDto,
     excludeSlotId?: string,
+    overrideTeacherId?: string,
   ): Promise<{ conflicts: Conflict[]; warnings: string[] }> {
     if (dto.endMinute <= dto.startMinute) throw new BadRequestException('endMinute must be after startMinute');
     await this.own.assert('subjectOffering', dto.subjectOfferingId, c);
@@ -44,6 +45,7 @@ export class TimetableService {
       where: { id: dto.subjectOfferingId, collegeId: c },
       include: { subject: true },
     });
+    const effectiveTeacherId = overrideTeacherId ?? offering.teacherId;
     if (p.roleKeys.includes(ROLE.HOD) && !isAdmin(p)) {
       if (!p.departmentIds.includes(offering.subject.departmentId)) {
         throw new ForbiddenException('Cannot manage timetable for outside departments');
@@ -56,7 +58,7 @@ export class TimetableService {
         id: excludeSlotId ? { not: excludeSlotId } : undefined,
         OR: [
           { subjectOffering: { sectionId: offering.sectionId } },
-          { subjectOffering: { teacherId: offering.teacherId } },
+          { subjectOffering: { teacherId: effectiveTeacherId } },
           ...(dto.roomId ? [{ roomId: dto.roomId }] : []),
         ],
       },
@@ -73,14 +75,14 @@ export class TimetableService {
       validFrom: s.validFrom,
       validTo: s.validTo,
     });
-    const availability = await this.prisma.teacherAvailability.findMany({ where: { teacherId: offering.teacherId } });
+    const availability = await this.prisma.teacherAvailability.findMany({ where: { teacherId: effectiveTeacherId } });
     const conflicts = findConflicts(
       {
         dayOfWeek: dto.dayOfWeek,
         startMinute: dto.startMinute,
         endMinute: dto.endMinute,
         sectionId: offering.sectionId,
-        teacherId: offering.teacherId,
+        teacherId: effectiveTeacherId,
         roomId: dto.roomId,
         validFrom: dto.validFrom,
         validTo: dto.validTo,
@@ -113,6 +115,73 @@ export class TimetableService {
       newValue: dto,
     });
     return { slot, warnings };
+  }
+
+  async update(p: Principal, c: string, id: string, dto: D.UpdateSlotDto) {
+    await this.own.assert('timetableSlot', id, c);
+    const existing = await this.prisma.timetableSlot.findFirst({
+      where: { id, collegeId: c },
+      include: { subjectOffering: { include: { subject: true } } },
+    });
+    if (!existing) throw new NotFoundException('Timetable slot not found');
+    if (p.roleKeys.includes(ROLE.HOD) && !isAdmin(p)) {
+      if (!p.departmentIds.includes(existing.subjectOffering.subject.departmentId)) {
+        throw new ForbiddenException('Cannot manage timetable for outside departments');
+      }
+    }
+    if (dto.teacherId) {
+      await this.own.assert('teacher', dto.teacherId, c);
+    }
+
+    const merged: D.CreateSlotDto = {
+      subjectOfferingId: dto.subjectOfferingId ?? existing.subjectOfferingId,
+      roomId: dto.roomId !== undefined ? dto.roomId : existing.roomId ?? undefined,
+      dayOfWeek: dto.dayOfWeek ?? existing.dayOfWeek,
+      startMinute: dto.startMinute ?? existing.startMinute,
+      endMinute: dto.endMinute ?? existing.endMinute,
+      validFrom: dto.validFrom ?? existing.validFrom,
+      validTo: dto.validTo !== undefined ? dto.validTo : existing.validTo ?? undefined,
+    };
+
+    const { conflicts, warnings } = await this.check(p, c, merged, id, dto.teacherId);
+    if (conflicts.length) {
+      throw new ConflictException({ message: 'Timetable conflict', errorCode: 'TIMETABLE_CONFLICT', conflicts });
+    }
+    if (dto.teacherId && dto.teacherId !== existing.subjectOffering.teacherId) {
+      await this.prisma.subjectOffering.update({
+        where: { id: existing.subjectOfferingId },
+        data: { teacherId: dto.teacherId },
+      });
+    }
+    const updated = await this.prisma.timetableSlot.update({
+      where: { id },
+      data: {
+        subjectOfferingId: merged.subjectOfferingId,
+        roomId: merged.roomId ?? null,
+        dayOfWeek: merged.dayOfWeek,
+        startMinute: merged.startMinute,
+        endMinute: merged.endMinute,
+        validFrom: merged.validFrom,
+        validTo: merged.validTo ?? null,
+      },
+      include: SLOT_INCLUDE,
+    });
+    await this.audit.log({
+      collegeId: c,
+      userId: p.userId,
+      action: 'TIMETABLE_UPDATE',
+      entity: 'TimetableSlot',
+      entityId: id,
+      oldValue: {
+        dayOfWeek: existing.dayOfWeek,
+        startMinute: existing.startMinute,
+        endMinute: existing.endMinute,
+        roomId: existing.roomId,
+        validTo: existing.validTo,
+      },
+      newValue: dto,
+    });
+    return { slot: updated, warnings };
   }
 
   async remove(p: Principal, c: string, id: string) {
@@ -204,5 +273,149 @@ export class TimetableService {
   }
   listRooms(c: string) {
     return this.prisma.room.findMany({ where: { collegeId: c }, orderBy: { code: 'asc' } });
+  }
+
+  private assertSlotExceptionAccess(
+    p: Principal,
+    slot: { subjectOffering: { teacherId: string; subject: { departmentId: string } } },
+  ) {
+    if (isAdmin(p)) return;
+    if (p.roleKeys.includes(ROLE.HOD) && p.departmentIds.includes(slot.subjectOffering.subject.departmentId)) return;
+    if (p.teacherId && slot.subjectOffering.teacherId === p.teacherId) return;
+    throw new ForbiddenException('You are not authorized to modify this lecture date');
+  }
+
+  async createException(p: Principal, c: string, dto: D.CreateTimetableExceptionDto) {
+    await this.own.assert('timetableSlot', dto.slotId, c);
+    const slot = await this.prisma.timetableSlot.findFirst({
+      where: { id: dto.slotId, collegeId: c },
+      include: { subjectOffering: { include: { subject: true } } },
+    });
+    if (!slot) throw new NotFoundException('Timetable slot not found');
+    this.assertSlotExceptionAccess(p, slot);
+
+    const rawDate = new Date(dto.date);
+    const targetDate = new Date(Date.UTC(rawDate.getUTCFullYear(), rawDate.getUTCMonth(), rawDate.getUTCDate()));
+
+    if (dto.substituteTeacherId) {
+      if (!isAdmin(p) && !p.roleKeys.includes(ROLE.HOD)) {
+        throw new ForbiddenException('Only HOD or admin may assign a substitute teacher');
+      }
+      await this.own.assert('teacher', dto.substituteTeacherId, c);
+    }
+    if (dto.overrideRoomId) {
+      await this.own.assert('room', dto.overrideRoomId, c);
+    }
+
+    if (dto.type !== 'CANCELLED') {
+      const startMinute = dto.overrideStartMinute ?? slot.startMinute;
+      const endMinute = dto.overrideEndMinute ?? slot.endMinute;
+      if (endMinute <= startMinute) throw new BadRequestException('overrideEndMinute must be after overrideStartMinute');
+
+      const { conflicts } = await this.check(
+        p,
+        c,
+        {
+          subjectOfferingId: slot.subjectOfferingId,
+          roomId: dto.overrideRoomId !== undefined ? dto.overrideRoomId : slot.roomId ?? undefined,
+          dayOfWeek: slot.dayOfWeek,
+          startMinute,
+          endMinute,
+          validFrom: targetDate,
+          validTo: targetDate,
+        },
+        slot.id,
+        dto.substituteTeacherId,
+      );
+      if (conflicts.length) {
+        throw new ConflictException({ message: 'Reschedule / substitution conflict', errorCode: 'TIMETABLE_CONFLICT', conflicts });
+      }
+    }
+
+    const exception = await this.prisma.timetableException.upsert({
+      where: { slotId_date: { slotId: slot.id, date: targetDate } },
+      create: {
+        collegeId: c,
+        slotId: slot.id,
+        date: targetDate,
+        type: dto.type,
+        substituteTeacherId: dto.substituteTeacherId ?? null,
+        overrideRoomId: dto.overrideRoomId ?? null,
+        overrideStartMinute: dto.overrideStartMinute ?? null,
+        overrideEndMinute: dto.overrideEndMinute ?? null,
+        reason: dto.reason.trim(),
+        createdById: p.userId,
+      },
+      update: {
+        type: dto.type,
+        substituteTeacherId: dto.substituteTeacherId ?? null,
+        overrideRoomId: dto.overrideRoomId ?? null,
+        overrideStartMinute: dto.overrideStartMinute ?? null,
+        overrideEndMinute: dto.overrideEndMinute ?? null,
+        reason: dto.reason.trim(),
+      },
+      include: {
+        substituteTeacher: { select: { id: true, employeeId: true, user: { select: { firstName: true, lastName: true } } } },
+        overrideRoom: { select: { id: true, code: true } },
+      },
+    });
+
+    await this.audit.log({
+      collegeId: c,
+      userId: p.userId,
+      action: 'TIMETABLE_EXCEPTION_SET',
+      entity: 'TimetableException',
+      entityId: exception.id,
+      newValue: { slotId: slot.id, date: targetDate.toISOString().split('T')[0], type: dto.type, reason: dto.reason },
+    });
+    return exception;
+  }
+
+  async listExceptions(p: Principal, c: string, q: D.ExceptionQueryDto) {
+    const rawDate = q.date ? new Date(q.date) : null;
+    const targetDate = rawDate
+      ? new Date(Date.UTC(rawDate.getUTCFullYear(), rawDate.getUTCMonth(), rawDate.getUTCDate()))
+      : undefined;
+    const scope: Prisma.TimetableExceptionWhereInput = isAdmin(p)
+      ? {}
+      : p.roleKeys.includes(ROLE.HOD) && p.departmentIds.length
+        ? { slot: { subjectOffering: { subject: { departmentId: { in: p.departmentIds } } } } }
+        : p.teacherId
+          ? { OR: [{ slot: { subjectOffering: { teacherId: p.teacherId } } }, { substituteTeacherId: p.teacherId }] }
+          : p.studentId
+            ? { slot: { subjectOffering: { enrollments: { some: { studentId: p.studentId } } } } }
+            : { createdById: p.userId };
+
+    return this.prisma.timetableException.findMany({
+      where: {
+        collegeId: c,
+        ...(targetDate ? { date: targetDate } : {}),
+        ...(q.slotId ? { slotId: q.slotId } : {}),
+        ...scope,
+      },
+      include: {
+        substituteTeacher: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
+        overrideRoom: { select: { id: true, code: true } },
+        slot: { include: { subjectOffering: { include: { subject: { select: { code: true, name: true } }, section: { select: { name: true } } } } } },
+      },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  async removeException(p: Principal, c: string, id: string) {
+    const existing = await this.prisma.timetableException.findFirst({
+      where: { id, collegeId: c },
+      include: { slot: { include: { subjectOffering: { include: { subject: true } } } } },
+    });
+    if (!existing) throw new NotFoundException('Timetable exception not found');
+    this.assertSlotExceptionAccess(p, existing.slot);
+    await this.prisma.timetableException.delete({ where: { id } });
+    await this.audit.log({
+      collegeId: c,
+      userId: p.userId,
+      action: 'TIMETABLE_EXCEPTION_DELETE',
+      entity: 'TimetableException',
+      entityId: id,
+    });
   }
 }

@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { ROLE } from '../auth/permissions';
 
-type CachedPrincipal = Omit<Principal, 'sessionId'> & { status: UserStatus };
+type CachedPrincipal = Omit<Principal, 'sessionId'> & { status: UserStatus; collegeStatus?: string | null };
 const TTL_SECONDS = 60;
 
 @Injectable()
@@ -30,6 +30,7 @@ export class PrincipalService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
+        college: { select: { status: true } },
         userRoles: { include: { role: { include: { permissions: { include: { permission: true } } } } } },
       },
     });
@@ -62,6 +63,7 @@ export class PrincipalService {
       guardianOfStudentIds: guardianships.map((g) => g.studentId),
       isSuperAdmin: roleKeys.includes(ROLE.SUPER_ADMIN),
       status: user.status,
+      collegeStatus: user.college?.status ?? null,
     };
     await this.redis.safeSet(this.key(userId), JSON.stringify(principal), 'EX', TTL_SECONDS);
     return principal;

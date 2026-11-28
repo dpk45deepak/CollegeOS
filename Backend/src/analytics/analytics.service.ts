@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { isAdmin } from '../access/access.service';
 import { ROLE } from '../auth/permissions';
@@ -62,7 +62,7 @@ export class AnalyticsService {
         select: { studentId: true },
       }),
       this.prisma.$queryRaw<{ hours: number | null; resolved: bigint; total: bigint }[]>(
-        Prisma.sql`SELECT AVG(EXTRACT(EPOCH FROM ("resolvedAt" - "createdAt")) / 3600) AS hours, COUNT("resolvedAt")::bigint AS resolved, COUNT(*)::bigint AS total FROM "Complaint" WHERE "collegeId" = ${c}`,
+        Prisma.sql`SELECT AVG(EXTRACT(EPOCH FROM ("resolvedAt" - "createdAt")) / 3600) AS hours, COUNT("resolvedAt")::bigint AS resolved, COUNT(*)::bigint AS total FROM "Complaint" WHERE "collegeId" = ${c} ${deps ? Prisma.sql`AND "assignedDepartmentId" = ANY(${deps}::text[])` : Prisma.empty}`,
       ),
       this.prisma.scholarshipApplication.findMany({
         where: {
@@ -151,6 +151,7 @@ export class AnalyticsService {
           collegeId: c,
           priority: { in: ['HIGH', 'CRITICAL'] },
           status: { in: ['OPEN', 'ASSIGNED', 'INVESTIGATING', 'ESCALATED', 'REOPENED'] },
+          ...(deps ? { assignedDepartmentId: { in: deps } } : {}),
         },
       }),
       this.prisma.complaint.count({
@@ -158,23 +159,28 @@ export class AnalyticsService {
           collegeId: c,
           status: { in: ['OPEN', 'ASSIGNED', 'INVESTIGATING', 'REOPENED', 'ESCALATED'] },
           slaDueAt: { lt: now },
+          ...(deps ? { assignedDepartmentId: { in: deps } } : {}),
         },
       }),
       this.prisma.studentFee.findMany({
         where: { collegeId: c, status: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] }, dueDate: { lt: now }, student: sw },
         select: { amountDue: true, discount: true, scholarshipAdjustment: true, amountPaid: true },
       }),
-      this.prisma.placementDrive.count({
-        where: {
-          collegeId: c,
-          driveDate: {
-            gte: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
-            lt: endOfDay,
-          },
-          status: { not: 'CANCELLED' },
-        },
-      }),
-      this.prisma.job.count({ where: { collegeId: c, deadline: { gte: now, lt: endOfDay } } }),
+      deps
+        ? Promise.resolve(0)
+        : this.prisma.placementDrive.count({
+            where: {
+              collegeId: c,
+              driveDate: {
+                gte: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
+                lt: endOfDay,
+              },
+              status: { not: 'CANCELLED' },
+            },
+          }),
+      deps
+        ? Promise.resolve(0)
+        : this.prisma.job.count({ where: { collegeId: c, deadline: { gte: now, lt: endOfDay } } }),
       this.prisma.$queryRaw<{ n: bigint }[]>(
         Prisma.sql`SELECT COUNT(DISTINCT e."studentId")::bigint AS n FROM "Enrollment" e JOIN "Assignment" a ON a."subjectOfferingId" = e."subjectOfferingId" AND a."dueAt" BETWEEN ${now} AND ${in48h} LEFT JOIN "Submission" s ON s."assignmentId" = a.id AND s."studentId" = e."studentId" WHERE e."collegeId" = ${c} AND s.id IS NULL ${deps ? Prisma.sql`AND e."studentId" IN (SELECT id FROM "Student" WHERE "departmentId" = ANY(${deps}::text[]))` : Prisma.empty}`,
       ),
@@ -187,14 +193,29 @@ export class AnalyticsService {
             : {}),
         },
       }),
-      this.prisma.examResult.groupBy({ by: ['examId'], where: { collegeId: c, status: 'DRAFT' } }),
+      this.prisma.examResult.groupBy({
+        by: ['examId'],
+        where: {
+          collegeId: c,
+          status: 'DRAFT',
+          ...(deps ? { exam: { subjectOffering: { subject: { departmentId: { in: deps } } } } } : {}),
+        },
+      }),
       this.prisma.$queryRaw<{ n: bigint }[]>(
         Prisma.sql`SELECT COUNT(*)::bigint AS n FROM (SELECT DISTINCT ON ("studentId") "studentId", level FROM "AcademicRiskAssessment" WHERE "collegeId" = ${c} ${this.studentSql(deps)} ORDER BY "studentId", "computedAt" DESC) t WHERE level = 'HIGH'`,
       ),
-      this.prisma.document.count({ where: { collegeId: c, status: 'FAILED' } }),
-      this.prisma.scholarship.count({
-        where: { collegeId: c, isActive: true, deadline: { gte: now, lt: new Date(now.getTime() + 3 * 86_400_000) } },
+      this.prisma.document.count({
+        where: {
+          collegeId: c,
+          status: 'FAILED',
+          ...(deps ? { departmentId: { in: deps } } : {}),
+        },
       }),
+      deps
+        ? Promise.resolve(0)
+        : this.prisma.scholarship.count({
+            where: { collegeId: c, isActive: true, deadline: { gte: now, lt: new Date(now.getTime() + 3 * 86_400_000) } },
+          }),
     ]);
     const pending = overdueFees.reduce(
       (s, f) =>
@@ -321,6 +342,276 @@ export class AnalyticsService {
     return {
       note: 'Indicators are estimates based on past data, not guarantees. Use them to offer support.',
       students: rows.map((r) => ({ ...r, student: by.get(r.studentId) })),
+    };
+  }
+
+  private resolveScopeDeps(p: Principal, departmentId?: string): string[] | undefined {
+    if (isAdmin(p)) return departmentId ? [departmentId] : undefined;
+    const allowed = scopeDepartments(p) ?? [];
+    if (departmentId) {
+      if (!allowed.includes(departmentId)) {
+        throw new ForbiddenException('Requested department is outside your scope');
+      }
+      return [departmentId];
+    }
+    return allowed;
+  }
+
+  /** Department-scoped operational & academic telemetry for HOD / Admin consoles. */
+  async hodDepartment(p: Principal, c: string, departmentId?: string) {
+    const deps = this.resolveScopeDeps(p, departmentId);
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 86_400_000);
+
+    const [departments, overview, teachers, passRows, pendingCorrections, pendingLeaves, subjectCount] = await Promise.all([
+      this.prisma.department.findMany({
+        where: { collegeId: c, ...(deps ? { id: { in: deps } } : {}) },
+        select: { id: true, code: true, name: true },
+        orderBy: { code: 'asc' },
+      }),
+      this.overview(c, deps),
+      this.prisma.teacher.findMany({
+        where: { collegeId: c, ...(deps ? { departmentId: { in: deps } } : {}) },
+        include: {
+          user: { select: { firstName: true, lastName: true, loginId: true } },
+          department: { select: { id: true, code: true } },
+          subjectOfferings: {
+            include: {
+              timetableSlots: {
+                where: { validFrom: { lte: now }, OR: [{ validTo: null }, { validTo: { gte: now } }] },
+                select: { startMinute: true, endMinute: true },
+              },
+              attendanceSessions: {
+                where: { date: { gte: thirtyDaysAgo } },
+                select: { id: true },
+              },
+            },
+          },
+        },
+        orderBy: { employeeId: 'asc' },
+      }),
+      this.prisma.$queryRaw<
+        {
+          subjectId: string;
+          subjectCode: string;
+          subjectName: string;
+          evaluated: bigint;
+          passed: bigint;
+          avgScorePct: number | null;
+        }[]
+      >(Prisma.sql`
+        SELECT sub.id AS "subjectId",
+               sub.code AS "subjectCode",
+               sub.name AS "subjectName",
+               COUNT(r.id)::bigint AS evaluated,
+               SUM(CASE WHEN r."marksObtained" >= x."passMarks" THEN 1 ELSE 0 END)::bigint AS passed,
+               ROUND(AVG(100.0 * r."marksObtained" / NULLIF(x."maxMarks", 0))::numeric, 1)::float AS "avgScorePct"
+        FROM "ExamResult" r
+        JOIN "Exam" x ON x.id = r."examId"
+        JOIN "SubjectOffering" so ON so.id = x."subjectOfferingId"
+        JOIN "Subject" sub ON sub.id = so."subjectId"
+        WHERE r."collegeId" = ${c}
+          AND r.status = 'PUBLISHED'
+          ${deps ? Prisma.sql`AND sub."departmentId" = ANY(${deps}::text[])` : Prisma.empty}
+        GROUP BY sub.id, sub.code, sub.name
+        ORDER BY sub.code
+      `),
+      this.prisma.attendanceCorrection.count({
+        where: {
+          collegeId: c,
+          status: 'PENDING',
+          ...(deps
+            ? { attendance: { session: { subjectOffering: { subject: { departmentId: { in: deps } } } } } }
+            : {}),
+        },
+      }),
+      this.prisma.leaveRequest.count({
+        where: {
+          status: 'PENDING',
+          teacher: { collegeId: c, ...(deps ? { departmentId: { in: deps } } : {}) },
+        },
+      }),
+      this.prisma.subject.count({
+        where: { collegeId: c, ...(deps ? { departmentId: { in: deps } } : {}) },
+      }),
+    ]);
+
+    const facultyWorkloadHours = teachers.map((t) => {
+      const weeklyMinutes = t.subjectOfferings.reduce(
+        (acc, off) => acc + off.timetableSlots.reduce((s, slot) => s + Math.max(0, slot.endMinute - slot.startMinute), 0),
+        0,
+      );
+      const sessionsLast30Days = t.subjectOfferings.reduce((acc, off) => acc + off.attendanceSessions.length, 0);
+      return {
+        teacherId: t.id,
+        employeeId: t.employeeId,
+        name: `${t.user.firstName} ${t.user.lastName}`.trim() || t.user.loginId,
+        departmentCode: t.department.code,
+        offeringsCount: t.subjectOfferings.length,
+        weeklyHours: Math.round((weeklyMinutes / 60) * 10) / 10,
+        sessionsLast30Days,
+      };
+    });
+
+    const subjectPassRates = passRows.map((row) => {
+      const evaluated = Number(row.evaluated);
+      const passed = Number(row.passed);
+      return {
+        subjectId: row.subjectId,
+        subjectCode: row.subjectCode,
+        subjectName: row.subjectName,
+        studentsEvaluated: evaluated,
+        passedCount: passed,
+        passPercentage: evaluated > 0 ? Math.round((passed / evaluated) * 1000) / 10 : null,
+        avgScorePct: row.avgScorePct,
+      };
+    });
+
+    return {
+      departments,
+      facultyCount: teachers.length,
+      subjectCount,
+      pendingCorrectionsCount: pendingCorrections,
+      pendingLeaveRequestsCount: pendingLeaves,
+      overview,
+      facultyWorkloadHours,
+      subjectPassRates,
+    };
+  }
+
+  /** Institutional executive telemetry for Principal / Admin dashboards with deterministic, explainable insights. */
+  async executive(p: Principal, c: string, departmentId?: string) {
+    const deps = this.resolveScopeDeps(p, departmentId);
+    const now = new Date();
+    const sw = this.studentWhere(c, deps);
+
+    const [overview, departmentComparison, batches, cgpaBuckets, totalJobs, openJobs, drives, apps, offers, acceptedOffers, avgOfferCtc, slaBreached] =
+      await Promise.all([
+        this.overview(c, deps),
+        this.departmentBreakdown(c, deps),
+        this.prisma.batch.findMany({
+          where: { collegeId: c, ...(deps ? { departmentId: { in: deps } } : {}) },
+          select: { id: true, name: true, startYear: true, _count: { select: { students: true } } },
+          orderBy: { startYear: 'asc' },
+        }),
+        this.prisma.$queryRaw<{ bucket: string; count: bigint }[]>(Prisma.sql`
+          SELECT CASE
+            WHEN cgpa >= 9.0 THEN '9.0+'
+            WHEN cgpa >= 8.0 THEN '8.0-8.9'
+            WHEN cgpa >= 7.0 THEN '7.0-7.9'
+            WHEN cgpa >= 6.0 THEN '6.0-6.9'
+            ELSE '<6.0'
+          END AS bucket,
+          COUNT(*)::bigint AS count
+          FROM "Student"
+          WHERE "collegeId" = ${c} AND cgpa IS NOT NULL ${deps ? Prisma.sql`AND "departmentId" = ANY(${deps}::text[])` : Prisma.empty}
+          GROUP BY 1
+        `),
+        this.prisma.job.count({ where: { collegeId: c } }),
+        this.prisma.job.count({ where: { collegeId: c, OR: [{ deadline: null }, { deadline: { gte: now } }] } }),
+        this.prisma.placementDrive.count({ where: { collegeId: c } }),
+        this.prisma.jobApplication.count({ where: { collegeId: c, student: sw } }),
+        this.prisma.offer.count({ where: { application: { collegeId: c, student: sw } } }),
+        this.prisma.offer.count({ where: { status: 'ACCEPTED', application: { collegeId: c, student: sw } } }),
+        this.prisma.offer.aggregate({
+          where: { application: { collegeId: c, student: sw } },
+          _avg: { ctc: true },
+        }),
+        this.prisma.complaint.count({
+          where: {
+            collegeId: c,
+            status: { in: ['OPEN', 'ASSIGNED', 'INVESTIGATING', 'REOPENED', 'ESCALATED'] },
+            slaDueAt: { lt: now },
+            ...(deps ? { assignedDepartmentId: { in: deps } } : {}),
+          },
+        }),
+      ]);
+
+    const enrollmentByYear = new Map<number, { label: string; startYear: number; students: number }>();
+    for (const b of batches) {
+      const prev = enrollmentByYear.get(b.startYear);
+      if (prev) prev.students += b._count.students;
+      else enrollmentByYear.set(b.startYear, { label: String(b.startYear), startYear: b.startYear, students: b._count.students });
+    }
+    const enrollmentTrend = [...enrollmentByYear.values()].sort((a, b) => a.startYear - b.startYear);
+
+    const bucketOrder = ['<6.0', '6.0-6.9', '7.0-7.9', '8.0-8.9', '9.0+'];
+    const bucketMap = new Map(cgpaBuckets.map((b) => [b.bucket, Number(b.count)]));
+    const cgpaDistribution = bucketOrder.map((range) => ({ range, count: bucketMap.get(range) ?? 0 }));
+
+    const placementStats = {
+      totalJobs,
+      openJobs,
+      drivesCount: drives,
+      applicationsCount: apps,
+      offersIssued: offers,
+      offersAccepted: acceptedOffers,
+      averageCtc: num(avgOfferCtc._avg.ctc),
+      placementRatePct: overview.placementRatePct,
+    };
+
+    const insights: Array<{
+      id: string;
+      title: string;
+      severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'INFO';
+      metricValue: string;
+      summary: string;
+      dataUsed: string;
+      period: string;
+      basis: 'DETERMINISTIC';
+      recommendedAction: string;
+    }> = [];
+
+    if (overview.students > 0 && overview.studentsBelowThreshold > 0) {
+      const shortagePct = Math.round((overview.studentsBelowThreshold / overview.students) * 1000) / 10;
+      insights.push({
+        id: 'attendance_shortage_risk',
+        title: 'Attendance Threshold Risk',
+        severity: shortagePct >= 20 ? 'HIGH' : 'MEDIUM',
+        metricValue: `${overview.studentsBelowThreshold} / ${overview.students} (${shortagePct}%)`,
+        summary: `${overview.studentsBelowThreshold} students are below the institutional ${overview.attendanceThreshold}% attendance threshold.`,
+        dataUsed: 'Attendance records grouped per student vs College.attendanceThreshold',
+        period: 'Current active semester',
+        basis: 'DETERMINISTIC',
+        recommendedAction: 'Trigger HOD shortage counseling & parent notifications for critical sections.',
+      });
+    }
+    if (overview.feeCollection.totalDue > 0 && (overview.feeCollection.collectionRatePct ?? 100) < 85) {
+      insights.push({
+        id: 'fee_collection_gap',
+        title: 'Fee Recovery Gap',
+        severity: 'MEDIUM',
+        metricValue: `${overview.feeCollection.collectionRatePct ?? 0}% collected`,
+        summary: `₹${Math.round(overview.feeCollection.outstanding).toLocaleString('en-IN')} remains outstanding across active student fee ledgers.`,
+        dataUsed: 'StudentFee.amountDue - discount - scholarshipAdjustment vs amountPaid',
+        period: 'Active billing cycle',
+        basis: 'DETERMINISTIC',
+        recommendedAction: 'Review overdue ledger accounts and send due-fee reminders via Accountant console.',
+      });
+    }
+    if (slaBreached > 0) {
+      insights.push({
+        id: 'complaint_sla_breach',
+        title: 'Grievance SLA Breaches',
+        severity: 'CRITICAL',
+        metricValue: `${slaBreached} overdue`,
+        summary: `${slaBreached} open grievance tickets have crossed their SLA resolution deadline.`,
+        dataUsed: 'Open Complaint records with slaDueAt < current timestamp',
+        period: 'As of today',
+        basis: 'DETERMINISTIC',
+        recommendedAction: 'Escalate unresolved tickets to respective department HODs or support assignees.',
+      });
+    }
+
+    return {
+      generatedAt: now.toISOString(),
+      scope: deps ? 'department' : 'college',
+      overview,
+      departmentComparison,
+      enrollmentTrend,
+      cgpaDistribution,
+      placementStats,
+      insights,
     };
   }
 }

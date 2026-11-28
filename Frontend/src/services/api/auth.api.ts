@@ -1,108 +1,53 @@
-import { apiClient } from "@/lib/api/client";
-import { User, UserRole } from "@/types";
+import { apiClient, clearStoredAuth, setAuthItems, TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY } from "@/lib/api/client";
+import { User } from "@/types";
+import { BackendLoginDto, BackendUserProfile, LoginResponse, mapBackendRole, normalizeUserProfile } from "@/lib/api/auth";
 
-export interface LoginResponse {
-  user: User;
-  token: string;
-  refreshToken?: string;
-  expiresIn?: string;
-  sessionId?: string;
-}
-
-export interface BackendLoginDto {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: string;
-  sessionId: string;
-}
-
-export interface BackendUserProfile {
-  id: string;
-  collegeId: string;
-  loginId: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone?: string | null;
-  status: string;
-  userRoles?: Array<{
-    role: { key: string };
-    departmentId?: string | null;
-  }>;
-}
-
-export function mapBackendRole(roleKey?: string): UserRole {
-  switch (roleKey) {
-    case "SUPER_ADMIN":
-    case "COLLEGE_ADMIN":
-      return "ADMIN";
-    case "TEACHER":
-      return "TEACHER";
-    case "HOD":
-      return "HOD";
-    case "PLACEMENT_OFFICER":
-      return "PLACEMENT_OFFICER";
-    case "ACCOUNTANT":
-      return "ACCOUNTANT";
-    case "STUDENT":
-    default:
-      return "STUDENT";
-  }
-}
-
-export function normalizeUserProfile(raw: BackendUserProfile): User {
-  const primaryRoleKey = raw.userRoles?.[0]?.role?.key;
-  const role = mapBackendRole(primaryRoleKey);
-  const fullName = `${raw.firstName || ""} ${raw.lastName || ""}`.trim() || raw.loginId;
-
-  return {
-    id: raw.id,
-    name: fullName,
-    email: raw.email,
-    role,
-    rollNumber: raw.loginId,
-    phone: raw.phone || undefined,
-  };
-}
+export type { LoginResponse, BackendLoginDto, BackendUserProfile };
+export { mapBackendRole, normalizeUserProfile };
 
 export const authApi = {
   login: async (
     loginId: string,
     password: string,
-    collegeCode: string = process.env.NEXT_PUBLIC_COLLEGE_SHORT_CODE || "SDCET"
+    collegeCode?: string
   ): Promise<LoginResponse> => {
+    const payload: Record<string, string> = { loginId, password };
+    const code = (collegeCode ?? process.env.NEXT_PUBLIC_COLLEGE_SHORT_CODE ?? "SDIET").trim();
+    if (code) {
+      payload.collegeCode = code;
+    }
     const tokens = await apiClient<BackendLoginDto>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({
-        loginId,
-        password,
-        collegeCode,
-      }),
+      body: JSON.stringify(payload),
     });
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem("college_os_token", tokens.accessToken);
-      if (tokens.refreshToken) {
-        localStorage.setItem("college_os_refresh_token", tokens.refreshToken);
-      }
+    setAuthItems(
+      {
+        [TOKEN_KEY]: tokens.accessToken,
+        ...(tokens.refreshToken ? { [REFRESH_TOKEN_KEY]: tokens.refreshToken } : {}),
+      },
+      true
+    );
+
+    try {
+      const rawProfile = await apiClient<BackendUserProfile>("/users/me", {
+        headers: { Authorization: `Bearer ${tokens.accessToken}` },
+      });
+
+      const user = normalizeUserProfile(rawProfile);
+      setAuthItems({ [USER_KEY]: JSON.stringify(user) }, true);
+
+      return {
+        user,
+        token: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
+        sessionId: tokens.sessionId,
+      };
+    } catch (err) {
+      clearStoredAuth();
+      throw err;
     }
-
-    const rawProfile = await apiClient<BackendUserProfile>("/users/me", {
-      headers: { Authorization: `Bearer ${tokens.accessToken}` },
-    });
-
-    const user = normalizeUserProfile(rawProfile);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("college_os_user", JSON.stringify(user));
-    }
-
-    return {
-      user,
-      token: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresIn: tokens.expiresIn,
-      sessionId: tokens.sessionId,
-    };
   },
 
   getCurrentUser: async (): Promise<User> => {
@@ -121,11 +66,7 @@ export const authApi = {
     try {
       await apiClient<void>("/auth/logout", { method: "POST" });
     } finally {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("college_os_token");
-        localStorage.removeItem("college_os_refresh_token");
-        localStorage.removeItem("college_os_user");
-      }
+      clearStoredAuth();
     }
   },
 
@@ -133,11 +74,7 @@ export const authApi = {
     try {
       await apiClient<void>("/auth/logout-all", { method: "POST" });
     } finally {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("college_os_token");
-        localStorage.removeItem("college_os_refresh_token");
-        localStorage.removeItem("college_os_user");
-      }
+      clearStoredAuth();
     }
   },
 
@@ -149,10 +86,12 @@ export const authApi = {
     return apiClient<void>(`/auth/sessions/${sessionId}`, { method: "DELETE" });
   },
 
-  forgotPassword: async (collegeCode: string, email: string) => {
+  forgotPassword: async (collegeCode: string | undefined, email: string) => {
+    const payload: Record<string, string> = { email };
+    if (collegeCode?.trim()) payload.collegeCode = collegeCode.trim();
     return apiClient<void>("/auth/forgot-password", {
       method: "POST",
-      body: JSON.stringify({ collegeCode, email }),
+      body: JSON.stringify(payload),
     });
   },
 

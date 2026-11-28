@@ -2,16 +2,33 @@
 
 import { create } from "zustand";
 import { AIChatMessage } from "@/types";
-import { aiApi, defaultSuggestedPrompts, AISuggestion } from "../lib/api/ai";
+import { aiApi, defaultSuggestedPrompts, AISuggestion, mapBackendChatResponse } from "../lib/api/ai";
+import { streamAiChatOverSocket } from "../lib/socket/socketClient";
 import { toast } from "sonner";
+
+export interface AIConversationSummary {
+  id: string;
+  title?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface AIStore {
   messages: AIChatMessage[];
+  conversations: AIConversationSummary[];
+  isLoadingHistory: boolean;
   isStreaming: boolean;
+  isConfirmingDraft: boolean;
   conversationId?: string;
+  selectedStudentId?: string;
   suggestedPrompts: AISuggestion[];
+  setSelectedStudentId: (studentId?: string) => void;
   sendMessage: (text: string) => Promise<void>;
+  loadConversations: () => Promise<void>;
+  selectConversation: (id: string) => Promise<void>;
+  deleteConversation: (id: string) => Promise<void>;
   resetConversation: () => void;
+  resetStore: () => void;
   confirmDraft: (draftId: string) => Promise<void>;
   cancelDraft: (draftId: string) => Promise<void>;
 }
@@ -22,13 +39,13 @@ const initialMessages: AIChatMessage[] = [
     sender: "assistant",
     agent: "CampusIntelligenceAgent",
     mode: "direct",
-    content: `### Welcome to SDIET Campus Intelligence Copilot! 🎓
+    content: `### Welcome to Campus Intelligence Copilot! 🎓
 
-I am your personal AI Agent connected directly to **verified student databases**, **university ordinances**, and **live academic services**.
+I am your personal AI Agent connected directly to **verified institutional databases**, **university ordinances**, and **live academic services**.
 
 Here is what I can do for you right now:
-* 📊 **Attendance Analytics:** Calculate your exact attendance percentage and verify minimum statutory 75% requirements.
-* 📝 **Exam Schedules & Seating:** Check upcoming mid-terms, final exams, seat allocations, and syllabus milestones.
+* 📊 **Attendance Analytics:** Calculate your exact attendance percentage and verify minimum statutory requirements.
+* 📝 **Exam Schedules & Seating:** Check upcoming mid-terms, final exams, room allocations, and deadlines.
 * 💳 **Fee Dues & Receipts:** View current semester outstanding fees and payment deadlines.
 * 🏆 **Scholarship Matching:** Identify government and institutional scholarships matched to your academic record.
 * ⚖️ **Grievance Filing:** Prepare official grievance drafts that route straight to the grievance desk.
@@ -39,7 +56,7 @@ Choose a quick prompt below or type any question!`,
     isRecommendation: false,
     quickActions: [
       { label: "Check My Attendance", prompt: "What is my current attendance percentage and do I have any shortage?" },
-      { label: "Upcoming Exams", prompt: "When is my next internal exam and where is my seat allocated?" },
+      { label: "Upcoming Exams", prompt: "When is my next internal exam and where is it scheduled?" },
       { label: "Fee Dues Status", prompt: "What are my pending fee dues and when is the payment deadline?" },
       { label: "Eligible Scholarships", prompt: "What scholarships match my academic profile and CGPA?" },
     ],
@@ -48,9 +65,54 @@ Choose a quick prompt below or type any question!`,
 
 export const useAIStore = create<AIStore>((set, get) => ({
   messages: initialMessages,
+  conversations: [],
+  isLoadingHistory: false,
   isStreaming: false,
+  isConfirmingDraft: false,
   conversationId: undefined,
+  selectedStudentId: undefined,
   suggestedPrompts: defaultSuggestedPrompts,
+  setSelectedStudentId: (studentId?: string) => set({ selectedStudentId: studentId }),
+
+  loadConversations: async () => {
+    set({ isLoadingHistory: true });
+    try {
+      const list = await aiApi.listConversations();
+      set({ conversations: list });
+    } catch {
+      // Ignore quietly if unauthenticated or offline
+    } finally {
+      set({ isLoadingHistory: false });
+    }
+  },
+
+  selectConversation: async (id: string) => {
+    set({ isLoadingHistory: true });
+    try {
+      const loaded = await aiApi.getConversationMessages(id);
+      set({
+        conversationId: id,
+        messages: loaded.length > 0 ? loaded : initialMessages,
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Could not load conversation history");
+    } finally {
+      set({ isLoadingHistory: false });
+    }
+  },
+
+  deleteConversation: async (id: string) => {
+    try {
+      await aiApi.deleteConversation(id);
+      set((state) => ({
+        conversations: state.conversations.filter((c) => c.id !== id),
+        ...(state.conversationId === id ? { conversationId: undefined, messages: initialMessages } : {}),
+      }));
+      toast.success("Conversation deleted.");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete conversation");
+    }
+  },
 
   sendMessage: async (text: string) => {
     if (!text.trim() || get().isStreaming) return;
@@ -68,11 +130,49 @@ export const useAIStore = create<AIStore>((set, get) => ({
     }));
 
     try {
-      const response = await aiApi.sendMessage(text, get().conversationId);
+      const streamPlaceholderId = `msg_stream_${Date.now()}`;
+      let streamedCreated = false;
+      const socketResponse = await streamAiChatOverSocket({
+        message: text,
+        conversationId: get().conversationId,
+        studentId: get().selectedStudentId,
+        onToken: (token) => {
+          set((state) => {
+            if (!streamedCreated) {
+              streamedCreated = true;
+              return {
+                messages: [
+                  ...state.messages,
+                  {
+                    id: streamPlaceholderId,
+                    sender: "assistant",
+                    content: token,
+                    timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                  },
+                ],
+              };
+            }
+            return {
+              messages: state.messages.map((m) =>
+                m.id === streamPlaceholderId ? { ...m, content: `${m.content}${token}` } : m
+              ),
+            };
+          });
+        },
+      }).catch(() => null);
+
+      const response = socketResponse
+        ? mapBackendChatResponse(socketResponse)
+        : await aiApi.sendMessage(text, get().conversationId, undefined, get().selectedStudentId);
+
       set((state) => ({
-        messages: [...state.messages, response],
+        messages: streamedCreated
+          ? state.messages.map((m) => (m.id === streamPlaceholderId ? response : m))
+          : [...state.messages, response],
+        conversationId: response.conversationId ?? state.conversationId,
         isStreaming: false,
       }));
+      get().loadConversations();
     } catch (err: any) {
       const errorText = err?.message || "I couldn't complete that query against the college database. Please try again or rephrase.";
       const errorMessage: AIChatMessage = {
@@ -91,12 +191,16 @@ export const useAIStore = create<AIStore>((set, get) => ({
   },
 
   confirmDraft: async (draftId: string) => {
+    if (get().isConfirmingDraft) return;
+    set({ isConfirmingDraft: true });
     try {
       const result = await aiApi.confirmDraft(draftId);
       toast.success("Grievance ticket filed successfully!");
       set((state) => ({
         messages: [
-          ...state.messages,
+          ...state.messages.map((m) =>
+            m.pendingDraftId === draftId ? { ...m, pendingDraftId: undefined } : m
+          ),
           {
             id: `draft_conf_${Date.now()}`,
             sender: "assistant",
@@ -109,10 +213,14 @@ export const useAIStore = create<AIStore>((set, get) => ({
       }));
     } catch (err: any) {
       toast.error(err?.message || "Failed to confirm grievance draft");
+    } finally {
+      set({ isConfirmingDraft: false });
     }
   },
 
   cancelDraft: async (draftId: string) => {
+    if (get().isConfirmingDraft) return;
+    set({ isConfirmingDraft: true });
     try {
       await aiApi.cancelDraft(draftId);
       toast.info("Draft discarded");
@@ -121,13 +229,27 @@ export const useAIStore = create<AIStore>((set, get) => ({
           m.pendingDraftId === draftId ? { ...m, pendingDraftId: undefined } : m
         ),
       }));
-    } catch {
-      toast.error("Failed to cancel draft");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to cancel draft");
+    } finally {
+      set({ isConfirmingDraft: false });
     }
   },
 
   resetConversation: () => {
-    set({ messages: initialMessages, isStreaming: false, conversationId: undefined });
+    set({ messages: initialMessages, isStreaming: false, isConfirmingDraft: false, conversationId: undefined });
     toast.info("AI Copilot conversation reset");
+  },
+
+  resetStore: () => {
+    set({
+      messages: initialMessages,
+      conversations: [],
+      isLoadingHistory: false,
+      isStreaming: false,
+      isConfirmingDraft: false,
+      conversationId: undefined,
+      selectedStudentId: undefined,
+    });
   },
 }));

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/auth/authStore";
+import { getRoleHomePath, isAuthorizedForPath } from "@/lib/roles";
 import { UserRole } from "@/types";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +21,7 @@ export default function LoginPage() {
 
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
+  const [collegeCode, setCollegeCode] = useState(process.env.NEXT_PUBLIC_COLLEGE_SHORT_CODE || "SDIET");
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,16 +31,22 @@ export default function LoginPage() {
     try {
       const idVal = loginId.trim() || (typeof document !== "undefined" ? (document.getElementById("loginId") as HTMLInputElement)?.value?.trim() : "") || "";
       const passVal = password || (typeof document !== "undefined" ? (document.getElementById("password") as HTMLInputElement)?.value : "") || "";
+      const codeVal = collegeCode.trim();
 
       if (!idVal || !passVal) {
         setError("Please enter your College ID and password.");
         return;
       }
 
-      const user = await login(idVal, passVal);
+      const user = await login(idVal, passVal, codeVal, rememberMe);
       const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
       const redirectUrl = params?.get("redirect");
-      if (redirectUrl && redirectUrl.startsWith("/")) {
+      if (
+        redirectUrl &&
+        redirectUrl.startsWith("/") &&
+        !redirectUrl.startsWith("//") &&
+        isAuthorizedForPath(redirectUrl.split("?")[0], user.role, user)
+      ) {
         router.push(redirectUrl);
       } else {
         redirectByRole(user.role);
@@ -52,27 +60,7 @@ export default function LoginPage() {
   };
 
   const redirectByRole = (role: UserRole) => {
-    switch (role) {
-      case "TEACHER":
-        router.push("/teacher/dashboard");
-        break;
-      case "HOD":
-        router.push("/hod/dashboard");
-        break;
-      case "ADMIN":
-        router.push("/admin/dashboard");
-        break;
-      case "PLACEMENT_OFFICER":
-        router.push("/student/placements");
-        break;
-      case "ACCOUNTANT":
-        router.push("/student/fees");
-        break;
-      case "STUDENT":
-      default:
-        router.push("/student/dashboard");
-        break;
-    }
+    router.push(getRoleHomePath(role));
   };
 
   return (
@@ -121,6 +109,24 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={(e) => { e.preventDefault(); handleSubmit(e); }} className="space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="collegeCode" className="text-xs font-bold font-display text-[var(--text)]">
+                  Institution Code
+                </label>
+                <span className="text-[10px] font-semibold text-[var(--text-muted)]">
+                  Blank for Super Admin
+                </span>
+              </div>
+              <Input
+                type="text"
+                id="collegeCode"
+                placeholder="e.g. SDIET"
+                value={collegeCode}
+                onChange={(e) => setCollegeCode(e.target.value)}
+              />
+            </div>
+
             <div className="space-y-1.5">
               <label htmlFor="loginId" className="text-xs font-bold font-display text-[var(--text)]">
                 College ID / Roll Number
@@ -202,7 +208,7 @@ export default function LoginPage() {
         {/* Footer info */}
         <p className="text-center text-xs font-bold text-[var(--text-muted)]">
           Protected by Enterprise SSO • Need help?{" "}
-          <Link href="/student/complaints" className="text-[var(--cta-dark)] hover:underline">
+          <Link href="/contact" className="text-[var(--cta-dark)] hover:underline">
             Contact IT Helpdesk
           </Link>
         </p>

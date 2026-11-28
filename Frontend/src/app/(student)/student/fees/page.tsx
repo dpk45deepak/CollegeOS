@@ -33,13 +33,24 @@ export default function StudentFeesPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
 
-  const isAccountantOrAdmin = user?.role === "ACCOUNTANT" || user?.role === "ADMIN";
+  const roleKeys = user?.roleKeys || [];
+  const isAccountantOrAdmin =
+    user?.role === "ACCOUNTANT" ||
+    user?.role === "ADMIN" ||
+    roleKeys.includes("ACCOUNTANT") ||
+    roleKeys.includes("COLLEGE_ADMIN") ||
+    roleKeys.includes("SUPER_ADMIN");
   const [activeTab, setActiveTab] = useState<"student" | "accountant">(isAccountantOrAdmin ? "accountant" : "student");
+  React.useEffect(() => {
+    if (isAccountantOrAdmin) setActiveTab("accountant");
+  }, [isAccountantOrAdmin]);
+  const [selectedFeeHeadId, setSelectedFeeHeadId] = useState<string>("");
 
   // Student's personal fees
   const { data: feeData, isLoading, error, refetch } = useQuery({
     queryKey: ["student_fees"],
     queryFn: () => studentApi.getFees(),
+    enabled: Boolean(user && (!isAccountantOrAdmin || activeTab === "student")),
   });
 
   // Accountant: List of Fee Structures
@@ -145,6 +156,8 @@ export default function StudentFeesPage() {
       toast.success("Fee structure assigned to students successfully!");
       setIsAssignOpen(false);
       setAssignBatchId("");
+      queryClient.invalidateQueries({ queryKey: ["student_fees"] });
+      queryClient.invalidateQueries({ queryKey: ["accountant_fee_structures"] });
     },
     onError: (err: any) => {
       toast.error(err?.message || "Failed to assign fee structure");
@@ -152,6 +165,9 @@ export default function StudentFeesPage() {
   });
 
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [selectedGateway, setSelectedGateway] = useState<"mock" | "razorpay" | "stripe">(
+    (process.env.NEXT_PUBLIC_PAYMENT_GATEWAY as "mock" | "razorpay" | "stripe") || "mock"
+  );
   const [initiatedPayment, setInitiatedPayment] = useState<any>(null);
 
   const handleDownloadReceipt = async (tx: any) => {
@@ -215,8 +231,16 @@ export default function StudentFeesPage() {
     }
   };
 
+  const activeFeeHead =
+    feeData?.feeHeads?.find((h) => h.id === selectedFeeHeadId) ||
+    feeData?.feeHeads?.find((h) => h.pendingAmount > 0) ||
+    feeData?.feeHeads?.[0];
+  const payableFeeId = activeFeeHead?.id || feeData?.id;
+  const payableAmount = activeFeeHead ? activeFeeHead.pendingAmount : (feeData?.pendingAmount || 0);
+
   const payMutation = useMutation({
-    mutationFn: (amount: number) => studentApi.payFee(amount, feeData?.id),
+    mutationFn: (payload: { amount: number; studentFeeId?: string; gateway: string }) =>
+      studentApi.payFee(payload.amount, payload.studentFeeId, payload.gateway),
     onSuccess: (data: any) => {
       setInitiatedPayment(data);
       toast.success("Payment order created. Complete settlement via checkout.");
@@ -439,7 +463,10 @@ export default function StudentFeesPage() {
 
                   {feeData.pendingAmount > 0 && (
                     <Button
-                      onClick={() => setIsPayModalOpen(true)}
+                      onClick={() => {
+                        if (activeFeeHead?.id) setSelectedFeeHeadId(activeFeeHead.id);
+                        setIsPayModalOpen(true);
+                      }}
                       className="text-xs gap-1.5 shadow-md shadow-brand-500/20 py-5"
                     >
                       <CreditCard className="h-4 w-4" /> Pay Balance Now
@@ -447,6 +474,49 @@ export default function StudentFeesPage() {
                   )}
                 </div>
               </div>
+
+              {feeData.feeHeads && feeData.feeHeads.length > 1 && (
+                <Card>
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Assigned Fee Heads ({feeData.feeHeads.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {feeData.feeHeads.map((head) => (
+                      <div
+                        key={head.id}
+                        className="p-3 rounded-xl border border-border bg-muted/20 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-foreground">{head.name}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            Due: {formatDate(head.dueDate)} • Net: {formatCurrency(head.netPayable)}
+                          </div>
+                        </div>
+                        <div className="text-right space-y-1">
+                          <div className="font-mono font-bold text-amber-600">
+                            {head.pendingAmount > 0 ? `${formatCurrency(head.pendingAmount)} due` : "PAID"}
+                          </div>
+                          {head.pendingAmount > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px]"
+                              onClick={() => {
+                                setSelectedFeeHeadId(head.id);
+                                setIsPayModalOpen(true);
+                              }}
+                            >
+                              Pay This Head
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Fee Breakdown & Transaction History Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -661,7 +731,7 @@ export default function StudentFeesPage() {
             <Button
               type="submit"
               size="sm"
-              disabled={adjustMutation.isPending || !adjustFeeId || adjustDiscount <= 0 || !adjustReason.trim()}
+              disabled={adjustMutation.isPending || !adjustFeeId || adjustDiscount <= 0 || adjustReason.trim().length < 5}
               isLoading={adjustMutation.isPending}
             >
               Apply Adjustment
@@ -714,8 +784,9 @@ export default function StudentFeesPage() {
                 <label className="text-[11px] text-muted-foreground block mb-1">Tuition Fee (₹)</label>
                 <Input
                   type="number"
+                  min={0}
                   value={tuitionFee}
-                  onChange={(e) => setTuitionFee(Number(e.target.value))}
+                  onChange={(e) => setTuitionFee(Math.max(0, Number(e.target.value)))}
                   required
                 />
               </div>
@@ -723,8 +794,9 @@ export default function StudentFeesPage() {
                 <label className="text-[11px] text-muted-foreground block mb-1">Lab / Practical (₹)</label>
                 <Input
                   type="number"
+                  min={0}
                   value={labFee}
-                  onChange={(e) => setLabFee(Number(e.target.value))}
+                  onChange={(e) => setLabFee(Math.max(0, Number(e.target.value)))}
                   required
                 />
               </div>
@@ -732,8 +804,9 @@ export default function StudentFeesPage() {
                 <label className="text-[11px] text-muted-foreground block mb-1">Library (₹)</label>
                 <Input
                   type="number"
+                  min={0}
                   value={libraryFee}
-                  onChange={(e) => setLibraryFee(Number(e.target.value))}
+                  onChange={(e) => setLibraryFee(Math.max(0, Number(e.target.value)))}
                   required
                 />
               </div>
@@ -817,7 +890,10 @@ export default function StudentFeesPage() {
       {/* Pay Online Modal Dialog (Student) */}
       <Dialog
         isOpen={isPayModalOpen}
-        onClose={() => setIsPayModalOpen(false)}
+        onClose={() => {
+          setIsPayModalOpen(false);
+          setInitiatedPayment(null);
+        }}
         title="Complete Institutional Fee Payment"
         description="Encrypted banking gateway simulation with zero saved sensitive card credentials."
       >
@@ -825,49 +901,173 @@ export default function StudentFeesPage() {
           {initiatedPayment ? (
             <div className="text-center py-6 space-y-3">
               <ShieldCheck className="h-10 w-10 text-brand-500 mx-auto" />
-              <h4 className="text-sm font-bold">Payment Order Initiated</h4>
+              <h4 className="text-sm font-bold">Payment Order Initiated ({String(initiatedPayment.gateway || selectedGateway).toUpperCase()})</h4>
               <p className="text-xs text-muted-foreground">
                 Gateway Reference: <code className="font-mono font-semibold">{initiatedPayment.gatewayRef || initiatedPayment.paymentId}</code>
               </p>
               <p className="text-xs text-muted-foreground">
-                Payment has been initialized with the provider. Complete checkout to finalize. The fee ledger and receipt will update upon webhook settlement confirmation.
+                Complete checkout with the configured payment provider. Your fee ledger and e-receipt update automatically once webhook verification settles.
               </p>
-              {initiatedPayment.checkoutUrl && (
+
+              {/* Stripe Hosted Checkout */}
+              {initiatedPayment.checkoutUrl && initiatedPayment.gateway !== "mock" && (
                 <div className="pt-2">
-                  <a
-                    href={initiatedPayment.checkoutUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-lg bg-brand-600 text-white hover:bg-brand-700"
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => window.open(initiatedPayment.checkoutUrl, "_blank", "noopener,noreferrer")}
                   >
-                    Proceed to Payment Checkout
-                  </a>
+                    Open Hosted Checkout
+                  </Button>
+                </div>
+              )}
+
+              {/* Razorpay Client Payload Checkout */}
+              {initiatedPayment.clientPayload && (
+                <div className="space-y-2 pt-2">
+                  <div className="text-[11px] font-mono text-muted-foreground bg-muted/40 rounded-lg p-2">
+                    Order ID: {String(initiatedPayment.clientPayload.orderId || initiatedPayment.gatewayRef)}
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      const launchRazorpay = () => {
+                        const RazorpayCtor = (window as unknown as { Razorpay?: new (opts: Record<string, unknown>) => { open: () => void } }).Razorpay;
+                        if (!RazorpayCtor) {
+                          toast.error("Razorpay checkout script could not be loaded.");
+                          return;
+                        }
+                        const rzp = new RazorpayCtor({
+                          key: initiatedPayment.clientPayload.keyId,
+                          amount: initiatedPayment.clientPayload.amount,
+                          currency: initiatedPayment.clientPayload.currency || "INR",
+                          order_id: initiatedPayment.clientPayload.orderId,
+                          name: "CollegeOS Bursar",
+                          description: "Institutional Fee Settlement",
+                          handler: () => {
+                            toast.success("Payment authorized. Awaiting webhook confirmation...");
+                            setIsPayModalOpen(false);
+                            setInitiatedPayment(null);
+                            queryClient.invalidateQueries({ queryKey: ["student_fees"] });
+                          },
+                        });
+                        rzp.open();
+                      };
+                      if ((window as unknown as { Razorpay?: unknown }).Razorpay) {
+                        launchRazorpay();
+                      } else {
+                        const script = document.createElement("script");
+                        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+                        script.async = true;
+                        script.onload = launchRazorpay;
+                        script.onerror = () => toast.error("Failed to load Razorpay Checkout SDK");
+                        document.body.appendChild(script);
+                      }
+                    }}
+                  >
+                    Launch Razorpay Checkout
+                  </Button>
+                </div>
+              )}
+
+              {/* Dev Mock Sandbox Settlement */}
+              {initiatedPayment.paymentId && initiatedPayment.gateway === "mock" && (
+                <div className="pt-2 flex flex-wrap justify-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const { specialistApi } = await import("@/lib/api/specialist");
+                        const res = await specialistApi.completeMockPayment(initiatedPayment.paymentId, true);
+                        toast.success(`Payment settled! Receipt ${res.receiptNo || ""} issued.`);
+                        setIsPayModalOpen(false);
+                        setInitiatedPayment(null);
+                        queryClient.invalidateQueries({ queryKey: ["student_fees"] });
+                      } catch (err: any) {
+                        toast.error(err?.message || "Failed to settle mock payment");
+                      }
+                    }}
+                  >
+                    Simulate Payment Success
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const { specialistApi } = await import("@/lib/api/specialist");
+                        await specialistApi.completeMockPayment(initiatedPayment.paymentId, false);
+                        toast.info("Mock payment marked as FAILED.");
+                        setIsPayModalOpen(false);
+                        setInitiatedPayment(null);
+                        queryClient.invalidateQueries({ queryKey: ["student_fees"] });
+                      } catch (err: any) {
+                        toast.error(err?.message || "Failed to update payment status");
+                      }
+                    }}
+                  >
+                    Simulate Failure
+                  </Button>
                 </div>
               )}
               <div className="pt-2">
-                <Button size="sm" variant="outline" onClick={() => { setIsPayModalOpen(false); setInitiatedPayment(null); }}>
+                <Button type="button" size="sm" variant="outline" onClick={() => { setIsPayModalOpen(false); setInitiatedPayment(null); }}>
                   Close
                 </Button>
               </div>
             </div>
           ) : (
             <>
+              {feeData?.feeHeads && feeData.feeHeads.filter((h) => h.pendingAmount > 0).length > 1 && (
+                <div>
+                  <label className="text-xs font-semibold text-foreground block mb-1">Fee Head to Settle</label>
+                  <select
+                    value={payableFeeId || ""}
+                    onChange={(e) => setSelectedFeeHeadId(e.target.value)}
+                    className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
+                  >
+                    {feeData.feeHeads
+                      .filter((h) => h.pendingAmount > 0)
+                      .map((h) => (
+                        <option key={h.id} value={h.id}>
+                          {h.name} — {formatCurrency(h.pendingAmount)} due
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
               <div className="p-4 rounded-xl bg-brand-50/50 dark:bg-brand-950/20 border border-brand-200 dark:border-brand-800 flex items-center justify-between text-xs">
-                <span>Amount to Pay:</span>
+                <span>Amount to Pay{activeFeeHead ? ` (${activeFeeHead.name})` : ""}:</span>
                 <span className="text-lg font-extrabold text-foreground font-mono">
-                  {formatCurrency(feeData?.pendingAmount || 0)}
+                  {formatCurrency(payableAmount)}
                 </span>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-foreground">Payment Method</label>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-3 rounded-lg border border-brand-500 bg-card font-semibold text-center cursor-pointer">
-                    UPI / QR Code
-                  </div>
-                  <div className="p-3 rounded-lg border border-border bg-card text-muted-foreground text-center cursor-pointer">
-                    Net Banking
-                  </div>
+                <label className="text-xs font-semibold text-foreground block">Payment Gateway</label>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  {([
+                    { id: "mock", label: "Sandbox (Dev)" },
+                    { id: "razorpay", label: "Razorpay" },
+                    { id: "stripe", label: "Stripe" },
+                  ] as const).map((gw) => (
+                    <button
+                      key={gw.id}
+                      type="button"
+                      onClick={() => setSelectedGateway(gw.id)}
+                      className={`p-2.5 rounded-lg border text-center transition-colors ${
+                        selectedGateway === gw.id
+                          ? "border-brand-500 bg-brand-50/40 dark:bg-brand-950/30 font-semibold text-foreground"
+                          : "border-border bg-card text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {gw.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -877,15 +1077,17 @@ export default function StudentFeesPage() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => setIsPayModalOpen(false)}>
+                <Button type="button" variant="outline" size="sm" onClick={() => { setIsPayModalOpen(false); setInitiatedPayment(null); }}>
                   Cancel
                 </Button>
                 <Button
+                  type="button"
                   size="sm"
+                  disabled={payableAmount <= 0}
                   isLoading={payMutation.isPending}
-                  onClick={() => payMutation.mutate(feeData?.pendingAmount || 0)}
+                  onClick={() => payMutation.mutate({ amount: payableAmount, studentFeeId: payableFeeId, gateway: selectedGateway })}
                 >
-                  Confirm {formatCurrency(feeData?.pendingAmount || 0)} Payment
+                  Confirm {formatCurrency(payableAmount)} Payment
                 </Button>
               </div>
             </>

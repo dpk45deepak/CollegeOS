@@ -22,6 +22,12 @@ export class MessagingController {
   start(@CurrentUser() u: Principal, @Tenant() t: string, @Body() dto: D.StartConversationDto) {
     return this.svc.start(u, t, dto);
   }
+  @Get('recipients')
+  @ApiOperation({ summary: 'List eligible messaging contacts scoped by your role' })
+  recipients(@CurrentUser() u: Principal, @Tenant() t: string, @Query('search') search?: string) {
+    return this.svc.listRecipients(u, t, search);
+  }
+
   @Get('conversations') list(@CurrentUser() u: Principal, @Tenant() t: string, @Query() q: PaginationQueryDto) {
     return this.svc.conversations(u, t, q);
   }

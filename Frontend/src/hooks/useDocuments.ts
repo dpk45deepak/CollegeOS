@@ -43,7 +43,7 @@ export function useUpdateDocumentVisibility() {
       documentsApi.updateVisibility(id, dto),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: documentKeys.detail(vars.id) });
-      qc.invalidateQueries({ queryKey: documentKeys.list() });
+      qc.invalidateQueries({ queryKey: [...documentKeys.all, "list"] });
     },
   });
 }
@@ -60,7 +60,10 @@ export function useReprocessDocument() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => documentsApi.reprocess(id),
-    onSuccess: (_, id) => qc.invalidateQueries({ queryKey: documentKeys.detail(id) }),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: documentKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: [...documentKeys.all, "list"] });
+    },
   });
 }
 

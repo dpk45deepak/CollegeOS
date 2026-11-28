@@ -25,7 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
 
 export default function StudentTimetablePage() {
   const { user } = useAuthStore();
@@ -67,7 +67,13 @@ export default function StudentTimetablePage() {
   }
 
   const todaySlots = (slots || []).filter((s) => s && s.day === defaultDay);
-  const nextSlot = todaySlots[0];
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+  const toMin = (hhmm?: string) => {
+    if (!hhmm) return 24 * 60;
+    const [h, m] = hhmm.split(":").map(Number);
+    return (Number.isFinite(h) ? h : 24) * 60 + (Number.isFinite(m) ? m : 0);
+  };
+  const nextSlot = todaySlots.find((s) => toMin(s.endTime) >= nowMinutes) || todaySlots[0];
 
   return (
     <div className="space-y-6">
@@ -121,7 +127,7 @@ export default function StudentTimetablePage() {
       </div>
 
       {/* Desktop Weekly Schedule Grid (Hidden on Mobile) */}
-      <div className="hidden md:grid md:grid-cols-5 gap-3">
+      <div className="hidden md:grid md:grid-cols-6 gap-3">
         {DAYS.map((day) => {
           const daySlots = (slots || []).filter((s) => s && s.day === day);
           const isToday = day === defaultDay;
@@ -151,7 +157,7 @@ export default function StudentTimetablePage() {
                   </div>
                 ) : (
                   daySlots.map((slot, idx) => {
-                    const isNext = isToday && idx === 0;
+                    const isNext = isToday && nextSlot && (nextSlot.id ? nextSlot.id === slot.id : idx === 0);
 
                     return (
                       <div

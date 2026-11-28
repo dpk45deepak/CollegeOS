@@ -28,7 +28,10 @@ maybe('security & isolation (seeded database)', () => {
     await app.close();
   });
 
-  const login = async (loginId: string, collegeCode: string | undefined = 'SDCET') => {
+  const login = async (
+    loginId: string,
+    collegeCode: string | undefined = process.env.SEED_COLLEGE_CODE || 'SDIET',
+  ) => {
     const res = await api().post('/api/v1/auth/login').send({ collegeCode, loginId, password: pw }).expect(200);
     return { token: res.body.data.accessToken as string, refresh: res.body.data.refreshToken as string };
   };

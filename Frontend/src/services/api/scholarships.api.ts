@@ -1,14 +1,6 @@
 import { apiClient } from "@/lib/api/client";
 
-export type ScholarshipType =
-  | "GOVERNMENT"
-  | "COLLEGE"
-  | "PRIVATE"
-  | "MERIT"
-  | "NEED_BASED"
-  | "SPORTS"
-  | "MINORITY"
-  | "INSTITUTIONAL";
+export type ScholarshipType = "GOVERNMENT" | "COLLEGE" | "PRIVATE";
 
 export interface ScholarshipItem {
   id: string;
@@ -19,7 +11,7 @@ export interface ScholarshipItem {
   eligibility?: Record<string, any>;
   eligibilityText?: string;
   requiredDocuments: string[];
-  amount?: number;
+  amount?: number | null;
   deadline?: string;
   url?: string;
   isActive: boolean;
@@ -28,12 +20,12 @@ export interface ScholarshipItem {
 
 export interface ScholarshipMatchItem {
   scholarship: ScholarshipItem;
-  eligible: boolean;
-  criteriaResults: Array<{
-    criterion: string;
-    met: boolean;
-    reason: string;
-  }>;
+  match: {
+    fit: "ELIGIBLE" | "POSSIBLE" | "NOT_ELIGIBLE";
+    met: string[];
+    unmet: string[];
+    toVerify: string[];
+  };
 }
 
 export interface ScholarshipApplicationItem {

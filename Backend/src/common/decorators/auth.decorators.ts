@@ -3,11 +3,14 @@ import type { AuthedRequest, Principal } from '../types/principal';
 
 export const IS_PUBLIC = 'isPublic';
 export const PERMISSIONS_KEY = 'requiredPermissions';
+export const ANY_PERMISSIONS_KEY = 'anyRequiredPermissions';
 
 /** Skip authentication (login, health, ...). */
 export const Public = () => SetMetadata(IS_PUBLIC, true);
 /** User must hold ALL listed permissions. */
 export const RequirePermissions = (...permissions: string[]) => SetMetadata(PERMISSIONS_KEY, permissions);
+/** User must hold AT LEAST ONE of the listed permissions. */
+export const RequireAnyPermission = (...permissions: string[]) => SetMetadata(ANY_PERMISSIONS_KEY, permissions);
 
 export const CurrentUser = createParamDecorator((_d: unknown, ctx: ExecutionContext): Principal => {
   return ctx.switchToHttp().getRequest<AuthedRequest>().user as Principal;

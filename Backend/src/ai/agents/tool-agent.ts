@@ -29,7 +29,7 @@ export abstract class ToolAgent implements Agent {
 
   async run(i: AgentInput): Promise<AgentResult> {
     const r = await this.loop.run(
-      { principal: i.principal, collegeId: i.collegeId, conversationId: i.conversationId },
+      { principal: i.principal, collegeId: i.collegeId, conversationId: i.conversationId, studentId: i.studentId },
       { system: this.system(i), history: i.history, user: i.message, toolNames: this.toolNames, onToken: i.onToken },
     );
     return {

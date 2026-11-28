@@ -47,6 +47,7 @@ export class ChatService {
       message: dto.message,
       history,
       conversationId: conversation.id,
+      studentId: dto.studentId,
       onToken,
     });
 

@@ -60,26 +60,36 @@ The frontend web application is available at `http://localhost:3001`.
 
 ## 2. Environment Variables Matrix
 
+### Core Frontend & Backend Variables
+
 | Variable | Target | Type | Description |
 | :--- | :--- | :--- | :--- |
 | `NEXT_PUBLIC_API_URL` | Frontend | Client-Safe | Base URL of NestJS API (default: `http://localhost:3000/api/v1`) |
-| `NEXT_PUBLIC_SOCKET_URL` | Frontend | Client-Safe | Socket.IO server URL (default: `http://localhost:3000`) |
+| `NEXT_PUBLIC_SOCKET_URL` | Frontend | Client-Safe | Socket.IO `/realtime` origin (unset / `vercel.app` falls back to 45s REST polling) |
 | `NEXT_PUBLIC_COLLEGE_NAME` | Frontend | Client-Safe | Official institutional name displayed in header |
-| `NEXT_PUBLIC_COLLEGE_SHORT_CODE`| Frontend | Client-Safe | Institutional tenant code (default: `SDIET`) |
+| `NEXT_PUBLIC_COLLEGE_SHORT_CODE` | Frontend | Client-Safe | Institutional tenant code (default: `SDIET`) |
+| `NEXT_PUBLIC_PAYMENT_GATEWAY` | Frontend | Client-Safe | Default checkout gateway selector (`mock` \| `razorpay` \| `stripe`) |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Frontend | Client-Safe | Optional VAPID key for Service Worker (`/sw.js`) Web Push subscriptions |
 | `PORT` | Backend | Server-Only | Port for NestJS HTTP server (default: `3000`) |
 | `NODE_ENV` | Backend | Server-Only | Environment (`development` \| `production` \| `test`) |
-| `DATABASE_URL` | Backend | Server-Only | PostgreSQL connection string with pgvector |
-| `REDIS_URL` | Backend | Server-Only | Redis connection string for sessions and BullMQ |
-| `JWT_SECRET` | Backend | Server-Only | Secret key for signing access tokens |
-| `JWT_REFRESH_SECRET` | Backend | Server-Only | Secret key for rotating refresh tokens |
-| `JWT_ACCESS_TTL` | Backend | Server-Only | Access token expiration (default: `15m`) |
-| `JWT_REFRESH_TTL` | Backend | Server-Only | Refresh token expiration (default: `7d`) |
-| `CORS_ORIGINS` | Backend | Server-Only | Comma-separated list of permitted web origins |
-| `AI_PROVIDER` | Backend | Server-Only | `openai` \| `gemini` \| `openrouter` \| `local` |
-| `OPENAI_API_KEY` | Backend | Server-Only | OpenAI API key (when using OpenAI) |
-| `GEMINI_API_KEY` | Backend | Server-Only | Google Gemini API key (when using Gemini) |
-| `STORAGE_DRIVER` | Backend | Server-Only | `local` \| `s3` \| `r2` |
-| `S3_BUCKET` | Backend | Server-Only | S3/R2 storage bucket name |
+| `DATABASE_URL` | Backend | Server-Only | PostgreSQL connection string with `pgvector` |
+| `REDIS_URL` | Backend | Server-Only | Redis connection string for sessions, cache, and BullMQ |
+| `JWT_SECRET` / `JWT_REFRESH_SECRET` | Backend | Server-Only | Min 32-char secrets for JWT access (`JWT_ACCESS_TTL=15m`) and refresh (`JWT_REFRESH_TTL=7d`) |
+| `CORS_ORIGINS` | Backend | Server-Only | Comma-separated origin allowlist (required when `NODE_ENV=production`) |
+| `AI_PROVIDER` | Backend | Server-Only | `openai` \| `gemini` \| `openrouter` \| `local` (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `AI_BASE_URL`, `AI_CHAT_MODEL`, `AI_EMBEDDING_MODEL`, `AI_RERANK_MODEL`) |
+| `STORAGE_DRIVER` | Backend | Server-Only | `local` (`STORAGE_LOCAL_PATH`) \| `s3` \| `r2` (`S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`) |
+
+### Optional Provider Integrations (Payments, Notifications & Malware Scanning)
+
+| Variable | Target | Purpose |
+| :--- | :--- | :--- |
+| `PAYMENT_GATEWAY` / `ENABLE_MOCK_GATEWAY` | Backend | Selects active payment gateway enforcement; keep `mock` disabled in production |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Backend | Enables `RazorpayGateway` orders, refunds, and HMAC-SHA256 webhooks |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Backend | Enables `StripeGateway` Checkout Sessions, refunds, and signed webhooks |
+| `SMTP_URL`, `MAIL_FROM`, `APP_URL` | Backend | Enables Nodemailer transactional emails (logs in dev if `SMTP_URL` unset) |
+| `PUSH_PROVIDER_KEY`, `PUSH_APP_ID`, `PUSH_API_URL` | Backend | Enables `PushChannel` OneSignal (`PUSH_APP_ID` + `PUSH_PROVIDER_KEY`) or FCM HTTP dispatch |
+| `WHATSAPP_API_URL`, `WHATSAPP_API_TOKEN` | Backend | Enables `WhatsAppChannel` REST notifications |
+| `CLAMAV_URL`, `ALLOW_NOOP_SCANNER` | Backend | External ClamAV scanner URL; production fails closed on uploads without `CLAMAV_URL` unless `ALLOW_NOOP_SCANNER=true` |
 
 ---
 

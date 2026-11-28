@@ -59,7 +59,7 @@ export function toCitation(s: Ranked, n: number): Citation {
   };
 }
 
-/** Keeps only citations the model really used; strips [n] markers that point to non-existent sources. */
+/** Keeps only citations the model really used; strips [n] markers that point to non-existent sources. Never fabricates uncited sources. */
 export function resolveCitations(answer: string, sources: Ranked[]): { text: string; citations: Citation[] } {
   const used = new Set<number>();
   const text = answer
@@ -73,6 +73,6 @@ export function resolveCitations(answer: string, sources: Ranked[]): { text: str
     })
     .replace(/ {2,}/g, ' ')
     .trim();
-  const nums = used.size ? [...used].sort((a, b) => a - b) : sources.slice(0, 3).map((_, i) => i + 1);
+  const nums = used.size ? [...used].sort((a, b) => a - b) : [];
   return { text, citations: nums.map((n) => toCitation(sources[n - 1], n)) };
 }

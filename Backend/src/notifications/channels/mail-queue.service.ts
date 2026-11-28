@@ -1,4 +1,4 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
 import { QUEUES } from '../../queue/queue.constants';
@@ -40,10 +40,16 @@ export class MailQueueService {
 
 @Processor(QUEUES.EMAIL, { autorun: !process.env.VERCEL })
 export class EmailProcessor extends WorkerHost {
+  private readonly logger = new Logger(EmailProcessor.name);
   constructor(private readonly email: EmailService) {
     super();
   }
   async process(job: Job<EmailMessage>): Promise<void> {
     await this.email.send(job.data);
+  }
+
+  @OnWorkerEvent('error')
+  onError(err: Error) {
+    this.logger.warn(`email worker error: ${err.message}`);
   }
 }

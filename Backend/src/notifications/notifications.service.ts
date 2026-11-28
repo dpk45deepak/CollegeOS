@@ -1,4 +1,4 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
@@ -135,6 +135,7 @@ export class NotificationsService {
 
 @Processor(QUEUES.NOTIFICATION, { autorun: !process.env.VERCEL })
 export class NotificationProcessor extends WorkerHost {
+  private readonly logger = new Logger(NotificationProcessor.name);
   private readonly providers: Map<string, ChannelProvider>;
   constructor(
     private readonly prisma: PrismaService,
@@ -183,5 +184,10 @@ export class NotificationProcessor extends WorkerHost {
     }
     await this.prisma.notification.update({ where: { id: n.id }, data: { sentAt: new Date() } });
     if (failures.length) throw new Error(failures.join('; ')); // triggers BullMQ retry/backoff, then dead-letter set
+  }
+
+  @OnWorkerEvent('error')
+  onError(err: Error) {
+    this.logger.warn(`notification worker error: ${err.message}`);
   }
 }

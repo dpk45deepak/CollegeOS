@@ -44,7 +44,10 @@ export function useEnterExamResults() {
   return useMutation({
     mutationFn: ({ id, results, reason }: { id: string; results: Array<{ studentId: string; marksObtained: number }>; reason?: string }) =>
       examsApi.enterResults(id, results, reason),
-    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: examKeys.results(vars.id) }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: examKeys.results(vars.id) });
+      qc.invalidateQueries({ queryKey: [...examKeys.all, "list"] });
+    },
   });
 }
 

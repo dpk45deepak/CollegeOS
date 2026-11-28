@@ -8,12 +8,11 @@ export interface UserItem {
   firstName: string;
   lastName: string;
   phone?: string | null;
-  status: "ACTIVE" | "INACTIVE" | "LOCKED" | "SUSPENDED" | "PENDING_VERIFICATION";
+  status: "ACTIVE" | "INACTIVE" | "LOCKED" | "PENDING_VERIFICATION";
   createdAt: string;
   userRoles?: Array<{
-    id: string;
-    role: { id: string; key: string; name: string };
     departmentId?: string | null;
+    role: { key: string; name: string };
     department?: { id: string; name: string; code: string };
   }>;
 }
@@ -63,15 +62,21 @@ export const usersApi = {
   },
 
   updateRoles: async (id: string, roles: string[], departmentIds?: string[]): Promise<UserItem> => {
+    const normalizedRoles = (roles || []).map((r) => {
+      if (r === "ADMIN") return "COLLEGE_ADMIN";
+      if (r === "EXAM_OFFICER") return "EXAM_CONTROLLER";
+      if (r === "LIBRARIAN") return "LIBRARY_STAFF";
+      return r;
+    });
     return apiClient<UserItem>(`/users/${id}/roles`, {
       method: "PATCH",
-      body: JSON.stringify({ roles, departmentIds }),
+      body: JSON.stringify({ roles: normalizedRoles, departmentIds }),
     });
   },
 
-  updateStatus: async (id: string, status: "ACTIVE" | "INACTIVE" | "LOCKED" | "PENDING_VERIFICATION" | "SUSPENDED"): Promise<UserItem> => {
+  updateStatus: async (id: string, status: "ACTIVE" | "INACTIVE" | "LOCKED" | "PENDING_VERIFICATION" | "SUSPENDED"): Promise<void> => {
     const normalized = status === "SUSPENDED" ? "INACTIVE" : status;
-    return apiClient<UserItem>(`/users/${id}/status`, {
+    return apiClient<void>(`/users/${id}/status`, {
       method: "PATCH",
       body: JSON.stringify({ status: normalized }),
     });

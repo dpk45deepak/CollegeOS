@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ArrayMaxSize, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -43,6 +43,35 @@ export class TimetableController {
   @RequirePermissions(P.TIMETABLE_MANAGE)
   remove(@CurrentUser() u: Principal, @Tenant() t: string, @Param('id') id: string) {
     return this.svc.remove(u, t, id);
+  }
+  @Patch('slots/:id')
+  @RequirePermissions(P.TIMETABLE_MANAGE)
+  @ApiOperation({ summary: 'Update or reschedule a slot (conflict-checked, optional faculty substitution)' })
+  update(@CurrentUser() u: Principal, @Tenant() t: string, @Param('id') id: string, @Body() dto: D.UpdateSlotDto) {
+    return this.svc.update(u, t, id, dto);
+  }
+
+  @Post('exceptions')
+  @RequirePermissions(P.TIMETABLE_VIEW)
+  @ApiOperation({
+    summary: 'Cancel, reschedule, or substitute a single-date lecture occurrence',
+    description: 'Slot faculty can manage their own slot; HODs (dept-scoped) and admins can manage any slot in scope. Conflict-checked.',
+  })
+  createException(@CurrentUser() u: Principal, @Tenant() t: string, @Body() dto: D.CreateTimetableExceptionDto) {
+    return this.svc.createException(u, t, dto);
+  }
+  @Get('exceptions')
+  @RequirePermissions(P.TIMETABLE_VIEW)
+  @ApiOperation({ summary: 'List single-date lecture exceptions (cancelled / rescheduled / substituted)' })
+  listExceptions(@CurrentUser() u: Principal, @Tenant() t: string, @Query() q: D.ExceptionQueryDto) {
+    return this.svc.listExceptions(u, t, q);
+  }
+  @Delete('exceptions/:id')
+  @HttpCode(204)
+  @RequirePermissions(P.TIMETABLE_VIEW)
+  @ApiOperation({ summary: 'Remove a single-date lecture exception (restores original schedule)' })
+  removeException(@CurrentUser() u: Principal, @Tenant() t: string, @Param('id') id: string) {
+    return this.svc.removeException(u, t, id);
   }
 
   @Get('sections/:sectionId')

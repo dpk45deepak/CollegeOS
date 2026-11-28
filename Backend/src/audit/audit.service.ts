@@ -15,7 +15,18 @@ export interface AuditEntry {
 }
 
 /** Strip anything that must never be persisted in an audit trail. */
-const SENSITIVE = new Set(['passwordHash', 'password', 'refreshTokenHash', 'tokenHash']);
+const SENSITIVE = new Set([
+  'passwordHash',
+  'password',
+  'refreshTokenHash',
+  'tokenHash',
+  'token',
+  'secret',
+  'apiKey',
+  'accessToken',
+  'refreshToken',
+  'jwt',
+]);
 function scrub(v: unknown): Prisma.InputJsonValue | undefined {
   if (v === undefined || v === null) return undefined;
   return JSON.parse(JSON.stringify(v, (k, val) => (SENSITIVE.has(k) ? undefined : val))) as Prisma.InputJsonValue;

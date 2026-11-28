@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
-import { useAuthStore } from "@/lib/auth/authStore";
-import { useRealtimeSync } from "@/lib/socket/socketClient";
+import { registerQueryCacheClearer, useAuthStore } from "@/lib/auth/authStore";
+import { registerSocketQueryClient, useRealtimeSync } from "@/lib/socket/socketClient";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -22,9 +22,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   const initializeAuth = useAuthStore((s) => s.initialize);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    registerQueryCacheClearer(() => queryClient.clear());
+    registerSocketQueryClient(queryClient);
     initializeAuth();
-  }, [initializeAuth]);
+    return () => registerSocketQueryClient(null);
+  }, [initializeAuth, queryClient]);
 
   useRealtimeSync();
 

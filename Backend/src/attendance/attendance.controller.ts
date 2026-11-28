@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 import { IsDate, IsString } from 'class-validator';
 import { AccessService } from '../access/access.service';
 import { P } from '../auth/permissions';
-import { CurrentUser, RequirePermissions, Tenant } from '../common/decorators/auth.decorators';
+import { CurrentUser, RequireAnyPermission, RequirePermissions, Tenant } from '../common/decorators/auth.decorators';
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { Principal } from '../common/types/principal';
 import { AttendanceAnalyticsService } from './attendance-analytics.service';
@@ -81,8 +81,8 @@ export class AttendanceController {
   }
 
   @Get('corrections')
-  @RequirePermissions(P.ATTENDANCE_VIEW)
-  @ApiOperation({ summary: "Corrections: mine (teacher) or my department's (HOD/admin)" })
+  @RequireAnyPermission(P.ATTENDANCE_VIEW, P.ATTENDANCE_VIEW_OWN)
+  @ApiOperation({ summary: "Corrections: own (student), assigned/requested (teacher), or department/college (HOD/admin)" })
   corrections(@CurrentUser() u: Principal, @Tenant() t: string, @Query() q: D.CorrectionListQueryDto) {
     return this.svc.listCorrections(u, t, q);
   }
@@ -103,7 +103,7 @@ export class AttendanceController {
   }
 
   @Get('corrections/:id')
-  @RequirePermissions(P.ATTENDANCE_VIEW)
+  @RequireAnyPermission(P.ATTENDANCE_VIEW, P.ATTENDANCE_VIEW_OWN)
   @ApiOperation({ summary: 'Get details of an attendance correction request' })
   correctionDetail(@CurrentUser() u: Principal, @Tenant() t: string, @Param('id') id: string) {
     return this.svc.getCorrectionDetail(u, t, id);

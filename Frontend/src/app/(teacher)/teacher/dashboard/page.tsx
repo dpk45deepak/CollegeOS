@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuthStore } from "@/lib/auth/authStore";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { teacherApi, TeacherAtRiskStudent } from "@/lib/api/teacher";
+import { timetableApi, minutesToTimeString } from "@/services/api/timetable.api";
 import { examsApi, ExamItem, ExamResultItem } from "@/services/api/exams.api";
 import {
   CalendarCheck2,
@@ -56,6 +57,16 @@ export default function TeacherDashboardPage() {
     queryFn: () => examsApi.list(),
   });
 
+  const { data: weeklySlots = [] } = useQuery({
+    queryKey: ["teacher_weekly_timetable"],
+    queryFn: () => timetableApi.getMyTeacherTimetable().catch(() => []),
+  });
+
+  const { data: myLeaves = [] } = useQuery({
+    queryKey: ["teacher_my_leaves"],
+    queryFn: () => teacherApi.getMyLeaves().catch(() => []),
+  });
+
   const facultyLastName = user?.name ? user.name.split(" ").slice(-1)[0] : "Faculty";
   const classCount = classes?.length || 0;
   const atRiskCount = atRiskStudents?.length || 0;
@@ -75,6 +86,7 @@ export default function TeacherDashboardPage() {
       setLeaveSuccess("Leave application submitted to Department Head.");
       setIsLeaveOpen(false);
       setLeaveReason("");
+      queryClient.invalidateQueries({ queryKey: ["teacher_my_leaves"] });
       setTimeout(() => setLeaveSuccess(null), 4000);
     },
     onError: (err: any) => {
@@ -87,53 +99,78 @@ export default function TeacherDashboardPage() {
   const [marksSheet, setMarksSheet] = useState<Array<{ studentId: string; rollNumber: string; studentName: string; marksObtained: number }>>([]);
   const [marksReason, setMarksReason] = useState("");
 
-  const { isLoading: resultsLoading, refetch: refetchResults } = useQuery({
+  const { data: fetchedMarksData, isLoading: resultsLoading } = useQuery({
     queryKey: ["exam_results", selectedExam?.id],
     queryFn: async () => {
-      if (!selectedExam) return [];
+      if (!selectedExam) return { rows: [] as typeof marksSheet, hasPublished: false };
       const res = await examsApi.getResults(selectedExam.id);
       if (Array.isArray(res) && res.length > 0) {
-        setMarksSheet(
-          res.map((r) => ({
+        return {
+          hasPublished: res.some((r) => r.status === "PUBLISHED"),
+          rows: res.map((r) => ({
             studentId: r.studentId,
             rollNumber: r.student?.rollNumber || "ID",
             studentName: r.student?.user ? `${r.student.user.firstName} ${r.student.user.lastName}` : "Student",
             marksObtained: r.marksObtained ?? 0,
-          }))
-        );
-      } else if (selectedExam.subjectOfferingId) {
+          })),
+        };
+      }
+      if (selectedExam.subjectOfferingId) {
         try {
           const roster = await teacherApi.getClassRoster(selectedExam.subjectOfferingId);
-          if (Array.isArray(roster) && roster.length > 0) {
-            setMarksSheet(
-              roster.map((s) => ({
-                studentId: s.id,
-                rollNumber: s.rollNumber || "ID",
-                studentName: s.name || "Student",
-                marksObtained: 0,
-              }))
-            );
-          } else {
-            setMarksSheet([]);
-          }
+          return {
+            hasPublished: false,
+            rows: Array.isArray(roster)
+              ? roster.map((s) => ({
+                  studentId: s.id,
+                  rollNumber: s.rollNumber || "ID",
+                  studentName: s.name || "Student",
+                  marksObtained: 0,
+                }))
+              : [],
+          };
         } catch {
-          setMarksSheet([]);
+          return { rows: [], hasPublished: false };
         }
-      } else {
-        setMarksSheet([]);
       }
-      return res;
+      return { rows: [], hasPublished: false };
     },
     enabled: !!selectedExam,
   });
 
+  React.useEffect(() => {
+    if (!selectedExam) {
+      setMarksSheet([]);
+      setMarksReason("");
+      return;
+    }
+    if (fetchedMarksData) {
+      setMarksSheet(fetchedMarksData.rows);
+    }
+  }, [selectedExam, fetchedMarksData]);
+
   const saveResultsMutation = useMutation({
     mutationFn: (publish: boolean) => {
       if (!selectedExam) throw new Error("No exam selected");
+      const max = selectedExam.maxMarks || 100;
+      const invalid = marksSheet.some(
+        (m) => Number.isNaN(Number(m.marksObtained)) || Number(m.marksObtained) < 0 || Number(m.marksObtained) > max
+      );
+      if (invalid) {
+        throw new Error(`All marks must be between 0 and ${max}.`);
+      }
+      const isPublishedExam = Boolean(fetchedMarksData?.hasPublished) || selectedExam.status === "COMPLETED";
+      const trimmedReason = marksReason.trim();
+      if (isPublishedExam && trimmedReason.length < 10) {
+        throw new Error("Modifying completed/published results requires an audit reason of at least 10 characters.");
+      }
+      if (trimmedReason.length > 0 && trimmedReason.length < 10) {
+        throw new Error("Audit note must be at least 10 characters when provided (or leave blank for draft).");
+      }
       return examsApi.enterResults(
         selectedExam.id,
         marksSheet.map((m) => ({ studentId: m.studentId, marksObtained: Number(m.marksObtained) })),
-        marksReason || undefined
+        trimmedReason || undefined
       ).then(async () => {
         if (publish) {
           await examsApi.publishResults(selectedExam.id);
@@ -143,6 +180,7 @@ export default function TeacherDashboardPage() {
     onSuccess: (_, publish) => {
       toast.success(publish ? "Exam results published & notified to students!" : "Draft marks saved successfully!");
       if (publish) setSelectedExam(null);
+      queryClient.invalidateQueries({ queryKey: ["exam_results", selectedExam?.id] });
       refetchExams();
     },
     onError: (err: any) => {
@@ -152,10 +190,14 @@ export default function TeacherDashboardPage() {
 
   const handleLeaveSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (leaveTo < leaveFrom) {
+      toast.error("Leave end date cannot be earlier than start date.");
+      return;
+    }
     leaveMutation.mutate({
       fromDate: leaveFrom,
       toDate: leaveTo,
-      reason: leaveReason,
+      reason: leaveReason.trim(),
     });
   };
 
@@ -274,9 +316,9 @@ export default function TeacherDashboardPage() {
                 No teaching offerings assigned for the current academic session.
               </div>
             ) : (
-              classes?.map((cls) => (
+              classes?.map((cls, idx) => (
                 <div
-                  key={cls.id}
+                  key={(cls as any).slotId || `${cls.id}-${cls.time}-${idx}`}
                   className="p-3.5 rounded-xl border border-border bg-card hover:bg-muted/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                 >
                   <div>
@@ -360,6 +402,82 @@ export default function TeacherDashboardPage() {
         </Card>
       </div>
 
+      {/* Weekly Timetable & Leave Applications Status */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="p-5 pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-brand-600" />
+              Full Weekly Teaching Timetable ({weeklySlots.length} Slots)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 pt-0 space-y-2.5 text-xs max-h-72 overflow-y-auto">
+            {weeklySlots.length === 0 ? (
+              <p className="text-muted-foreground py-4 text-center">No recurring timetable slots assigned yet.</p>
+            ) : (
+              (["MON", "TUE", "WED", "THU", "FRI", "SAT"] as const).map((day) => {
+                const daySlots = weeklySlots.filter((s) => s.dayOfWeek === day);
+                if (daySlots.length === 0) return null;
+                return (
+                  <div key={day} className="rounded-xl border border-border p-3 space-y-1.5">
+                    <div className="font-bold text-[11px] text-brand-600 uppercase">{day}</div>
+                    {daySlots.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between py-1 border-t border-border/50 first:border-t-0">
+                        <span className="font-medium">
+                          {s.subjectOffering?.subject?.code} {s.subjectOffering?.subject?.name} (Sec {s.subjectOffering?.section?.name || "A"})
+                        </span>
+                        <span className="font-mono text-muted-foreground">
+                          {minutesToTimeString(s.startMinute)}–{minutesToTimeString(s.endMinute)} • {s.room?.code || "TBA"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="p-5 pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Plane className="h-4 w-4 text-brand-600" />
+              My Leave Requests ({myLeaves.length})
+            </CardTitle>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setIsLeaveOpen(true)}>
+              <Plus className="h-3 w-3 mr-1" /> New Leave
+            </Button>
+          </CardHeader>
+          <CardContent className="p-5 pt-0 space-y-2 text-xs max-h-72 overflow-y-auto">
+            {myLeaves.length === 0 ? (
+              <p className="text-muted-foreground py-4 text-center">No leave applications submitted.</p>
+            ) : (
+              myLeaves.map((leave) => (
+                <div key={leave.id} className="rounded-xl border border-border p-3 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-semibold">
+                      {new Date(leave.fromDate).toISOString().split("T")[0]} → {new Date(leave.toDate).toISOString().split("T")[0]}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        leave.status === "APPROVED"
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                          : leave.status === "REJECTED"
+                          ? "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                          : "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                      }`}
+                    >
+                      {leave.status}
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground">{leave.reason}</p>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {/* EXAMINATIONS & MARKS EVALUATION CONSOLE */}
       <Card>
         <CardHeader className="p-5 pb-3 flex flex-row items-center justify-between border-b border-border">
@@ -397,9 +515,9 @@ export default function TeacherDashboardPage() {
                         {exam.type}
                       </span>
                       <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                        exam.status === "PUBLISHED"
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 text-emerald-400"
-                          : "bg-amber-50 text-amber-700 dark:bg-amber-950 text-amber-400"
+                        exam.status === "COMPLETED"
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+                          : "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
                       }`}>
                         {exam.status}
                       </span>
@@ -574,14 +692,16 @@ export default function TeacherDashboardPage() {
               >
                 Save Draft
               </Button>
-              <Button
-                size="sm"
-                disabled={saveResultsMutation.isPending || marksSheet.length === 0}
-                isLoading={saveResultsMutation.isPending}
-                onClick={() => saveResultsMutation.mutate(true)}
-              >
-                Publish Results
-              </Button>
+              {(user?.role === "ADMIN" || user?.role === "EXAM_CONTROLLER" || user?.roleKeys?.includes("EXAM_CONTROLLER") || user?.roleKeys?.includes("COLLEGE_ADMIN")) && (
+                <Button
+                  size="sm"
+                  disabled={saveResultsMutation.isPending || marksSheet.length === 0}
+                  isLoading={saveResultsMutation.isPending}
+                  onClick={() => saveResultsMutation.mutate(true)}
+                >
+                  Publish Results
+                </Button>
+              )}
             </div>
           </div>
         </div>

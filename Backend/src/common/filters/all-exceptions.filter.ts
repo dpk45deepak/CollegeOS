@@ -7,6 +7,9 @@ export interface ErrorEnvelope {
   statusCode: number;
   message: string | string[];
   errorCode: string;
+  details?: Record<string, unknown>;
+  conflicts?: unknown;
+  reasons?: unknown;
   timestamp: string;
   requestId?: string;
 }
@@ -37,6 +40,7 @@ interface Normalised {
   statusCode: number;
   message: string | string[];
   errorCode: string;
+  extra?: Pick<ErrorEnvelope, 'details' | 'conflicts' | 'reasons'>;
 }
 
 @Catch()
@@ -50,7 +54,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const res = http.getResponse<Response>();
     const req = http.getRequest<Request & { id?: string }>();
 
-    const { statusCode, message, errorCode } = this.normalise(exception);
+    const { statusCode, message, errorCode, extra } = this.normalise(exception);
 
     if (statusCode >= 500) {
       // Full detail goes to logs/error tracking only — never to the client in production.
@@ -62,6 +66,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       statusCode,
       message,
       errorCode,
+      ...(extra ?? {}),
       timestamp: new Date().toISOString(),
       requestId: req.id,
     };
@@ -80,7 +85,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
           : Array.isArray(message) && statusCode === 400
             ? 'VALIDATION_ERROR'
             : (STATUS_CODES[statusCode] ?? 'HTTP_ERROR');
-      return { statusCode, message, errorCode };
+      const extra: Pick<ErrorEnvelope, 'details' | 'conflicts' | 'reasons'> = {};
+      if (obj.conflicts !== undefined) extra.conflicts = obj.conflicts;
+      if (obj.reasons !== undefined) extra.reasons = obj.reasons;
+      if (typeof obj.details === 'object' && obj.details !== null) extra.details = obj.details as Record<string, unknown>;
+      return { statusCode, message, errorCode, extra: Object.keys(extra).length ? extra : undefined };
     }
 
     switch (prismaCode(exception)) {

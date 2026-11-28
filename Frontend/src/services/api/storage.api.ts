@@ -1,10 +1,10 @@
-import { apiClient } from "@/lib/api/client";
+import { apiClient, apiDownload, API_BASE_URL } from "@/lib/api/client";
 
 export interface AttachmentUploadResult {
   key: string;
-  filename: string;
   mime: string;
-  size: number;
+  sizeBytes: number;
+  originalName: string;
 }
 
 export const storageApi = {
@@ -17,5 +17,15 @@ export const storageApi = {
       body: formData,
     });
   },
-};
 
+  getDownloadUrl: (key: string): string => {
+    return `${API_BASE_URL}/files/download?key=${encodeURIComponent(key)}`;
+  },
+
+  downloadFile: async (key: string, suggestedName?: string): Promise<void> => {
+    await apiDownload(
+      `/files/download?key=${encodeURIComponent(key)}`,
+      suggestedName || key.split("/").pop() || "download"
+    );
+  },
+};

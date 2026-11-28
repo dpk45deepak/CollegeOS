@@ -31,7 +31,7 @@ export class EmailChannel implements ChannelProvider {
   }
 }
 
-/** Push abstraction. Plug FCM/APNs/OneSignal here; the default logs so dev flows work without credentials. */
+/** Push abstraction. Supports OneSignal (when PUSH_APP_ID is set) or FCM HTTP endpoint (PUSH_API_URL); logs in dev when PUSH_PROVIDER_KEY is unset. */
 @Injectable()
 export class PushChannel implements ChannelProvider {
   readonly channel = 'PUSH' as const;
@@ -39,12 +39,50 @@ export class PushChannel implements ChannelProvider {
   constructor(private readonly config: AppConfigService) {}
   async send(to: Recipient, n: OutboundNotification) {
     if (!to.pushTokens.length) return;
-    if (!this.config.get('PUSH_PROVIDER_KEY')) {
+    const providerKey = this.config.get('PUSH_PROVIDER_KEY');
+    if (!providerKey) {
       this.logger.debug(`push (no provider) → ${to.pushTokens.length} device(s): ${n.title}`);
       return;
     }
-    // TODO(provider): call FCM HTTP v1 / OneSignal with `to.pushTokens` and `n`.
-    this.logger.warn('PUSH_PROVIDER_KEY set but no push provider implementation registered');
+
+    const appId = process.env.PUSH_APP_ID;
+    if (appId) {
+      const res = await fetch(process.env.PUSH_API_URL || 'https://api.onesignal.com/notifications', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Key ${providerKey}`,
+        },
+        body: JSON.stringify({
+          app_id: appId,
+          include_subscription_ids: to.pushTokens,
+          headings: { en: n.title },
+          contents: { en: n.body },
+          data: n.data ?? {},
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) throw new Error(`OneSignal push responded ${res.status}`);
+      this.logger.debug(`onesignal push sent to user ${to.id}`);
+      return;
+    }
+
+    const fcmUrl = process.env.PUSH_API_URL || 'https://fcm.googleapis.com/fcm/send';
+    const res = await fetch(fcmUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `key=${providerKey}`,
+      },
+      body: JSON.stringify({
+        registration_ids: to.pushTokens,
+        notification: { title: n.title, body: n.body },
+        data: n.data ?? {},
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw new Error(`Push gateway responded ${res.status}`);
+    this.logger.debug(`push sent to user ${to.id} (${to.pushTokens.length} device(s))`);
   }
 }
 

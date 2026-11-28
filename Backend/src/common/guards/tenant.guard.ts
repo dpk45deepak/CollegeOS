@@ -32,8 +32,11 @@ export class TenantGuard implements CanActivate {
           throw new ForbiddenException({ message: 'Cross-tenant access denied', errorCode: 'TENANT_MISMATCH' });
         }
       } else {
-        const exists = await this.prisma.college.findUnique({ where: { id: requested }, select: { id: true } });
+        const exists = await this.prisma.college.findUnique({ where: { id: requested }, select: { id: true, status: true } });
         if (!exists) throw new BadRequestException({ message: 'Unknown tenant', errorCode: 'TENANT_UNKNOWN' });
+        if (exists.status && exists.status !== 'ACTIVE') {
+          throw new ForbiddenException({ message: 'Institution is suspended', errorCode: 'COLLEGE_SUSPENDED' });
+        }
         tenantId = requested;
       }
     }

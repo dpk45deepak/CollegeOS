@@ -52,7 +52,7 @@ export function useUpdateStudent() {
     mutationFn: ({ id, dto }: { id: string; dto: UpdateStudentDto }) => studentsApi.update(id, dto),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: studentKeys.detail(vars.id) });
-      qc.invalidateQueries({ queryKey: studentKeys.list() });
+      qc.invalidateQueries({ queryKey: [...studentKeys.all, "list"] });
     },
   });
 }
@@ -112,7 +112,7 @@ export function useStudentAttendanceReport(wardId?: string) {
   });
 }
 
-export function useStudentAttendanceRecords(params?: { studentId?: string; subjectOfferingId?: string; from?: string; to?: string }) {
+export function useStudentAttendanceRecords(params?: { studentId?: string; subjectId?: string; from?: string; to?: string }) {
   return useQuery({
     queryKey: studentKeys.attendanceRecords(params),
     queryFn: () => studentsApi.getAttendanceRecords(params),

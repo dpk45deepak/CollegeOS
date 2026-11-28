@@ -43,7 +43,7 @@ export class StudentTools {
         anyOf: own,
         parameters: obj(sid),
         execute: async (ctx, a) => {
-          const id = await this.resolver.resolve(ctx, str(a, 'studentId'));
+          const id = await this.resolver.resolve(ctx, str(a, 'studentId') ?? ctx.studentId);
           const s = await this.students.get(ctx.principal, ctx.collegeId, id);
           return {
             summary: `Profile of ${s.user.firstName} ${s.user.lastName}`,
@@ -69,7 +69,7 @@ export class StudentTools {
         anyOf: [P.ATTENDANCE_VIEW_OWN, P.ATTENDANCE_VIEW],
         parameters: obj(sid),
         execute: async (ctx, a) => {
-          const id = await this.resolver.resolve(ctx, str(a, 'studentId'));
+          const id = await this.resolver.resolve(ctx, str(a, 'studentId') ?? ctx.studentId);
           const r = await this.attendance.report(ctx.collegeId, id);
           return { summary: `Overall attendance ${r.overall.percentage ?? 'n/a'}% (minimum ${r.threshold}%)`, data: r };
         },
@@ -80,10 +80,11 @@ export class StudentTools {
         anyOf: [P.TIMETABLE_VIEW],
         parameters: obj({ ...sid, scope: { type: 'string', enum: ['today', 'week'] } }),
         execute: async (ctx, a) => {
+          const requestedId = str(a, 'studentId') ?? ctx.studentId;
           const slots =
-            ctx.principal.teacherId && !ctx.principal.studentId
+            !requestedId && ctx.principal.teacherId && !ctx.principal.studentId
               ? await this.timetable.forTeacher(ctx.principal, ctx.collegeId)
-              : await this.timetable.forStudent(ctx.collegeId, await this.resolver.resolve(ctx, str(a, 'studentId')));
+              : await this.timetable.forStudent(ctx.collegeId, await this.resolver.resolve(ctx, requestedId));
           const college = await this.prisma.college.findUniqueOrThrow({
             where: { id: ctx.collegeId },
             select: { timezone: true },
@@ -114,7 +115,7 @@ export class StudentTools {
         anyOf: [P.EXAM_VIEW],
         parameters: obj({ ...sid, withinDays: { type: 'integer', minimum: 1, maximum: 180 } }),
         execute: async (ctx, a) => {
-          const id = await this.resolver.resolve(ctx, str(a, 'studentId'));
+          const id = await this.resolver.resolve(ctx, str(a, 'studentId') ?? ctx.studentId);
           const list = await this.exams.upcomingForStudent(ctx.collegeId, id, int(a, 'withinDays', 60, 1, 180));
           const data = list.map((e) => ({
             subject: e.subjectOffering.subject.name,
@@ -143,7 +144,7 @@ export class StudentTools {
           pendingOnly: { type: 'boolean' },
         }),
         execute: async (ctx, a) => {
-          const id = await this.resolver.resolve(ctx, str(a, 'studentId'));
+          const id = await this.resolver.resolve(ctx, str(a, 'studentId') ?? ctx.studentId);
           const q = Object.assign(page(30), { pending: a.pendingOnly === false ? undefined : 'true' });
           const res = await this.assignments.listForStudent(ctx.collegeId, id, q);
           const horizon = Date.now() + int(a, 'dueWithinDays', 14, 1, 60) * 86_400_000;
@@ -169,7 +170,7 @@ export class StudentTools {
         anyOf: own,
         parameters: obj(sid),
         execute: async (ctx, a) => {
-          const id = await this.resolver.resolve(ctx, str(a, 'studentId'));
+          const id = await this.resolver.resolve(ctx, str(a, 'studentId') ?? ctx.studentId);
           const [performance, risk] = await Promise.all([
             this.perf.forStudent(ctx.collegeId, id),
             this.risk.assess(ctx.collegeId, id, false),

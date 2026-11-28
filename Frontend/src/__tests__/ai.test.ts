@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { aiApi } from "../lib/api/ai";
+import { aiApi, mapBackendChatResponse } from "../lib/api/ai";
 import { ApiError } from "../lib/api/client";
+import { streamAiChatOverSocket } from "../lib/socket/socketClient";
 
 describe("AI Copilot API Engine Integration", () => {
   beforeEach(() => {
@@ -114,5 +115,21 @@ describe("AI Copilot API Engine Integration", () => {
     });
 
     await expect(aiApi.sendMessage("Test message")).rejects.toThrowError(ApiError);
+  });
+
+  it("maps streamed socket replies identically and returns null when socket is disconnected", async () => {
+    const res = await streamAiChatOverSocket({ message: "Hello" });
+    expect(res).toBeNull();
+
+    const mapped = mapBackendChatResponse({
+      conversationId: "conv_ws_1",
+      reply: "Your next lecture is CS301 at 10:00 AM.",
+      agent: "AcademicAssistantAgent",
+      mode: "tool",
+      collegeData: [{ tool: "timetable", ok: true, summary: "Fetched today's schedule" }],
+    });
+    expect(mapped.conversationId).toBe("conv_ws_1");
+    expect(mapped.isOfficial).toBe(true);
+    expect(mapped.toolExecution?.toolName).toBe("timetable");
   });
 });

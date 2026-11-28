@@ -164,3 +164,136 @@ describe('attendance period keys by college mode', () => {
   });
   it('CUSTOM requires a label', () => expect(() => resolvePeriodKey('CUSTOM', {})).toThrow(BadRequestException));
 });
+
+describe('attendance mark lecture & schedule enforcement', () => {
+  const buildMarkEnv = (overrides: {
+    exception?: { type: string; substituteTeacherId?: string | null } | null;
+    slot?: { id: string; subjectOfferingId: string; dayOfWeek: string; validFrom?: Date; validTo?: Date | null } | null;
+    enrolledIds?: string[];
+  }) => {
+    const today = new Date();
+    const utcDayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const todayDay = utcDayNames[today.getUTCDay()];
+    const tx = {
+      attendanceSession: { upsert: jest.fn(async () => ({ id: 'sess1' })) },
+      attendance: {
+        findMany: jest.fn(async () => []),
+        createMany: jest.fn(async () => ({ count: 1 })),
+      },
+    };
+    const prisma = {
+      timetableException: { findFirst: jest.fn(async () => overrides.exception ?? null) },
+      subjectOffering: {
+        findFirst: jest.fn(async () => ({
+          id: 'off1',
+          collegeId: 'c1',
+          teacherId: 'teacher1',
+          subject: { id: 'sub1', departmentId: 'cse' },
+        })),
+        findFirstOrThrow: jest.fn(async () => ({
+          id: 'off1',
+          collegeId: 'c1',
+          teacherId: 'teacher1',
+          subject: { id: 'sub1', departmentId: 'cse' },
+        })),
+      },
+      college: { findUniqueOrThrow: jest.fn(async () => ({ attendanceMode: 'PER_LECTURE' })) },
+      timetableSlot: {
+        findFirst: jest.fn(async () =>
+          'slot' in overrides
+            ? overrides.slot
+            : {
+                id: 'slot1',
+                subjectOfferingId: 'off1',
+                dayOfWeek: todayDay,
+                validFrom: new Date(Date.now() - 86_400_000 * 30),
+                validTo: new Date(Date.now() + 86_400_000 * 30),
+              },
+        ),
+      },
+      enrollment: {
+        findMany: jest.fn(async () => (overrides.enrolledIds ?? ['stu1']).map((studentId) => ({ studentId }))),
+      },
+      $transaction: jest.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
+    };
+    const audit = { log: jest.fn(async () => undefined) };
+    const events = { emit: jest.fn() };
+    const svc = new AttendanceService(prisma as never, new AccessService(prisma as never), audit as never, events as never);
+    return { svc, tx, audit, events, today, todayDay };
+  };
+
+  it('blocks attendance for a cancelled lecture date', async () => {
+    const { svc, today } = buildMarkEnv({ exception: { type: 'CANCELLED' } });
+    await expect(
+      svc.mark(p({ roleKeys: ['TEACHER'], teacherId: 'teacher1' }), 'c1', {
+        subjectOfferingId: 'off1',
+        timetableSlotId: 'slot1',
+        date: today,
+        records: [{ studentId: 'stu1', status: 'PRESENT' }],
+      }),
+    ).rejects.toMatchObject({ response: { errorCode: 'LECTURE_CANCELLED' } });
+  });
+
+  it('blocks attendance when date falls outside timetable slot term dates', async () => {
+    const todayDay = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][new Date().getUTCDay()];
+    const { svc, today } = buildMarkEnv({
+      slot: {
+        id: 'slot1',
+        subjectOfferingId: 'off1',
+        dayOfWeek: todayDay,
+        validFrom: new Date('2020-01-01'),
+        validTo: new Date('2020-06-01'),
+      },
+    });
+    await expect(
+      svc.mark(p({ roleKeys: ['TEACHER'], teacherId: 'teacher1' }), 'c1', {
+        subjectOfferingId: 'off1',
+        timetableSlotId: 'slot1',
+        date: today,
+        records: [{ studentId: 'stu1', status: 'PRESENT' }],
+      }),
+    ).rejects.toMatchObject({ response: { errorCode: 'LECTURE_OUTSIDE_TERM' } });
+  });
+
+  it('blocks attendance when slot is scheduled for another weekday and not rescheduled', async () => {
+    const todayDay = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][new Date().getUTCDay()];
+    const otherDay = todayDay === 'MON' ? 'TUE' : 'MON';
+    const { svc, today } = buildMarkEnv({
+      slot: {
+        id: 'slot1',
+        subjectOfferingId: 'off1',
+        dayOfWeek: otherDay,
+        validFrom: new Date(Date.now() - 86_400_000 * 10),
+        validTo: new Date(Date.now() + 86_400_000 * 10),
+      },
+    });
+    await expect(
+      svc.mark(p({ roleKeys: ['TEACHER'], teacherId: 'teacher1' }), 'c1', {
+        subjectOfferingId: 'off1',
+        timetableSlotId: 'slot1',
+        date: today,
+        records: [{ studentId: 'stu1', status: 'PRESENT' }],
+      }),
+    ).rejects.toMatchObject({ response: { errorCode: 'LECTURE_WRONG_DAY' } });
+  });
+
+  it('rejects marking students not enrolled in the offering and marks valid sessions', async () => {
+    const { svc, today } = buildMarkEnv({ enrolledIds: ['stu1'] });
+    await expect(
+      svc.mark(p({ roleKeys: ['TEACHER'], teacherId: 'teacher1' }), 'c1', {
+        subjectOfferingId: 'off1',
+        timetableSlotId: 'slot1',
+        date: today,
+        records: [{ studentId: 'outsider', status: 'PRESENT' }],
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    const res = await svc.mark(p({ roleKeys: ['TEACHER'], teacherId: 'teacher1' }), 'c1', {
+      subjectOfferingId: 'off1',
+      timetableSlotId: 'slot1',
+      date: today,
+      records: [{ studentId: 'stu1', status: 'PRESENT' }],
+    });
+    expect(res).toEqual({ sessionId: 'sess1', created: 1, skippedAlreadyMarked: [] });
+  });
+});

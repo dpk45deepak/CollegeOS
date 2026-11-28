@@ -76,6 +76,12 @@ enum DayOfWeek {
   SUN
 }
 
+enum TimetableExceptionType {
+  CANCELLED
+  RESCHEDULED
+  SUBSTITUTED
+}
+
 enum RoomType {
   CLASSROOM
   LAB
@@ -307,6 +313,7 @@ model College {
   enrollments             Enrollment[]
   rooms                   Room[]
   timetableSlots          TimetableSlot[]
+  timetableExceptions     TimetableException[]
   attendanceSessions      AttendanceSession[]
   attendances             Attendance[]
   attendanceCorrections   AttendanceCorrection[]
@@ -698,6 +705,7 @@ model Teacher {
   leaveRequests         LeaveRequest[]
   subjectOfferings      SubjectOffering[]
   teacherAvailabilities TeacherAvailability[]
+  substitutedExceptions TimetableException[] @relation("SubstituteTeacher")
 
   @@unique([collegeId, employeeId])
   @@index([departmentId])
@@ -790,8 +798,9 @@ model Room {
   type           RoomType        @default(CLASSROOM)
   capacity       Int
   // ── back-relations
-  timetableSlots TimetableSlot[]
-  exams          Exam[]
+  timetableSlots      TimetableSlot[]
+  overrideExceptions  TimetableException[] @relation("OverrideRoom")
+  exams               Exam[]
 
   @@unique([collegeId, campusId, code])
 }
@@ -818,11 +827,35 @@ model TimetableSlot {
   dayOfWeek         DayOfWeek
   startMinute       Int
   endMinute         Int
-  validFrom         DateTime        @db.Date
-  validTo           DateTime?       @db.Date
+  validFrom         DateTime             @db.Date
+  validTo           DateTime?            @db.Date
+  exceptions        TimetableException[]
 
   @@index([subjectOfferingId, dayOfWeek])
   @@index([roomId, dayOfWeek, startMinute])
+}
+
+model TimetableException {
+  id                  String                 @id @default(cuid())
+  collegeId           String
+  college             College                @relation(fields: [collegeId], references: [id])
+  slotId              String
+  slot                TimetableSlot          @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  date                DateTime               @db.Date
+  type                TimetableExceptionType
+  substituteTeacherId String?
+  substituteTeacher   Teacher?               @relation("SubstituteTeacher", fields: [substituteTeacherId], references: [id])
+  overrideRoomId      String?
+  overrideRoom        Room?                  @relation("OverrideRoom", fields: [overrideRoomId], references: [id])
+  overrideStartMinute Int?
+  overrideEndMinute   Int?
+  reason              String
+  createdById         String
+  createdAt           DateTime               @default(now())
+
+  @@unique([slotId, date])
+  @@index([collegeId, date])
+  @@index([substituteTeacherId, date])
 }
 
 // ───────────────────────── Attendance ─────────────────────────

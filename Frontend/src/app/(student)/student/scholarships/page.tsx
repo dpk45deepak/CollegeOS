@@ -21,6 +21,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { toast } from "sonner";
 
 export default function StudentScholarshipsPage() {
   const queryClient = useQueryClient();
@@ -32,12 +33,29 @@ export default function StudentScholarshipsPage() {
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
   const [isWhyModalOpen, setIsWhyModalOpen] = useState(false);
   const [appliedId, setAppliedId] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Record<string, boolean>>({});
 
   const applyMutation = useMutation({
     mutationFn: (id: string) => studentApi.applyScholarship(id),
     onSuccess: (_, id) => {
       setAppliedId(id);
+      toast.success("Scholarship application submitted successfully!");
       queryClient.invalidateQueries({ queryKey: ["student_scholarships"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to submit scholarship application.");
+    },
+  });
+
+  const interestMutation = useMutation({
+    mutationFn: (id: string) => studentApi.expressScholarshipInterest(id),
+    onSuccess: (_, id) => {
+      setSavedIds((prev) => ({ ...prev, [id]: true }));
+      toast.success("Scholarship saved to your watchlist for deadline reminders.");
+      queryClient.invalidateQueries({ queryKey: ["student_scholarships"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to save scholarship interest.");
     },
   });
 
@@ -100,7 +118,20 @@ export default function StudentScholarshipsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {scholarships.map((sch) => {
           const isHighMatch = sch.matchScore >= 80;
-          const isApplied = appliedId === sch.id || sch.status === "APPLIED";
+          const isTerminalOrApplied =
+            appliedId === sch.id ||
+            ["APPLIED", "APPROVED", "DISBURSED", "REJECTED"].includes(sch.status);
+          const isInterested = savedIds[sch.id] || sch.status === "INTERESTED";
+          const actionLabel =
+            sch.status === "APPROVED"
+              ? "Approved"
+              : sch.status === "DISBURSED"
+                ? "Disbursed"
+                : sch.status === "REJECTED"
+                  ? "Rejected"
+                  : isTerminalOrApplied
+                    ? "Applied"
+                    : "Apply";
 
           return (
             <Card key={sch.id} className="flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -128,9 +159,11 @@ export default function StudentScholarshipsPage() {
 
                 <div className="flex items-baseline gap-2 pt-1">
                   <span className="text-lg font-extrabold text-brand-600 font-mono">
-                    {formatCurrency(sch.amount)}
+                    {sch.hasAmount === false || !sch.amount ? "Merit / Variable Grant" : formatCurrency(sch.amount)}
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Annual Grant</span>
+                  {sch.hasAmount !== false && sch.amount > 0 && (
+                    <span className="text-[11px] text-muted-foreground">Annual Grant</span>
+                  )}
                 </div>
               </CardHeader>
 
@@ -168,13 +201,26 @@ export default function StudentScholarshipsPage() {
                     <span className="text-[11px] text-muted-foreground font-mono">
                       Due: {formatDate(sch.deadline)}
                     </span>
+                    {!isTerminalOrApplied && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isInterested || (interestMutation.isPending && interestMutation.variables === sch.id)}
+                        onClick={() => interestMutation.mutate(sch.id)}
+                        className="text-xs h-8 gap-1"
+                        title="Save & track deadline alerts"
+                      >
+                        <Bookmark className="h-3 w-3" />
+                        {isInterested ? "Saved" : "Save"}
+                      </Button>
+                    )}
                     <Button
                       size="sm"
-                      disabled={isApplied || applyMutation.isPending}
+                      disabled={isTerminalOrApplied || (applyMutation.isPending && applyMutation.variables === sch.id)}
                       onClick={() => applyMutation.mutate(sch.id)}
                       className="text-xs h-8"
                     >
-                      {isApplied ? "Applied" : "Apply"}
+                      {actionLabel}
                     </Button>
                   </div>
                 </div>
@@ -209,14 +255,39 @@ export default function StudentScholarshipsPage() {
               </p>
             </div>
 
+            {selectedScholarship.matchDetails &&
+              (selectedScholarship.matchDetails.met.length > 0 ||
+                selectedScholarship.matchDetails.unmet.length > 0 ||
+                selectedScholarship.matchDetails.toVerify.length > 0) && (
+                <div className="space-y-2">
+                  <span className="font-bold text-foreground">Eligibility Criteria Checks:</span>
+                  <ul className="space-y-1.5 text-muted-foreground">
+                    {selectedScholarship.matchDetails.met.map((req, i) => (
+                      <li key={`met-${i}`} className="flex items-start gap-2">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>{req}</span>
+                      </li>
+                    ))}
+                    {selectedScholarship.matchDetails.toVerify.map((req, i) => (
+                      <li key={`verify-${i}`} className="flex items-start gap-2">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                        <span>Verify: {req}</span>
+                      </li>
+                    ))}
+                    {selectedScholarship.matchDetails.unmet.map((req, i) => (
+                      <li key={`unmet-${i}`} className="flex items-start gap-2 text-rose-600">
+                        <span>✕ {req}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
             <div className="space-y-2">
-              <span className="font-bold text-foreground">Rule Verification Check:</span>
-              <ul className="space-y-1.5 text-muted-foreground">
+              <span className="font-bold text-foreground">Required Documents:</span>
+              <ul className="space-y-1 text-muted-foreground list-disc pl-4">
                 {((selectedScholarship?.requirements || [])).map((req, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>{req}</span>
-                  </li>
+                  <li key={i}>{req}</li>
                 ))}
               </ul>
             </div>

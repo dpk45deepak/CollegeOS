@@ -34,17 +34,11 @@ export interface SubjectOffering {
 
 export interface StudentRosterItem {
   id: string;
-  studentId: string;
-  subjectOfferingId: string;
-  student: {
-    id: string;
-    rollNumber: string;
-    user: {
-      firstName: string;
-      lastName: string;
-      loginId: string;
-      email: string;
-    };
+  rollNumber: string;
+  collegeStudentId?: string;
+  user: {
+    firstName: string;
+    lastName: string;
   };
 }
 

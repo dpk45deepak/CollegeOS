@@ -65,7 +65,7 @@ export function useCreateEvent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (dto: CreateEventDto) => campusApi.createEvent(dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: campusKeys.events() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...campusKeys.all, "events"] }),
   });
 }
 
@@ -73,7 +73,7 @@ export function useUpdateEvent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: Partial<CreateEventDto> }) => campusApi.updateEvent(id, dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: campusKeys.events() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...campusKeys.all, "events"] }),
   });
 }
 

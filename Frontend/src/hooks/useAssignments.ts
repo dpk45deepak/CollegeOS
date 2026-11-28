@@ -4,7 +4,7 @@ import { assignmentsApi, CreateAssignmentDto } from "@/services/api/assignments.
 export const assignmentKeys = {
   all: ["assignments"] as const,
   list: (params?: any) => [...assignmentKeys.all, "list", params] as const,
-  submissions: (id: string) => [...assignmentKeys.all, "submissions", id] as const,
+  submissions: (id: string, params?: any) => [...assignmentKeys.all, "submissions", id, params] as const,
   missing: (id: string) => [...assignmentKeys.all, "missing", id] as const,
 };
 
@@ -37,7 +37,7 @@ export function useSubmitAssignment() {
 
 export function useAssignmentSubmissions(assignmentId: string, params?: { page?: number; limit?: number }) {
   return useQuery({
-    queryKey: assignmentKeys.submissions(assignmentId),
+    queryKey: assignmentKeys.submissions(assignmentId, params),
     queryFn: () => assignmentsApi.getSubmissions(assignmentId, params),
     enabled: !!assignmentId,
   });

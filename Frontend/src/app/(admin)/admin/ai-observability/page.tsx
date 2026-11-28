@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "@/lib/api/admin";
 import {
@@ -19,14 +19,16 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminAIObservabilityPage() {
+  const [days, setDays] = useState<number>(7);
+
   const { data: usage, isLoading: isUsageLoading } = useQuery({
-    queryKey: ["admin_ai_usage"],
-    queryFn: () => adminApi.getAIUsage(7),
+    queryKey: ["admin_ai_usage", days],
+    queryFn: () => adminApi.getAIUsage(days),
   });
 
   const { data: logs, isLoading: isLogsLoading } = useQuery({
-    queryKey: ["admin_ai_logs"],
-    queryFn: () => adminApi.getAILogs(),
+    queryKey: ["admin_ai_logs", days],
+    queryFn: () => adminApi.getAILogs(days),
   });
 
   const isLoading = isUsageLoading || isLogsLoading;
@@ -63,21 +65,33 @@ export default function AdminAIObservabilityPage() {
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="pb-2 border-b border-border">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-purple-600">
-            LLM Engineering & RAG Observability
-          </span>
-          <span className="text-[10px] bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200 px-2 py-0.5 rounded-full font-bold">
-            Live Telemetry
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-600">
+              LLM Engineering & RAG Observability
+            </span>
+            <span className="text-[10px] bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200 px-2 py-0.5 rounded-full font-bold">
+              Live Telemetry
+            </span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-foreground mt-0.5">
+            Campus Copilot Agent Execution Audit
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Inspect query intents, tool calls, vector search citations, and execution latencies in accordance with institutional privacy guidelines.
+          </p>
         </div>
-        <h1 className="text-2xl font-extrabold text-foreground mt-0.5">
-          Campus Copilot Agent Execution Audit
-        </h1>
-        <p className="text-xs text-muted-foreground mt-1">
-          Inspect query intents, tool calls, vector search citations, and execution latencies in accordance with institutional privacy guidelines.
-        </p>
+        <select
+          aria-label="Telemetry window days"
+          value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+          className="h-9 rounded-lg border border-border bg-card px-3 text-xs font-semibold"
+        >
+          <option value={7}>Last 7 Days</option>
+          <option value={30}>Last 30 Days</option>
+          <option value={90}>Last 90 Days</option>
+        </select>
       </div>
 
       {/* Aggregate Telemetry Cards */}
@@ -85,7 +99,7 @@ export default function AdminAIObservabilityPage() {
         <div className="p-4 rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-muted-foreground uppercase font-bold block">
-              Invocations (7d)
+              Invocations ({days}d)
             </span>
             <Zap className="h-4 w-4 text-purple-600" />
           </div>

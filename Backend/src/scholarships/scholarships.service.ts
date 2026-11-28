@@ -113,7 +113,13 @@ export class ScholarshipsService {
       include: { scholarship: { select: { name: true, deadline: true } } },
     });
   }
-  async decide(c: string, scholarshipId: string, studentId: string, status: 'APPROVED' | 'REJECTED' | 'DISBURSED') {
+  async decide(
+    c: string,
+    scholarshipId: string,
+    studentId: string,
+    status: 'APPROVED' | 'REJECTED' | 'DISBURSED',
+    actorId: string,
+  ) {
     await this.own.assert('scholarship', scholarshipId, c);
     const app = await this.prisma.scholarshipApplication.findUnique({
       where: { scholarshipId_studentId: { scholarshipId, studentId } },
@@ -126,7 +132,7 @@ export class ScholarshipsService {
     await this.prisma.scholarshipApplication.update({ where: { id: app.id }, data: { status } });
     await this.audit.log({
       collegeId: c,
-      userId: app.student.userId,
+      userId: actorId,
       action: 'SCHOLARSHIP_DECISION',
       entity: 'ScholarshipApplication',
       entityId: app.id,
@@ -169,5 +175,24 @@ export class ScholarshipsService {
       n += interested.length;
     }
     return n;
+  }
+
+  async listApplications(c: string, scholarshipId: string) {
+    await this.own.assert('scholarship', scholarshipId, c);
+    return this.prisma.scholarshipApplication.findMany({
+      where: { scholarshipId },
+      include: {
+        student: {
+          select: {
+            id: true,
+            rollNumber: true,
+            cgpa: true,
+            user: { select: { firstName: true, lastName: true, loginId: true, email: true } },
+            department: { select: { code: true, name: true } },
+          },
+        },
+      },
+      orderBy: [{ appliedAt: 'desc' }, { id: 'desc' }],
+    });
   }
 }

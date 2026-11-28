@@ -45,7 +45,9 @@ export class FeesService {
     @Inject(PAYMENT_GATEWAYS) private readonly gateways: Map<string, PaymentGateway>,
   ) {}
 
-  createStructure(c: string, dto: D.CreateFeeStructureDto) {
+  async createStructure(c: string, dto: D.CreateFeeStructureDto) {
+    await this.own.assert('program', dto.programId, c);
+    await this.own.assert('batch', dto.batchId, c);
     return this.prisma.feeStructure.create({
       data: {
         collegeId: c,
@@ -137,7 +139,19 @@ export class FeesService {
       where: { collegeId: c, studentId },
       include: {
         feeStructure: { select: { name: true, academicYear: true, components: true } },
-        payments: { select: { id: true, amount: true, status: true, paidAt: true, receiptNo: true } },
+        payments: {
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            paidAt: true,
+            receiptNo: true,
+            gateway: true,
+            gatewayRef: true,
+            refunds: { select: { id: true, amount: true, status: true, reason: true, processedAt: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
       },
       orderBy: { dueDate: 'asc' },
     });
@@ -151,7 +165,14 @@ export class FeesService {
         where,
         orderBy: { dueDate: 'asc' },
         ...toSkipTake(q),
-        include: { student: { select: { rollNumber: true, user: { select: { firstName: true, lastName: true } } } } },
+        include: {
+          student: { select: { rollNumber: true, user: { select: { firstName: true, lastName: true } } } },
+          feeStructure: { select: { id: true, name: true, academicYear: true } },
+          payments: {
+            select: { id: true, amount: true, status: true, receiptNo: true, paidAt: true, gateway: true },
+            orderBy: { createdAt: 'desc' },
+          },
+        },
       }),
       this.prisma.studentFee.count({ where }),
     ]);
@@ -279,8 +300,10 @@ export class FeesService {
     };
   }
   async receiptForStudent(p: Principal, c: string, paymentId: string) {
+    const allowedStudentIds = [p.studentId, ...(p.guardianOfStudentIds ?? [])].filter((id): id is string => !!id);
+    if (!allowedStudentIds.length) throw new NotFoundException('Receipt not found');
     const pay = await this.prisma.payment.findFirst({
-      where: { id: paymentId, collegeId: c, studentFee: { studentId: p.studentId ?? '__none__' } },
+      where: { id: paymentId, collegeId: c, studentFee: { studentId: { in: allowedStudentIds } } },
       select: { id: true },
     });
     if (!pay) throw new NotFoundException('Receipt not found');
@@ -374,6 +397,107 @@ export class FeesService {
       n++;
     }
     return n;
+  }
+
+  /** Completes a pending mock-gateway payment cleanly so interactive UI checkout works end-to-end without real charges. */
+  async completeMockPayment(p: Principal, c: string, paymentId: string, succeed = true) {
+    if (process.env.PAYMENT_GATEWAY && process.env.PAYMENT_GATEWAY !== 'mock') {
+      throw new BadRequestException('Interactive mock settlement is disabled for live payment gateways');
+    }
+    const payment = await this.prisma.payment.findFirst({
+      where: { id: paymentId, collegeId: c },
+      include: { studentFee: true },
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.gateway !== 'mock') {
+      throw new BadRequestException('Only mock gateway payments can be settled here');
+    }
+    const isStaff = p.roleKeys.some((r) => ['ACCOUNTANT', 'COLLEGE_ADMIN', 'SUPER_ADMIN'].includes(r));
+    const isOwner =
+      (p.studentId && payment.studentFee.studentId === p.studentId) ||
+      p.guardianOfStudentIds.includes(payment.studentFee.studentId);
+    if (!isStaff && !isOwner) {
+      throw new NotFoundException('Payment not found');
+    }
+    if (payment.status !== PaymentStatus.PENDING) {
+      return { payment, alreadySettled: true };
+    }
+
+    const receiptNo = succeed ? await this.receiptNo(c) : null;
+    const paidAt = succeed ? new Date() : null;
+    return this.prisma.$transaction(async (tx) => {
+      const moved = await tx.payment.updateMany({
+        where: { id: paymentId, status: PaymentStatus.PENDING },
+        data: {
+          status: succeed ? PaymentStatus.SUCCESS : PaymentStatus.FAILED,
+          paidAt,
+          receiptNo,
+        },
+      });
+      if (moved.count !== 1) return { payment, alreadySettled: true };
+      const updated = await tx.payment.findUniqueOrThrow({ where: { id: paymentId } });
+      if (succeed) {
+        const fee = await tx.studentFee.findUniqueOrThrow({ where: { id: payment.studentFeeId } });
+        const paid = fromPaise(toPaise(fee.amountPaid) + toPaise(payment.amount));
+        await tx.studentFee.update({
+          where: { id: fee.id },
+          data: { amountPaid: paid, status: feeStatus({ ...snap(fee), amountPaid: paid }) },
+        });
+      }
+      await this.audit.log(
+        {
+          collegeId: c,
+          userId: p.userId,
+          action: succeed ? 'PAYMENT_MOCK_SETTLED' : 'PAYMENT_MOCK_FAILED',
+          entity: 'Payment',
+          entityId: paymentId,
+          newValue: { status: updated.status, receiptNo },
+        },
+        tx,
+      );
+      return { payment: updated, receiptNo };
+    });
+  }
+
+  async listRefunds(c: string, q: D.FeeListQueryDto) {
+    const where: Prisma.RefundWhereInput = {
+      payment: {
+        collegeId: c,
+        ...(q.studentId ? { studentFee: { studentId: q.studentId } } : {}),
+      },
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.refund.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        ...toSkipTake(q),
+        include: {
+          payment: {
+            select: {
+              id: true,
+              amount: true,
+              receiptNo: true,
+              gateway: true,
+              studentFee: {
+                select: {
+                  id: true,
+                  studentId: true,
+                  student: {
+                    select: {
+                      rollNumber: true,
+                      user: { select: { firstName: true, lastName: true, loginId: true } },
+                    },
+                  },
+                  feeStructure: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.refund.count({ where }),
+    ]);
+    return paginate(items, total, q);
   }
 
   private async ownFee(p: Principal, c: string, feeId: string) {

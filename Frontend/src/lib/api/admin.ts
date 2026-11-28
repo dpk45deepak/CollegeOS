@@ -56,10 +56,39 @@ export interface AIAgentExecutionLog {
 
 export const adminApi = {
   getAttentionMetrics: async (): Promise<AdminAttentionMetric[]> => {
-    const raw = await apiClient<any[]>("/analytics/attention");
-    const items = Array.isArray(raw) ? raw : [];
+    const mapActionUrl = (key?: string, action?: string): string => {
+      if (action && action.startsWith("/")) return action;
+      switch (key) {
+        case "attendance_shortage":
+          return "/hod/dashboard";
+        case "attendance_corrections":
+          return "/hod/dashboard";
+        case "complaints_high":
+        case "complaints_sla":
+          return "/support/dashboard";
+        case "fees_overdue":
+          return "/accountant/dashboard";
+        case "placement_drives_today":
+        case "placement_jobs_closing":
+          return "/placement-officer/dashboard";
+        case "results_unpublished":
+          return "/exam-controller/dashboard";
+        case "documents_failed":
+          return "/library/dashboard";
+        case "students_high_risk":
+          return "/principal/dashboard";
+        case "scholarship_deadlines":
+          return "/student/scholarships";
+        case "assignment_deadlines":
+          return "/teacher/assignments";
+        default:
+          return "/admin/analytics";
+      }
+    };
+    const raw = await apiClient<any>("/analytics/attention");
+    const items = Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
 
-    return items.map((item, idx) => {
+    return items.map((item: any, idx: number) => {
       let category: AdminAttentionMetric["category"] = "Academics";
       if (item.key?.includes("attendance")) category = "Attendance";
       else if (item.key?.includes("complaint")) category = "Complaints";
@@ -72,22 +101,23 @@ export const adminApi = {
       else if (item.severity === "MEDIUM") severity = "medium";
 
       return {
-        id: `att_${idx}_${item.key}`,
+        id: `att_${idx}_${item.key || idx}`,
         category,
         count: item.count || 0,
-        label: item.message || item.key,
+        label: item.message || item.key || "Attention Needed",
         description: item.message || "",
         severity,
         actionText: "Review Item",
-        actionUrl: item.action || "/admin/analytics",
+        actionUrl: mapActionUrl(item.key, item.action),
       };
     });
   },
 
   getAnalyticsData: async (): Promise<AdminAnalyticsData> => {
-    const [overview, depts] = await Promise.all([
-      apiClient<any>("/analytics/overview").catch(() => null),
-      apiClient<any[]>("/analytics/departments").catch(() => []),
+    const [overview, depts, exec] = await Promise.all([
+      apiClient<any>("/analytics/overview"),
+      apiClient<any[]>("/analytics/departments"),
+      apiClient<any>("/analytics/executive").catch(() => null),
     ]);
 
     const attendanceByDept = Array.isArray(depts)
@@ -105,12 +135,42 @@ export const adminApi = {
         ]
       : [];
 
+    const cgpaDistribution = Array.isArray(exec?.cgpaDistribution)
+      ? exec.cgpaDistribution.map((b: any) => ({
+          bracket: b.bracket || b.range || "N/A",
+          students: Number(b.students ?? b.count ?? 0),
+        }))
+      : Array.isArray(depts)
+        ? depts
+            .filter((d: any) => typeof d.avgCgpa === "number" && d.avgCgpa > 0)
+            .map((d: any) => ({ bracket: `${d.department} Avg`, students: Number(d.avgCgpa.toFixed(2)) }))
+        : [];
+
+    const placementStats = Array.isArray(exec?.topRecruiters)
+      ? exec.topRecruiters.map((r: any) => ({
+          company: r.company || r.name || "Recruiter",
+          offers: r.offers ?? r.count ?? 0,
+          avgPackage: r.avgPackage ?? r.avgCtc ?? 0,
+        }))
+      : Array.isArray(exec?.placementStats)
+        ? exec.placementStats
+        : exec?.placementStats && typeof exec.placementStats === "object"
+          ? [
+              { company: "Total Jobs", offers: Number(exec.placementStats.totalJobs ?? 0), avgPackage: Number(exec.placementStats.averageCtc ?? 0) },
+              { company: "Open Jobs", offers: Number(exec.placementStats.openJobs ?? 0), avgPackage: Number(exec.placementStats.averageCtc ?? 0) },
+              { company: "Drives", offers: Number(exec.placementStats.drivesCount ?? 0), avgPackage: Number(exec.placementStats.averageCtc ?? 0) },
+              { company: "Applications", offers: Number(exec.placementStats.applicationsCount ?? 0), avgPackage: Number(exec.placementStats.averageCtc ?? 0) },
+              { company: "Offers Issued", offers: Number(exec.placementStats.offersIssued ?? 0), avgPackage: Number(exec.placementStats.averageCtc ?? 0) },
+              { company: "Offers Accepted", offers: Number(exec.placementStats.offersAccepted ?? 0), avgPackage: Number(exec.placementStats.averageCtc ?? 0) },
+            ].filter((row) => row.offers > 0)
+          : [];
+
     return {
-      enrollmentTrend: [],
+      enrollmentTrend: Array.isArray(exec?.enrollmentTrend) ? exec.enrollmentTrend : [],
       attendanceByDept,
-      cgpaDistribution: [],
+      cgpaDistribution,
       feeCollectionStatus,
-      placementStats: [],
+      placementStats,
       complaintResolutionTime: overview?.complaints
         ? [
             {
@@ -123,8 +183,8 @@ export const adminApi = {
     };
   },
 
-  getUsers: async (): Promise<ManagedUser[]> => {
-    const raw = await apiClient<any>("/users");
+  getUsers: async (params?: { page?: number; limit?: number; search?: string }): Promise<ManagedUser[]> => {
+    const raw = await apiClient<any>("/users", { params });
     const items = Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
 
     return items.map((u: any) => ({
@@ -132,7 +192,8 @@ export const adminApi = {
       name: `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.loginId,
       email: u.email,
       role: (u.userRoles?.[0]?.role?.key as any) || "STUDENT",
-      department: u.userRoles?.[0]?.department?.code || "General",
+      roles: (u.userRoles || []).map((ur: any) => ur.role?.key).filter(Boolean),
+      department: u.userRoles?.[0]?.department?.code || u.userRoles?.[0]?.departmentId || "General",
       status: u.status || "ACTIVE",
       joinedDate: u.createdAt ? new Date(u.createdAt).toISOString().split("T")[0] : "",
     }));
@@ -142,6 +203,9 @@ export const adminApi = {
     const names = (user.name || "").split(" ");
     const firstName = names[0] || "User";
     const lastName = names.slice(1).join(" ") || "Account";
+    const rawRole = user.role || "STUDENT";
+    const normalizedRole =
+      rawRole === "ADMIN" ? "COLLEGE_ADMIN" : rawRole;
 
     return apiClient<ManagedUser>("/users", {
       method: "POST",
@@ -150,7 +214,7 @@ export const adminApi = {
         email: user.email,
         firstName,
         lastName,
-        roles: [user.role || "STUDENT"],
+        roles: [normalizedRole],
       }),
     });
   },
@@ -223,21 +287,21 @@ export const adminApi = {
     return apiClient<any>(`/ai/admin/usage?days=${days}`).catch(() => null);
   },
 
-  getAILogs: async (): Promise<AIAgentExecutionLog[]> => {
-    const raw = await apiClient<any>("/ai/admin/usage").catch(() => null);
+  getAILogs: async (days: number = 7): Promise<AIAgentExecutionLog[]> => {
+    const raw = await apiClient<any>(`/ai/admin/usage?days=${days}`);
     if (!raw || !raw.byModel) return [];
 
     return (raw.recentErrors || []).map((err: any, idx: number) => ({
-      id: `err_${idx}`,
+      id: err.id || `err_${idx}`,
       timestamp: err.createdAt || new Date().toISOString(),
-      userRole: "STUDENT",
-      userName: "System User",
-      query: `Model invocation: ${err.model || "default"}`,
+      userRole: err.userRole || err.kind || "SYSTEM",
+      userName: err.userName || err.provider || "AI Runtime",
+      query: err.query || `Model invocation: ${err.model || "default"}`,
       intent: err.kind || "general",
-      agentSelected: "Supervisor",
-      toolsUsed: [],
-      sourcesRetrieved: [],
-      responsePreview: err.error || "Execution completed",
+      agentSelected: err.agent || err.kind || "AI Pipeline",
+      toolsUsed: Array.isArray(err.toolsUsed) ? err.toolsUsed : [],
+      sourcesRetrieved: Array.isArray(err.sourcesRetrieved) ? err.sourcesRetrieved : [],
+      responsePreview: err.error || "Execution error logged",
       latencyMs: err.latencyMs || 0,
       status: "ERROR" as const,
     }));

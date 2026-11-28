@@ -457,6 +457,75 @@ export default function StudentDashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* Campus Notices, Events & Quick Career/Support Pulse */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-bold">Recent Notices</CardTitle>
+            <Link href="/notices" className="text-xs text-brand-600 font-semibold hover:underline">
+              View All
+            </Link>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            {(!dashboard.notices || dashboard.notices.length === 0) ? (
+              <p className="text-muted-foreground py-3">No recent circulars posted.</p>
+            ) : (
+              dashboard.notices.slice(0, 3).map((n: any) => (
+                <div key={n.id} className="rounded-xl border border-border p-2.5 space-y-0.5">
+                  <div className="font-semibold truncate">{n.title}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {n.publishedAt ? new Date(n.publishedAt).toLocaleDateString() : ""}
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-bold">Upcoming Events</CardTitle>
+            <Link href="/campus-life" className="text-xs text-brand-600 font-semibold hover:underline">
+              Campus Hub
+            </Link>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            {(!dashboard.events || dashboard.events.length === 0) ? (
+              <p className="text-muted-foreground py-3">No upcoming campus events scheduled.</p>
+            ) : (
+              dashboard.events.slice(0, 3).map((ev: any) => (
+                <div key={ev.id} className="rounded-xl border border-border p-2.5 space-y-0.5">
+                  <div className="font-semibold truncate">{ev.title}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {ev.startsAt ? new Date(ev.startsAt).toLocaleDateString() : ""} • {ev.venue || "Campus"}
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold">Opportunities &amp; Services</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            <Link href="/student/placements" className="flex items-center justify-between rounded-xl border border-border p-2.5 hover:bg-muted/40">
+              <span className="font-medium">Placement Matches</span>
+              <span className="font-mono font-bold text-brand-600">{dashboard.placementMatches?.length ?? 0} Jobs</span>
+            </Link>
+            <Link href="/student/scholarships" className="flex items-center justify-between rounded-xl border border-border p-2.5 hover:bg-muted/40">
+              <span className="font-medium">Eligible Scholarships</span>
+              <span className="font-mono font-bold text-emerald-600">{dashboard.scholarships?.possible ?? 0} Matches</span>
+            </Link>
+            <Link href="/student/complaints" className="flex items-center justify-between rounded-xl border border-border p-2.5 hover:bg-muted/40">
+              <span className="font-medium">Open Support Tickets</span>
+              <span className="font-mono font-bold text-amber-600">{dashboard.complaints?.open ?? 0} Open</span>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

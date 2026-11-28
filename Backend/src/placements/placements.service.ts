@@ -274,4 +274,62 @@ export class PlacementsService {
     });
     return offer;
   }
+
+  async respondToOffer(
+    studentId: string | undefined,
+    c: string,
+    offerId: string,
+    accept: boolean,
+    actorId?: string,
+  ) {
+    if (!studentId) throw new ForbiddenException('Student account required');
+    const offer = await this.prisma.offer.findFirst({
+      where: { id: offerId, application: { collegeId: c, studentId } },
+      include: { application: true },
+    });
+    if (!offer) throw new NotFoundException('Offer not found');
+    if (offer.status !== 'ISSUED') {
+      throw new BadRequestException('This offer has already been responded to');
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.offer.update({
+        where: { id: offerId },
+        data: { status: accept ? 'ACCEPTED' : 'DECLINED' },
+      });
+      if (accept) {
+        await tx.jobApplication.update({
+          where: { id: offer.applicationId },
+          data: { status: 'ACCEPTED' },
+        });
+      }
+      await this.audit.log(
+        {
+          collegeId: c,
+          userId: actorId ?? studentId,
+          action: accept ? 'OFFER_ACCEPT' : 'OFFER_DECLINE',
+          entity: 'Offer',
+          entityId: offerId,
+          oldValue: { offerStatus: offer.status, applicationStatus: offer.application.status },
+          newValue: { offerStatus: updated.status, applicationStatus: accept ? 'ACCEPTED' : offer.application.status },
+        },
+        tx,
+      );
+      return updated;
+    });
+  }
+
+  async withdrawApplication(studentId: string | undefined, c: string, applicationId: string) {
+    if (!studentId) throw new ForbiddenException('Student account required');
+    const app = await this.prisma.jobApplication.findFirst({
+      where: { id: applicationId, collegeId: c, studentId },
+    });
+    if (!app) throw new NotFoundException('Application not found');
+    if (app.status === 'OFFERED' || app.status === 'ACCEPTED') {
+      throw new BadRequestException('Cannot withdraw after an offer has been issued');
+    }
+    return this.prisma.jobApplication.update({
+      where: { id: applicationId },
+      data: { status: 'WITHDRAWN' },
+    });
+  }
 }

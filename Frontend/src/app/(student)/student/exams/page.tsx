@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth/authStore";
 
@@ -56,14 +57,14 @@ export default function StudentExamsPage() {
 </head>
 <body>
   <div class="header">
-    <div class="title">Satyug Darshan Institute of Engineering & Technology</div>
+    <div class="title">CollegeOS Examination Cell</div>
     <div class="sub">Office of the Controller of Examinations • Official Admit Card (Hall Ticket)</div>
   </div>
   <div class="grid">
     <div><strong>Student Name:</strong> ${user?.name || "Verified Student"}</div>
-    <div><strong>Roll Number:</strong> ${user?.rollNumber || "SDIET2026"}</div>
-    <div><strong>Program / Dept:</strong> ${(user as any)?.department || (user as any)?.program || "Bachelor of Technology (CSE)"}</div>
-    <div><strong>Academic Session:</strong> ${(user as any)?.academicSession || "Current Academic Session (Semester Final)"}</div>
+    <div><strong>Roll Number:</strong> ${user?.rollNumber || "Assigned by Registrar"}</div>
+    <div><strong>Program / Dept:</strong> ${user?.program ? `${user.program}${user.department ? ` (${user.department})` : ""}` : user?.department || "Enrolled Academic Program"}</div>
+    <div><strong>Academic Session:</strong> ${user?.academicSession || (user?.semester ? `Semester ${user.semester}` : "Current Academic Session")}</div>
   </div>
   <table>
     <thead>
@@ -81,7 +82,7 @@ export default function StudentExamsPage() {
           <td><strong>${e.subjectCode}</strong></td>
           <td>${e.subjectName}</td>
           <td>${e.date || "Scheduled"}</td>
-          <td>${e.startTime || "10:00 AM"} - ${e.endTime || "01:00 PM"}</td>
+          <td>${e.startTime || "10:00 AM"}${e.endTime ? ` - ${e.endTime}` : ""}</td>
           <td>${formatRoom(e.room)}</td>
         </tr>
       `).join("")}
@@ -106,6 +107,7 @@ export default function StudentExamsPage() {
       a.remove();
     }
     setDownloadingAdmitCard(false);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
   if (isLoading) {
@@ -164,6 +166,15 @@ export default function StudentExamsPage() {
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {exams.length === 0 ? (
+            <div className="md:col-span-3">
+              <EmptyState
+                icon={Calendar}
+                title="No upcoming examinations scheduled"
+                description="Scheduled mid-term, practical, and end-semester exam dates will appear here once published."
+              />
+            </div>
+          ) : null}
           {exams.map((exam) => (
             <Card key={exam.id} className="hover:shadow-md transition-shadow flex flex-col justify-between">
               <CardHeader className="p-5 pb-3">

@@ -20,26 +20,40 @@ export interface DepartmentMetrics {
 
 export const hodApi = {
   getDepartmentMetrics: async (): Promise<DepartmentMetrics> => {
-    const [raw, teachersRes] = await Promise.all([
+    const [raw, teachersRes, hodDept] = await Promise.all([
       apiClient<any>("/analytics/overview"),
       apiClient<any>("/teachers").catch(() => null),
+      apiClient<any>("/analytics/hod/department").catch(() => null),
     ]);
 
-    const totalFaculty = teachersRes?.total ?? (Array.isArray(teachersRes) ? teachersRes.length : 0);
+    const totalFaculty =
+      hodDept?.facultyCount ??
+      teachersRes?.total ??
+      (Array.isArray(teachersRes) ? teachersRes.length : 0);
 
     return {
-      department: "Department Overview",
-      totalStudents: raw?.students ?? 0,
+      department: hodDept?.departments?.[0]?.name || "Department Overview",
+      totalStudents: hodDept?.overview?.students ?? raw?.students ?? 0,
       totalFaculty,
-      avgAttendance: raw?.attendancePercentage ?? 0,
-      studentsBelow75: raw?.studentsBelowThreshold ?? 0,
-      facultyWorkloadHours: [],
-      subjectPassRates: [],
+      avgAttendance: hodDept?.overview?.attendancePercentage ?? raw?.attendancePercentage ?? 0,
+      studentsBelow75: hodDept?.overview?.studentsBelowThreshold ?? raw?.studentsBelowThreshold ?? 0,
+      facultyWorkloadHours: (hodDept?.facultyWorkloadHours || []).map((fw: any) => ({
+        facultyName: fw.name,
+        hoursPerWeek: fw.weeklyHours ?? 0,
+        subjects: [`${fw.offeringsCount} offering(s)`],
+      })),
+      subjectPassRates: (hodDept?.subjectPassRates || []).map((sp: any) => ({
+        subject: `${sp.subjectCode} — ${sp.subjectName}`,
+        passRate: sp.passPercentage ?? 0,
+        avgScore: sp.avgScorePct ?? 0,
+      })),
     };
   },
 
-  getAttendanceCorrections: async () => {
-    const raw = await apiClient<any>("/attendance/corrections");
+  getAttendanceCorrections: async (status?: string) => {
+    const raw = await apiClient<any>("/attendance/corrections", {
+      params: status ? { status } : undefined,
+    });
     return Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
   },
 

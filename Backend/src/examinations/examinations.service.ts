@@ -10,7 +10,7 @@ import { Prisma, ResultStatus } from '@prisma/client';
 import { AccessService, isAdmin } from '../access/access.service';
 import { OwnershipService } from '../access/ownership.service';
 import { AuditService } from '../audit/audit.service';
-import { ROLE } from '../auth/permissions';
+import { P, ROLE } from '../auth/permissions';
 import { paginate, toSkipTake } from '../common/dto/pagination.dto';
 import { DomainEvents, NOTIFY, NotifyUsersEvent } from '../common/events';
 import { Principal } from '../common/types/principal';
@@ -130,8 +130,14 @@ export class ExaminationsService {
         orderBy: { scheduledAt: 'asc' },
         ...toSkipTake(q),
         include: {
-          subjectOffering: { select: { subject: { select: { name: true, code: true } } } },
-          room: { select: { code: true } },
+          subjectOffering: {
+            select: {
+              subject: { select: { name: true, code: true } },
+              section: { select: { id: true, name: true } },
+              semester: { select: { id: true, number: true, academicYear: true } },
+            },
+          },
+          room: { select: { id: true, code: true } },
         },
       }),
       this.prisma.exam.count({ where }),
@@ -152,6 +158,9 @@ export class ExaminationsService {
   async enterResults(p: Principal, c: string, examId: string, dto: D.EnterResultsDto) {
     const exam = await this.prisma.exam.findFirst({ where: { id: examId, collegeId: c } });
     if (!exam) throw new NotFoundException();
+    if (exam.status === 'CANCELLED') {
+      throw new BadRequestException({ message: 'Cannot enter results for a cancelled exam', errorCode: 'EXAM_CANCELLED' });
+    }
     const examController = p.roleKeys.includes(ROLE.EXAM_CONTROLLER);
     if (!examController) await this.access.assertManagesOffering(p, c, exam.subjectOfferingId);
     const enrolled = new Set(
@@ -173,6 +182,12 @@ export class ExaminationsService {
         throw new BadRequestException(`Marks must be between 0 and maximum (${exam.maxMarks})`);
     }
     const touchesPublished = dto.results.some((r) => existing.get(r.studentId)?.status === ResultStatus.PUBLISHED);
+    if (touchesPublished && !p.permissions.includes(P.RESULT_UPDATE)) {
+      throw new ForbiddenException({
+        message: 'Changing published results requires RESULT_UPDATE permission',
+        errorCode: 'PERMISSION_DENIED',
+      });
+    }
     if (touchesPublished && !dto.reason)
       throw new BadRequestException({
         message: 'A reason is required to change published results',
@@ -222,6 +237,9 @@ export class ExaminationsService {
       include: { subjectOffering: { include: { subject: true } } },
     });
     if (!exam) throw new NotFoundException();
+    if (exam.status === 'CANCELLED') {
+      throw new BadRequestException({ message: 'Cannot publish a cancelled exam', errorCode: 'EXAM_CANCELLED' });
+    }
     const drafts = await this.prisma.examResult.findMany({
       where: { examId, status: ResultStatus.DRAFT },
       select: { id: true, studentId: true, student: { select: { userId: true } } },
@@ -319,7 +337,7 @@ export class ExaminationsService {
             subjectOffering: {
               select: {
                 subject: { select: { id: true, name: true, code: true, credits: true } },
-                semester: { select: { number: true } },
+                semester: { select: { number: true, academicYear: true } },
               },
             },
           },

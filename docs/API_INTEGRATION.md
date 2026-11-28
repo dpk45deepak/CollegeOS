@@ -1,352 +1,97 @@
-# College OS: API Integration Specification
+# API & Realtime Integration Specification
 
-This document defines the single reliable API contract between the **Next.js Frontend** and the **NestJS Backend**.
+Defines the HTTP (`/api/v1`) and Socket.IO (`/realtime`) contracts between the **Next.js Frontend** and **NestJS Backend**.
 
-**Base URL:** `http://localhost:3000/api/v1` (Production: configured via `NEXT_PUBLIC_API_URL`)  
-**Prefix:** `/api/v1`  
-**Tenant Identification:** College Code (default: `SDIET`)  
+- **REST Base URL:** `http://localhost:3000/api/v1` (`NEXT_PUBLIC_API_URL`)
+- **Swagger UI (non-production):** `http://localhost:3000/docs`
+- **Generated Route Table:** [Backend/docs/API.md](../Backend/docs/API.md)
 
 ---
 
-## 1. Response & Error Protocol
+## 1. Response & Error Envelopes
 
-### 1.1 Success Response Envelope
-All standard successful API responses (unless annotated with `@SkipEnvelope()`) are wrapped in:
+All standard JSON routes (unless decorated with `@SkipEnvelope()`) are wrapped by `ResponseEnvelopeInterceptor`:
+
 ```typescript
-interface ApiResponse<T> {
+interface ApiSuccessEnvelope<T> {
   success: true;
   data: T;
-  meta?: {
-    page?: number;
-    limit?: number;
-    total?: number;
-    totalPages?: number;
-  };
+  meta?: { page?: number; limit?: number; total?: number; totalPages?: number; requestId?: string };
   timestamp: string;
   requestId?: string;
 }
-```
 
-### 1.2 Error Response Envelope
-All server-side errors are caught by `AllExceptionsFilter` and returned with HTTP status code and body:
-```typescript
-interface ApiErrorResponse {
+interface ApiErrorEnvelope {
   success: false;
   statusCode: number;
-  message: string | string[];
   errorCode: string;
+  message: string | string[];
+  details?: unknown;
   timestamp: string;
   requestId?: string;
 }
 ```
 
-**Common Error Codes:**
-- `400 BAD_REQUEST / VALIDATION_ERROR`: Missing or malformed fields
-- `401 UNAUTHORIZED / REFRESH_INVALID / REFRESH_EXPIRED`: Missing, invalid or expired token
-- `403 FORBIDDEN / PERMISSION_DENIED`: Insufficient RBAC or cross-tenant access violation
-- `404 NOT_FOUND`: Resource does not exist
-- `409 CONFLICT / USER_EXISTS / RELATION_CONSTRAINT`: Duplicate constraint violation
-- `413 PAYLOAD_TOO_LARGE`: Upload exceeds configured maximum size
-- `423 ACCOUNT_LOCKED`: Exceeded maximum failed login attempts (15-minute lock)
-- `429 TOO_MANY_REQUESTS`: Rate limit exceeded
-- `500 INTERNAL_ERROR`: Unexpected server error
+Frontend `apiClient` in [client.ts](../Frontend/src/lib/api/client.ts) unwraps `.data` automatically and coordinates single-flight refresh rotation (`POST /auth/refresh`) on `401 Unauthorized`. Binary downloads (`/files/download`, `/reports/:type`, `/reports/files/download`, `/documents/:id/download`) use authenticated `apiDownload()`.
 
 ---
 
-## 2. Authentication & Session Endpoints
+## 2. Verified Key Endpoint Contracts
 
-### `POST /api/v1/auth/login`
-- **Auth Required:** No (Public)
-- **Permissions:** None
-- **Request DTO:**
-  ```typescript
-  interface LoginDto {
-    loginId: string;       // e.g. "21CS042" or email
-    password: string;      // 10+ characters
-    collegeCode?: string;  // e.g. "SDIET" (optional for superadmin)
-    deviceName?: string;   // optional client identifier
-  }
-  ```
-- **Response DTO:**
-  ```typescript
-  interface TokenPair {
-    accessToken: string;   // JWT valid for 15 minutes
-    refreshToken: string;  // Opaque rotating token valid for 7 days
-    expiresIn: string;     // e.g. "15m"
-    sessionId: string;
-  }
-  ```
-- **Frontend Usage:** `auth.ts` -> `LoginPage`
+### Authentication & Sessions
+- `POST /auth/login` → `{ loginId, password, collegeCode?, deviceName? }` → `{ accessToken, refreshToken, expiresIn, sessionId }`
+- `POST /auth/refresh` → `{ refreshToken }` → rotated token pair
+- `POST /auth/logout` / `POST /auth/logout-all` → revokes current session or all sessions (`204 No Content`)
+- `GET /users/me` → active user profile with `userRoles`, permissions, `studentId`, `teacherId`, and linked wards
 
-### `POST /api/v1/auth/refresh`
-- **Auth Required:** No (Public)
-- **Request DTO:** `{ refreshToken: string }`
-- **Response DTO:** `TokenPair`
-- **Frontend Usage:** Token refresh interceptor in `client.ts`
+### Attendance & Faculty Delivery
+- `GET /attendance/teacher/scheduled-sessions?date=YYYY-MM-DD` → timetable-authorized lecture slots for roll call
+- `GET /attendance/scheduled-sessions/:slotId/roster?date=YYYY-MM-DD` → enrolled roster and existing markings
+- `POST /attendance` → `{ subjectOfferingId, date, timetableSlotId?, periodKey?, defaultStatus?, records: [{ studentId, status: "PRESENT" | "ABSENT" | "LATE", remark? }] }`
+- `GET /attendance/sessions?subjectOfferingId=...&date=...` → recorded session & student marks
+- `GET /attendance/students/:studentId/report|records|calendar` & `GET /students/me/attendance[/records|/calendar]`
+- `POST /attendance/correction-request` → `{ attendanceId?, subjectOfferingId?, date?, newStatus, reason }`
+- `POST /attendance/corrections/:id/review` → `{ approve: boolean, note? }` (`HOD` / `COLLEGE_ADMIN`, non-self-approval)
 
-### `POST /api/v1/auth/logout`
-- **Auth Required:** Yes (Bearer Token)
-- **Response:** HTTP 204 No Content
-- **Frontend Usage:** Profile menu / sign-out button
+### Assignments & Examinations
+- `POST /files/attachments` (`multipart/form-data` `file`) → `{ key }` (scanned by `ProductionMalwareScanner`)
+- `POST /assignments/:id/submit` → `{ text?, fileKeys?: string[] }`
+- `POST /assignments/submissions/:submissionId/grade` → `{ marks, feedback? }`
+- `PUT /exams/:id/results` → `{ results: [{ studentId, marksObtained, reason? }] }` (saved as `DRAFT`)
+- `POST /exams/:id/publish` → publishes results and triggers CGPA recalculation
 
-### `GET /api/v1/users/me`
-- **Auth Required:** Yes (Bearer Token)
-- **Permissions:** Any authenticated user
-- **Response DTO:**
-  ```typescript
-  interface UserProfile {
-    id: string;
-    collegeId: string;
-    loginId: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    phone?: string;
-    status: 'ACTIVE' | 'INACTIVE' | 'LOCKED' | 'PENDING_VERIFICATION';
-    userRoles: Array<{
-      role: { key: string };
-      departmentId?: string;
-    }>;
-  }
-  ```
-- **Frontend Usage:** User session hydration on application startup (`useAuthStore`)
+### Fees & Payment Gateways
+- `GET /students/me/fees` & `GET /fees`
+- `POST /fees/:id/payments` → `{ gateway: "mock" | "razorpay" | "stripe", amount? }` → returns `{ paymentId, gatewayRef, checkoutUrl?, clientPayload? }`
+- `POST /fees/payments/:paymentId/complete` → `{ succeed?: boolean }` (dev/test `mock` gateway only)
+- `POST /fees/webhooks/:gateway` (`@Public()`, raw-body HMAC-SHA256 verified for Razorpay `x-razorpay-signature` and Stripe `stripe-signature`)
+- `GET /fees/payments/:paymentId/receipt` & `/receipt/admin`
+
+### Complaints / Grievances
+- `POST /complaints/route-preview` → `{ text }` → `{ category, priority, assignedDepartment, slaHours }`
+- `POST /complaints` → `{ subject, description, category?, priority? }` → creates `GRV-YYYY-NNNNN` ticket
+- `POST /complaints/:id/status` → `{ status, note? }`, `POST /complaints/:id/assign`, `POST /complaints/:id/comments`, `POST /complaints/:id/feedback`
+
+### AI Copilot & Knowledge Base
+- `POST /ai/chat` → `{ message, conversationId?, studentId? }` → `{ conversationId, reply, agent, mode: "tool" | "rag" | "direct", citations?, collegeData?, pendingDraftId?, disclaimer }`
+- `GET /ai/agents`, `GET /ai/conversations`, `GET /ai/conversations/:id/messages`, `DELETE /ai/conversations/:id`
+- `GET /ai/advisor?studentId=...`
+- `POST /ai/grievance/drafts/:id/confirm` & `DELETE /ai/grievance/drafts/:id`
+- `POST /ai/knowledge/ask` & `POST /ai/knowledge/search` → `{ question, documentType?, academicYear?, semesterNumber? }`
 
 ---
 
-## 3. Student Portal Endpoints
+## 3. Socket.IO `/realtime` Contracts
 
-### `GET /api/v1/students/me/dashboard`
-- **Auth Required:** Yes (Bearer Token)
-- **Permissions:** `STUDENT_VIEW_OWN`
-- **Response DTO:**
-  ```typescript
-  interface StudentDashboardAggregated {
-    studentId: string;
-    attendance: {
-      overall: { attended: number; total: number; percentage: number | null; health: string };
-      threshold: number;
-      flags: Array<{ type: string; detail: string; subjectName?: string }>;
-      worstSubjects: Array<{ subjectName: string; percentage: number | null }>;
-    };
-    todaysClasses: Array<{
-      id: string;
-      startTime: string;
-      endTime: string;
-      subject: { name: string; code: string };
-      room: { number: string };
-      teacher: { user: { firstName: string; lastName: string } };
-    }>;
-    assignmentsDue: Array<any>;
-    upcomingExams: Array<any>;
-    fees: { outstanding: number; next: string | null };
-    notices: Array<any>;
-    events: Array<any>;
-    placementMatches: Array<{ jobId: string; title: string; company: string; compatibility: number; eligible: boolean }>;
-    scholarships: { possible: number };
-    complaints: { open: number };
-    academicInsight: { level: 'LOW' | 'MEDIUM' | 'HIGH'; reasons: string[]; confidence: number };
-    unreadNotifications: number;
-  }
-  ```
-- **Frontend Usage:** `/student/dashboard`
+Clients connect to `${NEXT_PUBLIC_SOCKET_URL}/realtime` with `{ auth: { token: accessToken } }` ([RealtimeGateway](../Backend/src/realtime/realtime.gateway.ts) & [AiChatGateway](../Backend/src/ai/chat/chat.gateway.ts)).
 
-### `GET /api/v1/students/me/attendance`
-- **Auth Required:** Yes
-- **Permissions:** `ATTENDANCE_VIEW_OWN`
-- **Response DTO:**
-  ```typescript
-  interface StudentAttendanceReport {
-    studentId: string;
-    threshold: number;
-    overall: SubjectAttendance;
-    subjects: SubjectAttendance[];
-    flags: AttendanceFlag[];
-  }
-  ```
-- **Normalized UI Adapter Output:** `AttendanceSummary` with `overallPercentage`, `totalHeld`, `totalAttended`, `subjects[]`
-- **Frontend Usage:** `/student/attendance`
-
-### `GET /api/v1/students/me/timetable`
-- **Auth Required:** Yes
-- **Permissions:** `TIMETABLE_VIEW`
-- **Response DTO:** List of timetable slots ordered by day and start time.
-- **Frontend Usage:** `/student/timetable`
-
-### `GET /api/v1/students/me/assignments`
-- **Auth Required:** Yes
-- **Permissions:** `ASSIGNMENT_VIEW`
-- **Query Params:** `?page=1&limit=20&pending=true|false`
-- **Frontend Usage:** `/student/assignments`
-
-### `POST /api/v1/assignments/:id/submit`
-- **Auth Required:** Yes
-- **Permissions:** `ASSIGNMENT_SUBMIT`
-- **Request DTO:** `{ fileUrl: string; fileName: string; fileSize?: number; textResponse?: string }`
-- **Frontend Usage:** Assignment submission modal
-
-### `GET /api/v1/students/me/exams`
-- **Auth Required:** Yes
-- **Permissions:** `EXAM_VIEW`
-- **Frontend Usage:** `/student/exams`
-
-### `GET /api/v1/students/me/results`
-- **Auth Required:** Yes
-- **Permissions:** `RESULT_VIEW_OWN`
-- **Frontend Usage:** `/student/results`
-
-### `GET /api/v1/students/me/fees`
-- **Auth Required:** Yes
-- **Permissions:** `FEE_VIEW_OWN`
-- **Frontend Usage:** `/student/fees`
-
-### `POST /api/v1/fees/:id/payments`
-- **Auth Required:** Yes
-- **Permissions:** `FEE_VIEW_OWN`
-- **Request DTO:** `{ gateway: 'RAZORPAY' | 'STRIPE'; amount: number }`
-- **Frontend Usage:** Fee payment dialog
-
----
-
-## 4. Grievance / Complaints Endpoints
-
-### `GET /api/v1/complaints/my`
-- **Auth Required:** Yes
-- **Permissions:** `COMPLAINT_VIEW_OWN`
-- **Query Params:** `?page=1&limit=20&status=OPEN|RESOLVED`
-- **Frontend Usage:** `/student/complaints`
-
-### `POST /api/v1/complaints`
-- **Auth Required:** Yes
-- **Permissions:** `COMPLAINT_CREATE`
-- **Request DTO:**
-  ```typescript
-  interface CreateComplaintDto {
-    title: string;
-    description: string;
-    category?: 'ACADEMIC' | 'FACULTY' | 'INFRASTRUCTURE' | 'HOSTEL' | 'TRANSPORT' | 'IT' | 'FEES' | 'SCHOLARSHIP' | 'EXAMINATION' | 'ATTENDANCE' | 'OTHER';
-    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-    attachments?: string[];
-  }
-  ```
-- **Frontend Usage:** File complaint modal
-
-### `POST /api/v1/complaints/route-preview`
-- **Auth Required:** Yes
-- **Request DTO:** `{ text: string }`
-- **Response DTO:** Predicted category, urgency, designated desk, and estimated SLA.
-- **Frontend Usage:** Instant smart routing preview
-
----
-
-## 5. Scholarships & Placements Endpoints
-
-### `GET /api/v1/scholarships`
-- **Auth Required:** Yes
-- **Permissions:** `SCHOLARSHIP_VIEW`
-- **Frontend Usage:** `/student/scholarships`
-
-### `GET /api/v1/scholarships/matches`
-- **Auth Required:** Yes
-- **Permissions:** `SCHOLARSHIP_VIEW`
-- **Response DTO:** List of matched scholarships with met/unmet eligibility criteria.
-- **Frontend Usage:** Matched scholarships tab
-
-### `POST /api/v1/scholarships/:id/apply`
-- **Auth Required:** Yes
-- **Permissions:** `SCHOLARSHIP_VIEW`
-- **Response DTO:** Application receipt
-- **Frontend Usage:** Apply button
-
-### `GET /api/v1/placements/jobs`
-- **Auth Required:** Yes
-- **Permissions:** `PLACEMENT_VIEW`
-- **Frontend Usage:** `/student/placements`
-
-### `GET /api/v1/placements/jobs/recommendations`
-- **Auth Required:** Yes
-- **Permissions:** `PLACEMENT_APPLY`
-- **Response DTO:** Ranked list of recommended jobs with compatibility scores and matched skills.
-- **Frontend Usage:** Recommended jobs feed
-
-### `POST /api/v1/placements/jobs/:id/apply`
-- **Auth Required:** Yes
-- **Permissions:** `PLACEMENT_APPLY`
-- **Frontend Usage:** Job application submission
-
----
-
-## 6. Faculty & Administration Endpoints
-
-### `GET /api/v1/subject-offerings`
-- **Auth Required:** Yes
-- **Permissions:** `ORG_VIEW`
-- **Frontend Usage:** Teacher class roster and schedule
-
-### `POST /api/v1/attendance`
-- **Auth Required:** Yes
-- **Permissions:** `ATTENDANCE_MARK`
-- **Request DTO:**
-  ```typescript
-  interface MarkAttendanceDto {
-    subjectOfferingId: string;
-    date: string; // ISO date
-    slotNumber?: number;
-    records: Array<{
-      studentId: string;
-      status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
-    }>;
-  }
-  ```
-- **Frontend Usage:** Faculty attendance submission (`/teacher/attendance`)
-
-### `GET /api/v1/attendance/corrections`
-- **Auth Required:** Yes
-- **Permissions:** `ATTENDANCE_VIEW`
-- **Frontend Usage:** Correction queue for faculty and HOD
-
----
-
-## 7. AI Copilot & Document RAG Endpoints
-
-### `POST /api/v1/ai/chat`
-- **Auth Required:** Yes
-- **Permissions:** `AI_CHAT`
-- **Request DTO:**
-  ```typescript
-  interface ChatDto {
-    message: string;
-    conversationId?: string;
-    studentId?: string; // For parents/advisors
-  }
-  ```
-- **Response DTO:**
-  ```typescript
-  interface ChatResponse {
-    conversationId: string;
-    reply: string;
-    agent: string;           // ACADEMIC | ATTENDANCE | SCHOLARSHIP | PLACEMENT | GRIEVANCE | KNOWLEDGE
-    mode: 'rag' | 'tools' | 'conversational';
-    citations: Array<{
-      documentId: string;
-      title: string;
-      pageNumber?: number;
-      snippet: string;
-      score: number;
-    }>;
-    collegeData: Array<{
-      tool: string;
-      ok: boolean;
-      summary: string;
-      data?: any;
-    }>;
-    pendingDraftId?: string;
-    disclaimer: string;
-  }
-  ```
-- **Frontend Usage:** `/student/ai` Copilot workspace
-
-### `GET /api/v1/ai/advisor`
-- **Auth Required:** Yes
-- **Permissions:** `AI_CHAT`
-- **Response DTO:** Academic priorities, risk assessment, study recommendations.
-- **Frontend Usage:** Copilot Advisor view
+| Direction | Event | Payload | Purpose |
+| :--- | :--- | :--- | :--- |
+| Server → User (`user:<id>`) | `notification` | `{ id, type, title, body, data?, createdAt }` | Persisted in-app notification & async `ReportReady` (`data.fileKey`) delivery |
+| Server → User (`user:<id>`) | `complaint.status` | `{ complaintId, ticketNo, status }` | Live grievance status update & query cache invalidation |
+| Server → User (`user:<id>`) | `message` | `{ conversationId, message }` | New direct message delivery |
+| Server → Tenant (`tenant:<id>`) | `announcement` | `{ noticeId, title }` | Published campus notice broadcast |
+| Client → Server | `attendance.subscribe` | `{ subjectOfferingId }` | Join `offering:<id>` live roll-call room (`assertManagesOffering`) |
+| Server → Offering (`offering:<id>`) | `attendance.marked` | `{ subjectOfferingId, date, periodKey, created }` | Live roll-call update broadcast |
+| Client → Server | `ai.chat` | `{ requestId, message, conversationId?, studentId? }` | Initiate streamed AI reply |
+| Server → Socket | `ai.token` / `ai.done` / `ai.error` | `{ requestId, token }` / `{ requestId, ...ChatResponse }` / `{ requestId, message }` | Token streaming, final structured reply, or rate-limit/validation error |

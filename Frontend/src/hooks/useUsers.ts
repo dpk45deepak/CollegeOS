@@ -34,7 +34,11 @@ export function useUpdateUserRoles() {
   return useMutation({
     mutationFn: ({ id, roles, departmentIds }: { id: string; roles: string[]; departmentIds?: string[] }) =>
       usersApi.updateRoles(id, roles, departmentIds),
-    onSuccess: () => qc.invalidateQueries({ queryKey: userKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: userKeys.all });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["faculty"] });
+    },
   });
 }
 
@@ -43,7 +47,11 @@ export function useUpdateUserStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: "ACTIVE" | "INACTIVE" | "LOCKED" | "PENDING_VERIFICATION" | "SUSPENDED" }) =>
       usersApi.updateStatus(id, status),
-    onSuccess: () => qc.invalidateQueries({ queryKey: userKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: userKeys.all });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["faculty"] });
+    },
   });
 }
 

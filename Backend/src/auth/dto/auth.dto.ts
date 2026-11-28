@@ -39,7 +39,11 @@ export class RefreshDto {
 }
 
 export class ForgotPasswordDto {
-  @ApiProperty() @IsString() @IsNotEmpty() collegeCode!: string;
+  @ApiPropertyOptional({ example: 'SDIET', description: 'College code (omit only for SUPER_ADMIN)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  collegeCode?: string;
   @ApiProperty() @IsEmail() email!: string;
 }
 
@@ -53,6 +57,12 @@ export class VerifyEmailDto {
 }
 
 export class ResendVerificationDto {
+  @ApiPropertyOptional({ example: 'SDIET' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  collegeCode?: string;
+
   @ApiPropertyOptional({ example: 'user@example.com' })
   @IsOptional()
   @IsEmail()

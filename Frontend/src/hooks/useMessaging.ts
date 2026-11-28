@@ -4,7 +4,7 @@ import { messagingApi } from "@/services/api/messaging.api";
 export const messagingKeys = {
   all: ["messaging"] as const,
   conversations: (params?: any) => [...messagingKeys.all, "conversations", params] as const,
-  messages: (id: string) => [...messagingKeys.all, "messages", id] as const,
+  messages: (id: string, params?: any) => [...messagingKeys.all, "messages", id, params] as const,
 };
 
 export function useConversations(params?: { page?: number; limit?: number }) {
@@ -16,7 +16,7 @@ export function useConversations(params?: { page?: number; limit?: number }) {
 
 export function useMessages(conversationId: string, params?: { page?: number; limit?: number }) {
   return useQuery({
-    queryKey: messagingKeys.messages(conversationId),
+    queryKey: messagingKeys.messages(conversationId, params),
     queryFn: () => messagingApi.getMessages(conversationId, params),
     enabled: !!conversationId,
     refetchInterval: 10000,
@@ -29,8 +29,8 @@ export function useSendMessage() {
     mutationFn: ({ conversationId, content }: { conversationId: string; content: string }) =>
       messagingApi.sendMessage(conversationId, content),
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: messagingKeys.messages(vars.conversationId) });
-      qc.invalidateQueries({ queryKey: messagingKeys.conversations() });
+      qc.invalidateQueries({ queryKey: [...messagingKeys.all, "messages", vars.conversationId] });
+      qc.invalidateQueries({ queryKey: [...messagingKeys.all, "conversations"] });
     },
   });
 }
@@ -40,7 +40,7 @@ export function useStartConversation() {
   return useMutation({
     mutationFn: ({ recipientUserId, message }: { recipientUserId: string; message: string }) =>
       messagingApi.startConversation(recipientUserId, message),
-    onSuccess: () => qc.invalidateQueries({ queryKey: messagingKeys.conversations() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...messagingKeys.all, "conversations"] }),
   });
 }
 

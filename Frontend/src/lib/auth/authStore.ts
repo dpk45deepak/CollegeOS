@@ -3,6 +3,22 @@
 import { create } from "zustand";
 import { User } from "@/types";
 import { authApi } from "../api/auth";
+import {
+  clearStoredAuth,
+  getStoredItem,
+  REFRESH_TOKEN_KEY,
+  setAuthItems,
+  TOKEN_KEY,
+  USER_KEY,
+} from "../api/client";
+import { useNotificationStore } from "@/stores/useNotificationStore";
+import { useAIStore } from "@/stores/useAIStore";
+
+let queryCacheClearer: (() => void) | null = null;
+
+export function registerQueryCacheClearer(fn: () => void): void {
+  queryCacheClearer = fn;
+}
 
 interface AuthStore {
   user: User | null;
@@ -11,7 +27,7 @@ interface AuthStore {
   isAuthenticated: boolean;
   isLoading: boolean;
   isInitialized: boolean;
-  login: (loginId: string, password: string, collegeCode?: string) => Promise<User>;
+  login: (loginId: string, password: string, collegeCode?: string, rememberMe?: boolean) => Promise<User>;
   logout: () => Promise<void>;
   initialize: () => Promise<void>;
 }
@@ -28,13 +44,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
     if (typeof window === "undefined") return;
 
     try {
-      // Clean up any legacy demo keys
       localStorage.removeItem("college_os_demo_mode");
       localStorage.removeItem("college_os_demo_role");
 
-      const savedToken = localStorage.getItem("college_os_token");
-      const savedUserJson = localStorage.getItem("college_os_user");
-      const savedRefreshToken = localStorage.getItem("college_os_refresh_token");
+      const savedToken = getStoredItem(TOKEN_KEY);
+      const savedUserJson = getStoredItem(USER_KEY);
+      const savedRefreshToken = getStoredItem(REFRESH_TOKEN_KEY);
 
       if (savedToken) {
         let initialUser: User | null = null;
@@ -46,7 +61,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
           }
         }
 
-        // Hydrate from localStorage first to prevent flash of unauthenticated content
+        const isSessionOnly =
+          typeof sessionStorage !== "undefined" &&
+          sessionStorage.getItem(TOKEN_KEY) !== null &&
+          (typeof localStorage === "undefined" || localStorage.getItem(TOKEN_KEY) === null);
+
         set({
           user: initialUser,
           token: savedToken,
@@ -56,44 +75,24 @@ export const useAuthStore = create<AuthStore>((set) => ({
           isInitialized: !!initialUser,
         });
 
-        // Verify session against real backend /users/me
+        // Verify session against real backend /users/me (apiClient performs 401 refresh rotation atomically)
         try {
           const verifiedUser = await authApi.getCurrentUser();
-          localStorage.setItem("college_os_user", JSON.stringify(verifiedUser));
+          const latestToken = getStoredItem(TOKEN_KEY) || savedToken;
+          const latestRefresh = getStoredItem(REFRESH_TOKEN_KEY) || savedRefreshToken;
+          setAuthItems({ [USER_KEY]: JSON.stringify(verifiedUser) }, !isSessionOnly);
           set({
             user: verifiedUser,
+            token: latestToken,
+            refreshToken: latestRefresh,
             isAuthenticated: true,
             isLoading: false,
             isInitialized: true,
           });
         } catch (err: unknown) {
           const status = (err as { status?: number })?.status;
-          if (status === 401 && savedRefreshToken) {
-            // Attempt token refresh
-            try {
-              const rotated = await authApi.refresh(savedRefreshToken);
-              localStorage.setItem("college_os_token", rotated.accessToken);
-              localStorage.setItem("college_os_refresh_token", rotated.refreshToken);
-              const reloaded = await authApi.getCurrentUser();
-              set({
-                user: reloaded,
-                token: rotated.accessToken,
-                refreshToken: rotated.refreshToken,
-                isAuthenticated: true,
-                isLoading: false,
-                isInitialized: true,
-              });
-              return;
-            } catch {
-              // Refresh failed
-            }
-          }
-
-          // Invalidate session if backend rejected token
           if (status === 401 || status === 403) {
-            localStorage.removeItem("college_os_token");
-            localStorage.removeItem("college_os_refresh_token");
-            localStorage.removeItem("college_os_user");
+            clearStoredAuth();
             set({
               user: null,
               token: null,
@@ -129,19 +128,18 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
   },
 
-  login: async (loginId: string, password: string, collegeCode?: string) => {
+  login: async (loginId: string, password: string, collegeCode?: string, rememberMe = true) => {
     set({ isLoading: true });
     try {
-      const response = await authApi.login(loginId, password, collegeCode);
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("college_os_demo_mode");
-        localStorage.removeItem("college_os_demo_role");
-        localStorage.setItem("college_os_user", JSON.stringify(response.user));
-        localStorage.setItem("college_os_token", response.token);
-        if (response.refreshToken) {
-          localStorage.setItem("college_os_refresh_token", response.refreshToken);
-        }
-      }
+      const response = await authApi.login(loginId, password, collegeCode, rememberMe);
+      setAuthItems(
+        {
+          [USER_KEY]: JSON.stringify(response.user),
+          [TOKEN_KEY]: response.token,
+          ...(response.refreshToken ? { [REFRESH_TOKEN_KEY]: response.refreshToken } : {}),
+        },
+        rememberMe
+      );
       set({
         user: response.user,
         token: response.token,
@@ -162,12 +160,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
     } catch {
       // Ignored on logout
     }
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("college_os_user");
-      localStorage.removeItem("college_os_token");
-      localStorage.removeItem("college_os_refresh_token");
-      localStorage.removeItem("college_os_demo_mode");
-      localStorage.removeItem("college_os_demo_role");
+    clearStoredAuth();
+    try {
+      queryCacheClearer?.();
+      useNotificationStore.getState().clearAll();
+      useAIStore.getState().resetStore();
+    } catch {
+      // Safe cleanup guard in tests
     }
     set({
       user: null,

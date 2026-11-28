@@ -134,4 +134,9 @@ export class AnalyticsProcessor extends WorkerHost {
   onFailed(job: Job | undefined, err: Error) {
     this.logger.error(`analytics job ${job?.name} failed (attempt ${job?.attemptsMade}): ${err.message}`);
   }
+
+  @OnWorkerEvent('error')
+  onError(err: Error) {
+    this.logger.warn(`analytics worker error: ${err.message}`);
+  }
 }

@@ -17,6 +17,7 @@ export interface AgentInput {
   message: string;
   history: ChatMessage[];
   conversationId?: string;
+  studentId?: string;
   onToken?: (t: string) => void;
 }
 export interface ToolRun {

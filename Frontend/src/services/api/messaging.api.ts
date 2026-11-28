@@ -2,7 +2,8 @@ import { apiClient } from "@/lib/api/client";
 
 export interface ConversationParticipant {
   userId: string;
-  user: {
+  name?: string;
+  user?: {
     id: string;
     loginId: string;
     firstName: string;
@@ -22,17 +23,21 @@ export interface DirectMessage {
 
 export interface ConversationItem {
   id: string;
-  type: "DIRECT" | "ANNOUNCEMENT";
+  type: "DIRECT" | "DEPARTMENT_ANNOUNCEMENT" | "AI_CHAT";
   title?: string | null;
   departmentId?: string | null;
-  lastMessage?: string | null;
-  updatedAt: string;
+  lastMessage?: DirectMessage | string | null;
+  hasUnread?: boolean;
+  updatedAt?: string;
   participants: ConversationParticipant[];
 }
 
 export const messagingApi = {
-  startConversation: async (recipientUserId: string, message: string): Promise<ConversationItem> => {
-    return apiClient<ConversationItem>("/messages/conversations", {
+  startConversation: async (
+    recipientUserId: string,
+    message: string
+  ): Promise<{ conversationId: string; message: DirectMessage }> => {
+    return apiClient<{ conversationId: string; message: DirectMessage }>("/messages/conversations", {
       method: "POST",
       body: JSON.stringify({ recipientUserId, message }),
     });
@@ -53,6 +58,12 @@ export const messagingApi = {
     return apiClient<DirectMessage>(`/messages/conversations/${conversationId}`, {
       method: "POST",
       body: JSON.stringify({ content }),
+    });
+  },
+
+  listRecipients: async (search?: string): Promise<Array<{ id: string; loginId: string; firstName: string; lastName: string; email: string; userRoles?: Array<{ role: { key: string }; departmentId?: string | null }> }>> => {
+    return apiClient<any[]>("/messages/recipients", {
+      params: search ? { search } : undefined,
     });
   },
 

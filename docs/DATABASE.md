@@ -1,82 +1,65 @@
-# Database Design Guidelines
+# Database Design & Invariants
 
-## System of record
+PostgreSQL (`pgvector`) accessed via **Prisma 5.22 ORM** (`Backend/prisma/schema.prisma`) serves as the single authoritative system of record for tenancy, academic state, workflows, and vector retrieval.
 
-Use PostgreSQL with Prisma ORM. Treat the database as the authoritative source for identity, academic records, workflows, and permissions. Use pgvector for document embeddings if enabled.
+## Prisma Model Inventory
 
-## Core entity groups
+### Institution Structure
+- `College`, `Campus`, `Department`, `Program`, `Batch`, `Semester`, `Section`
+- `Subject`, `SubjectOffering`, `Room`, `Enrollment`
 
-### Institution structure
-- `College`, `Campus`
-- `Department`
-- `Program`
-- `AcademicYear`, `Semester`, `Batch`, `Section`
-- `Subject`, `Room`
+### Identity, Access & Sessions
+- `User`, `Role`, `Permission`, `RolePermission`, `UserRole`
+- `AuthSession`, `LoginAttempt`, `OneTimeToken`, `OAuthAccount`
+- `Student`, `Guardian`, `StudentSkill`, `StudentPortfolioItem`
+- `Teacher`, `TeacherAvailability`, `LeaveRequest`
 
-### Identity and access
-- `User`
-- `StudentProfile`, `TeacherProfile`, and staff profiles as appropriate
-- `Role`, `Permission`, role-permission and user-role relationships
-- `Session` or refresh-token records
+### Academic Operations
+- `TimetableSlot`, `TimetableException`
+- `AttendanceSession`, `Attendance`, `AttendanceCorrection`
+- `Assignment`, `Submission`
+- `GradingScheme`, `Exam`, `ExamResult`
 
-### Academic workflows
-- `Enrollment`
-- `TimetableEntry`
-- `AttendanceSession`, `AttendanceRecord`, `AttendanceCorrectionRequest`
-- `Assignment`, `Submission`, `Feedback`
-- `Exam`, `ExamResult`, grading configuration
-
-### Student services
-- `FeeStructure`, `StudentFee`, `Payment`, `Receipt`
+### Student Services & Communications
+- `FeeStructure`, `StudentFee`, `Payment`, `Refund`
 - `Scholarship`, `ScholarshipApplication`
-- `Company`, `JobPosting`, `PlacementDrive`, `JobApplication`
-- `Complaint`, `ComplaintAssignment`, `ComplaintEvent`
-- `Notice`, `Event`, `Notification`, `Conversation`, `Message`
+- `Company`, `Job`, `PlacementDrive`, `JobApplication`, `Interview`, `Offer`
+- `Complaint`, `ComplaintEvent`
+- `Notice`, `Club`, `CampusEvent`
+- `Conversation`, `ConversationParticipant`, `Message`
+- `Notification`, `PushDevice`
 
-### AI and documents
-- `Document`, `DocumentVersion`, `DocumentChunk`
-- `AIConversation`, `AIMessage`, `AIToolExecution` (with privacy-aware retention)
-- `AuditLog`
+### Knowledge, AI & Governance
+- `Document`, `DocumentChunk` (with `pgvector` embeddings and `DocumentVisibility`)
+- `AcademicRiskAssessment`
+- `AuditLog`, `AiCallLog`
 
-This is a conceptual inventory. Final tables and relations should follow actual feature requirements.
+---
 
-## Multi-tenant data isolation
+## Core Data & Security Invariants
 
-Every tenant-owned record must be associated with a college/tenant directly or through a validated parent relationship. Resolve tenant identity from the authenticated session and verify related records belong to that tenant.
+1. **Multi-Tenant Isolation:**
+   - Every tenant-owned record scopes cleanly by `collegeId`.
+   - Tenant identity is derived from the authenticated principal (`Principal.collegeId`) or validated header context, never trusted unconditionally from client bodies.
+2. **Financial Precision (`fee-math.ts`):**
+   - Monetary amounts and balances use PostgreSQL `Decimal` types and integer paise conversion helpers (`toPaise` / `fromPaise`) to avoid floating-point drift.
+   - Payment webhooks settle inside `$transaction` with atomic `updateMany` guards (`status = PENDING`) for idempotency.
+3. **Attendance Auditability:**
+   - Duplicate attendance markings within the same session/student are prevented by schema uniqueness.
+   - Corrections preserve original vs. requested states, reason, requester, reviewer, and write immutable `AuditLog` entries; requesters cannot self-approve (`attendance.service.ts`).
+4. **Immutable Audit Trail:**
+   - Sensitive mutations (marks updates, fee waivers/refunds, role changes, attendance corrections) append structured `AuditLog` records queryable via `/audit` and `/audit/entity/:entity/:id`.
 
-Do not trust a client-provided `collegeId` as proof of access. Consider PostgreSQL row-level security as an additional defense only if it can be configured and tested correctly; it does not replace application authorization.
+---
 
-## Modeling rules
+## Migrations & Development Seeding
 
-- Use explicit foreign keys and unique constraints.
-- Add `createdAt` and `updatedAt` where appropriate.
-- Use enums for stable, bounded state sets; use lookup tables when values need administration.
-- Store money as integer minor units or an appropriate fixed-precision decimal—not floating-point values.
-- Use transactions for multi-record state changes.
-- Use soft deletion only where product and compliance needs justify it; define how deleted records behave in reports and audit history.
-- Never make audit history silently editable through ordinary application routes.
+```bash
+cd Backend
+npx prisma generate
+npx prisma migrate deploy     # or npx prisma migrate dev in local development
+npm run db:harden             # applies prisma/sql/hardening.sql
+SEED_PASSWORD='Dev-Passw0rd-123' npm run seed
+```
 
-## Attendance invariants
-
-Define whether attendance is tracked per lecture, per day, or using a configurable policy. A record should be tied to the relevant student, class/session, subject, section, and academic period. Prevent duplicate records with a suitable unique constraint.
-
-Attendance corrections should preserve the original value, requested value, reason, requester, approver, decision, and timestamps. Avoid overwriting history without a trace.
-
-## Indexing
-
-Add indexes based on real query patterns, such as:
-- tenant + academic year + department
-- student + date/session
-- section + subject + schedule time
-- complaint status + assignee + created date
-- document tenant + visibility + type
-- notification recipient + read status + created date
-
-Validate indexes with query plans and realistic data volumes; avoid indexing every field by default.
-
-## Migrations and seed data
-
-- Commit Prisma schema and migration history.
-- Review migrations before production deployment.
-- Keep seed data clearly development-only.
-- Never include real student data or production credentials in repository seeds.
+`Backend/prisma/seed.ts` refuses execution when `NODE_ENV=production` and requires an explicit strong `SEED_PASSWORD` (no hardcoded credentials).

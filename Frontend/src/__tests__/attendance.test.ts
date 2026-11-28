@@ -23,8 +23,8 @@ describe("Attendance Calculation Logic", () => {
     // Formula: (32 + x) / (45 + x) >= 0.75
     // 32 + x >= 33.75 + 0.75x => 0.25x >= 1.75 => x >= 7
     // Let's test with consecutive lectures:
-    let attended = 32;
-    let total = 45;
+    const attended = 32;
+    const total = 45;
     let added = 0;
     while ((attended + added) / (total + added) < 0.75) {
       added++;

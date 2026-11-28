@@ -5,6 +5,7 @@ import {
   ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
+  IsBoolean,
   IsDate,
   IsEnum,
   IsNumber,
@@ -66,4 +67,7 @@ export class RefundDto {
 export class FeeListQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: FeeStatus }) @IsOptional() @IsEnum(FeeStatus) status?: FeeStatus;
   @ApiPropertyOptional() @IsOptional() @IsString() studentId?: string;
+}
+export class CompleteMockPaymentDto {
+  @ApiPropertyOptional({ default: true }) @IsOptional() @IsBoolean() succeed?: boolean;
 }

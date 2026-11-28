@@ -23,7 +23,7 @@ export interface AssignmentItem {
   };
   submission?: {
     id: string;
-    status: "SUBMITTED" | "LATE" | "GRADED";
+    status: "SUBMITTED" | "LATE" | "GRADED" | "RETURNED";
     marks?: number;
     feedback?: string;
     submittedAt: string;
@@ -34,7 +34,7 @@ export interface SubmissionItem {
   id: string;
   assignmentId: string;
   studentId: string;
-  status: "SUBMITTED" | "LATE" | "GRADED";
+  status: "SUBMITTED" | "LATE" | "GRADED" | "RETURNED";
   marks?: number;
   feedback?: string;
   submittedAt: string;
@@ -84,7 +84,7 @@ export const assignmentsApi = {
 
   getMissingSubmissions: async (assignmentId: string) => {
     const raw = await apiClient<any>(`/assignments/${assignmentId}/missing`);
-    return Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
+    return Array.isArray(raw) ? raw : raw?.students || raw?.items || raw?.data || [];
   },
 
   gradeSubmission: async (submissionId: string, dto: { marks: number; feedback?: string }) => {

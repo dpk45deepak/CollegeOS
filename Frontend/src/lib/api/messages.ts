@@ -41,10 +41,52 @@ export const messagesApi = {
             ? cv.lastMessage.content
             : "Click to open conversation";
       }
+      const normalizedParticipants = (cv.participants || []).map((p: any) => {
+        if (p?.user) return p;
+        const fullName = String(p?.name || "").trim();
+        const parts = fullName.split(/\s+/);
+        return {
+          ...p,
+          user: {
+            id: p?.userId || p?.id || "",
+            loginId: p?.loginId || "",
+            firstName: parts[0] || fullName || "Member",
+            lastName: parts.slice(1).join(" "),
+          },
+        };
+      });
+      const firstParticipant = normalizedParticipants[0];
+      const pUser = firstParticipant?.user || firstParticipant;
+      const derivedName =
+        cv.title ||
+        cv.name ||
+        (pUser
+          ? pUser.name ||
+            `${pUser.firstName || ""} ${pUser.lastName || ""}`.trim() ||
+            pUser.loginId
+          : undefined) ||
+        "Direct Conversation";
       return {
         ...cv,
+        participants: normalizedParticipants,
+        name: derivedName,
         lastMessage: preview,
       };
+    });
+  },
+
+  getRecipients: async (search?: string) => {
+    return apiClient<
+      Array<{
+        id: string;
+        loginId: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+        userRoles?: Array<{ role: { key: string }; departmentId?: string | null }>;
+      }>
+    >("/messages/recipients", {
+      params: search ? { search } : undefined,
     });
   },
 

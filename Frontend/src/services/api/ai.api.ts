@@ -36,19 +36,20 @@ export interface AIConversationItem {
 export interface ConversationMessage {
   id: string;
   conversationId: string;
-  role: "user" | "assistant" | "system";
+  role: "USER" | "ASSISTANT" | "SYSTEM" | "TOOL";
   content: string;
   metadata?: any;
   createdAt: string;
 }
 
 export interface AIAdvisorData {
-  studentId: string;
   collegeData: {
-    attendance: { overallPct: number; threshold: number; shortage: boolean };
-    upcomingExams: Array<{ title: string; scheduledAt: string }>;
-    pendingAssignments: Array<{ title: string; dueAt: string }>;
-    fees: { outstanding: number };
+    attendance: { overall: number; minimum: number; flags?: any[] };
+    upcomingExams: Array<{ subject?: string; title?: string; subjectId?: string; daysAway?: number; date?: string; scheduledAt?: string }>;
+    pendingAssignments: Array<{ title: string; subject?: string; dueInDays?: number; dueAt?: string }>;
+    overallExamAverage?: number;
+    cgpa?: number | null;
+    weakSubjects?: any[];
   };
   recommendations: Array<{
     area: string;
@@ -56,11 +57,14 @@ export interface AIAdvisorData {
     rationale: string;
     priority: "HIGH" | "MEDIUM" | "LOW";
   }>;
-  riskAssessment?: {
-    level: "LOW" | "ELEVATED" | "CRITICAL";
+  riskIndicator?: {
+    level: "LOW" | "MEDIUM" | "HIGH";
     reasons: string[];
-    confidence: number;
+    confidence?: number;
   };
+  narrative?: string;
+  generatedBy?: string;
+  disclaimer?: string;
 }
 
 export const aiApi = {
@@ -114,14 +118,19 @@ export const aiApi = {
     });
   },
 
-  searchKnowledge: async (query: string, limit: number = 5) => {
-    return apiClient<{ chunks: any[] }>("/ai/knowledge/search", {
+  searchKnowledge: async (
+    query: string,
+    filters?: { documentType?: string; academicYear?: string; semesterNumber?: number }
+  ) => {
+    return apiClient<{ relevant: boolean; usedVector?: boolean; results?: any[] }>("/ai/knowledge/search", {
       method: "POST",
-      body: JSON.stringify({ query, limit }),
+      body: JSON.stringify({ question: query, ...filters }),
     });
   },
 
-  getObservabilityUsage: async () => {
-    return apiClient<any>("/ai/admin/usage");
+  getObservabilityUsage: async (days?: number) => {
+    return apiClient<any>("/ai/admin/usage", {
+      params: days ? { days } : undefined,
+    });
   },
 };

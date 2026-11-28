@@ -55,9 +55,22 @@ export class EnvironmentVariables {
   @IsOptional() @IsString() WHATSAPP_API_URL?: string;
   @IsOptional() @IsString() WHATSAPP_API_TOKEN?: string;
   @IsOptional() @IsString() PUSH_PROVIDER_KEY?: string;
+  @IsOptional() @IsString() PUSH_APP_ID?: string;
+  @IsOptional() @IsString() PUSH_API_URL?: string;
   @Type(() => Number) @IsInt() @Min(1) MAX_UPLOAD_MB = 20;
   @IsOptional() @IsString() SEED_PASSWORD?: string;
   @IsOptional() @IsString() AI_RERANK_MODEL?: string;
+
+  // Optional payment gateways & malware scanner overrides
+  @IsOptional() @IsString() PAYMENT_GATEWAY?: string;
+  @IsOptional() @IsString() ENABLE_MOCK_GATEWAY?: string;
+  @IsOptional() @IsString() RAZORPAY_KEY_ID?: string;
+  @IsOptional() @IsString() RAZORPAY_KEY_SECRET?: string;
+  @IsOptional() @IsString() RAZORPAY_WEBHOOK_SECRET?: string;
+  @IsOptional() @IsString() STRIPE_SECRET_KEY?: string;
+  @IsOptional() @IsString() STRIPE_WEBHOOK_SECRET?: string;
+  @IsOptional() @IsString() CLAMAV_URL?: string;
+  @IsOptional() @IsString() ALLOW_NOOP_SCANNER?: string;
 
   @IsEnum(StorageDriver) STORAGE_DRIVER: StorageDriver = StorageDriver.Local;
   @IsString() STORAGE_LOCAL_PATH = './uploads-dev';

@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/api/client";
+import { apiClient, API_BASE_URL } from "@/lib/api/client";
 
 export type DocumentType =
   | "REGULATION"
@@ -37,6 +37,7 @@ export interface DocumentItem {
   pageCount?: number;
   chunkCount?: number;
   mimeType?: string;
+  sizeBytes?: number;
   fileSize?: number;
   storageKey?: string;
   createdAt: string;
@@ -91,7 +92,7 @@ export const documentsApi = {
   },
 
   getDownloadUrl: (id: string): string => {
-    return `/api/v1/documents/${id}/download`;
+    return `${API_BASE_URL}/documents/${id}/download`;
   },
 
   updateVisibility: async (id: string, dto: {

@@ -1,18 +1,27 @@
-import { apiClient } from "@/lib/api/client";
+import { apiClient, apiDownload, API_BASE_URL } from "@/lib/api/client";
 
 export type ReportType = "attendance" | "performance" | "fees" | "placements" | "complaints" | "scholarships";
 
 export const reportsApi = {
   getDownloadUrl: (type: ReportType): string => {
-    return `/api/v1/reports/${type}`;
+    return `${API_BASE_URL}/reports/${type}`;
   },
 
-  enqueueAsync: async (type: ReportType): Promise<{ success: boolean; message: string }> => {
-    return apiClient<any>(`/reports/${type}/async`, { method: "POST" });
+  downloadCsv: async (type: ReportType, filename?: string): Promise<void> => {
+    const suggestedName = filename || `${type}_report_${new Date().toISOString().split("T")[0]}.csv`;
+    await apiDownload(`/reports/${type}`, suggestedName);
+  },
+
+  enqueueAsync: async (type: ReportType): Promise<{ jobId: string; status: "QUEUED" | "COMPLETED" }> => {
+    return apiClient<{ jobId: string; status: "QUEUED" | "COMPLETED" }>(`/reports/${type}/async`, { method: "POST" });
   },
 
   downloadFileUrl: (key: string): string => {
-    return `/api/v1/reports/files/download?key=${encodeURIComponent(key)}`;
+    return `${API_BASE_URL}/reports/files/download?key=${encodeURIComponent(key)}`;
+  },
+
+  downloadFile: async (key: string, filename?: string): Promise<void> => {
+    const suggestedName = filename || key.split("/").pop() || "report.csv";
+    await apiDownload(`/reports/files/download?key=${encodeURIComponent(key)}`, suggestedName);
   },
 };
-

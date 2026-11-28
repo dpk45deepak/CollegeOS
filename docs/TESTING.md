@@ -1,101 +1,60 @@
 # College OS: Testing & Verification Guide
 
-## 1. Test Architecture & Automated Suites
+College OS maintains automated test suites, static type-checking, linting, and production build checks across both **Frontend** and **Backend**.
 
-College OS maintains separate automated test suites for frontend user journeys, authentication contracts, and backend services.
+---
 
-### 1.1 Running Frontend Tests
-Frontend unit, mathematical calculation, and API integration contract tests are executed using **Vitest**:
+## 1. Automated Verification Suites
+
+### 1.1 Frontend (`Frontend/`)
+
 ```bash
 cd Frontend
+npx tsc --noEmit
 npm test
+npm run lint
+npm run build
 ```
-**Test Suites:**
-- `src/__tests__/attendance.test.ts`: Mathematical attendance calculation, threshold boundary classifications (safe/warning/danger), consecutive lecture recovery formula: `(attended + x) / (total + x) >= 0.75`.
-- `src/__tests__/ai.test.ts`: AI Copilot supervisor integration (`POST /api/v1/ai/chat`), official institutional records tool executions (`attendance_calculator`, `exam_scheduler`, `scholarship_matcher`), citation mapping, and verification that offline/503 states throw `ApiError` rather than returning canned mock replies.
-- `src/__tests__/auth-session.test.ts`: Institutional authentication flow (`POST /api/v1/auth/login` and `GET /api/v1/users/me`), session persistence in localStorage, token rotation, logout revocation, and verification that unauthenticated requests throw `ApiError` without fallback to fake fixtures.
 
-**Frontend Test Outcome:**
-- 3 test files, 13 tests passed (100% pass rate).
+**Vitest Suites (`Frontend/src/__tests__/` — `8` files, `38` tests):**
+- `ai.test.ts`: Supervisor chat (`POST /ai/chat`), citation/tool mapping (`mapBackendChatResponse`), Socket.IO streaming fallback, and `ApiError` error handling.
+- `api-contracts.test.ts`: Pagination unwrapping, analytics response normalization (`adminApi.getAnalyticsData`), and payment gateway payload forwarding (`studentApi.payFee`).
+- `attendance.test.ts`: Attendance shortage math, 75% threshold rules, and recovery lecture projection.
+- `auth-session.test.ts`: Login, `/users/me` hydration, session storage, refresh token rotation, and logout cleanup.
+- `preferences.test.ts`: Shared `college_os_preferences` persistence, corruption recovery, and custom sync event dispatch.
+- `roles-and-contracts.test.ts`: Role route/permission guards (including Student/Teacher/HOD boundaries) and authenticated download URLs.
+- `student-workflows.test.ts`: Student submission, grievance transitions, exam status derivation, and scholarship/placement payloads.
+- `teacher-workflows.test.ts`: Faculty scheduled session roster and roll-call contract assertions.
 
-### 1.2 Running Backend Tests
-Backend domain services, guards, interceptors, and policies are tested using **Jest**:
+**Observed Outcome:** `npx tsc --noEmit` (`0` errors), Vitest **`8/8` files (`38/38` tests passed)**, `next lint` (`0` errors), and `next build` (**`48/48` routes compiled**).
+
+---
+
+### 1.2 Backend (`Backend/`)
+
 ```bash
 cd Backend
+npm run typecheck
+npm run lint
 npm test
+npm run build
 ```
-**Test Coverage Areas:**
-- `auth.service.spec.ts`: Login credential verification, lockout logic (5 failures = 15-minute lock), access/refresh token generation.
-- `attendance-math.spec.ts`: Threshold calculations and sudden decline algorithms.
-- `all-exceptions.filter.spec.ts`: Standardized error envelope formatting (`{ success: false, statusCode, message, errorCode }`).
-- `response-envelope.interceptor.spec.ts`: Success envelope wrapping (`{ success: true, data, meta }`).
-- `guards.spec.ts`: JwtAuthGuard, RolesGuard, and PermissionsGuard enforcement.
-- `rag.spec.ts`: Semantic document chunking, embeddings, and vector similarity search.
-- `tool-registry.spec.ts`: AI Copilot supervisor tool execution and RBAC permission checks.
-- `timetable/conflicts.spec.ts`: Classroom, faculty, and section schedule collision detection.
-- `matching.spec.ts`: Placement candidate qualification ranking.
 
-**Backend Test Outcome:**
-- 27 test suites, 156 tests passed (100% pass rate).
+**Jest Suites (`Backend/src/**/*.spec.ts` — `36` suites, `199` tests):**
+- **Auth, Access & Security:** `auth.service.spec.ts`, `users.service.spec.ts`, `access.service.spec.ts`, `guards.spec.ts`, `p0-security.spec.ts`, `env.validation.spec.ts`, `all-exceptions.filter.spec.ts`, `response-envelope.interceptor.spec.ts`, `pagination.dto.spec.ts`.
+- **Academic & Operations:** `attendance-math.spec.ts`, `attendance.service.spec.ts`, `conflicts.spec.ts`, `examinations.service.spec.ts`, `grading.spec.ts`, `complaints.service.spec.ts`, `workflow.spec.ts`, `matching.spec.ts`, `eligibility.spec.ts`, `scholarships.service.spec.ts`, `risk.spec.ts`, `csv.spec.ts`, `file-validation.spec.ts`.
+- **Payments & Messaging:** `fee-math.spec.ts`, `fees.service.spec.ts`, `payment-gateways.spec.ts` (`RazorpayGateway` / `StripeGateway` mocked-`fetch` + HMAC signature tests), `messaging-policy.spec.ts`, `messaging.service.spec.ts`, `notification-policy.spec.ts`, `channels.spec.ts` (`PushChannel` OneSignal/FCM mocked-`fetch` tests).
+- **AI & RAG:** `intent-router.spec.ts`, `chunker.spec.ts`, `rag.spec.ts`, `visibility.spec.ts`, `study-plan.spec.ts`, `complaint-draft.spec.ts`, `tool-registry.spec.ts`.
+
+**Observed Outcome:** `tsc --noEmit` (`0` errors), ESLint (`0` errors), Jest **`36/36` suites (`199/199` tests passed)**, and `prisma generate && nest build` (`0` errors).
+
+**End-to-End Suites (`Backend/test/`):** `smoke.e2e-spec.ts` and `security.e2e-spec.ts` run via `npm run test:e2e` against a running PostgreSQL + Redis instance (`E2E_DB`).
 
 ---
 
-## 2. Production User Journeys Verified
+## 2. Core User Journeys Covered
 
-### Journey 1: Public Informational Website
-1. **Action:** Guest opens `http://localhost:3001/` (or production web origin).
-2. **Result:** Public marketing and informational portal renders without requiring credentials.
-3. **Verification:**
-   - Features, architecture, attendance intelligence, and AI governance are explained.
-   - Zero hardcoded mock students or fake operational metrics (such as fabricated student counts).
-   - "Institutional Sign In" navigation link directs users to `/login`.
-   - Visiting `/demo` cleanly redirects to `/`.
-
-### Journey 2: Institutional Authentication & Session Restoration
-1. **Action:** Institutional user navigates to `/login`, enters their College ID (e.g. `21CS042` or `FAC-CSE-108`) and institutional password.
-2. **Result:** Form dispatches `POST /api/v1/auth/login` to the NestJS backend.
-3. **Verification:**
-   - Backend returns JWT `accessToken`, `refreshToken`, and session metadata.
-   - Frontend validates credentials and fetches verified profile from `GET /api/v1/users/me`.
-   - User is routed directly to their role-specific dashboard (`/student/dashboard`, `/teacher/dashboard`, `/hod/dashboard`, or `/admin/dashboard`).
-   - Browser refresh automatically restores the active session via `authStore.initialize()`.
-   - Logging out dispatches `POST /api/v1/auth/logout`, clears tokens, and redirects to `/login`.
-
-### Journey 3: Student Academic & Attendance Intelligence
-1. **Action:** Authenticated student navigates to `/student/dashboard` and `/student/attendance`.
-2. **Result:** Live dashboard displays real student name, enrolled courses, and verified lecture attendance.
-3. **Verification:**
-   - Real attendance percentages are retrieved from `GET /students/me/dashboard` and `GET /attendance/student/me`.
-   - Mathematical calculator models future attendance locally without altering official server records.
-   - Empty states render cleanly when no lectures are scheduled for the current date.
-
-### Journey 4: Faculty Lecture Attendance Submission
-1. **Action:** Authenticated faculty member navigates to `/teacher/attendance`.
-2. **Result:** Faculty portal queries active subject offerings from `GET /subject-offerings`.
-3. **Verification:**
-   - Selecting a lecture loads the real enrolled student roster from `GET /subject-offerings/:id/students`.
-   - Faculty marks Present, Absent, or Late for each student.
-   - Clicking "Submit Classroom Attendance" sends attendance records to `POST /api/v1/attendance`.
-
-### Journey 5: AI Assistant Query Resolution
-1. **Action:** Authenticated student asks "Why is my attendance low in DBMS?" in `/student/ai-assistant` or the floating drawer.
-2. **Result:** Frontend dispatches query to `POST /api/v1/ai/chat`.
-3. **Verification:**
-   - NestJS supervisor agent executes authorized tools (`attendance_calculator.solve_threshold`).
-   - Response contains official calculations and policy citations.
-   - If backend AI service is unavailable, an informative error state is displayed with a retry button—never a hardcoded canned reply.
-
----
-
-## 3. Production Build Validation
-
-Both projects have been compiled in production mode with zero errors:
-```bash
-# Backend NestJS Build
-cd Backend && npm run build
-# Result: nest build completed successfully with exit code 0.
-
-# Frontend Next.js 15 Build
-cd Frontend && npm run build
-# Result: next build completed successfully across all 35 static routes with exit code 0.
-```
+1. **Authentication & Multi-Session Safety:** Login via `{ loginId, password, collegeCode }`, `15m` access / rotating `7d` refresh tokens, account lockout after 5 failures, and `/auth/logout-all` session revocation.
+2. **Timetable-Driven Roll Call & Corrections:** Scheduled lecture lookup, per-student roll call (`PRESENT` / `ABSENT` / `LATE`), 75% shortage tracking, dispute filing, and HOD/Admin approval with audit trail.
+3. **Fee Billing & Hosted Checkouts:** Structure creation, batch assignment, counter/online payments (`mock`, `razorpay`, `stripe`), webhook settlement, refunds, and verified e-receipts.
+4. **Grounded AI & Policy Search:** Multi-agent routing across live scoped tools and permission-filtered `pgvector` documents, streaming via `/realtime` (`ai.chat`), and explicit user confirmation for complaint drafts.

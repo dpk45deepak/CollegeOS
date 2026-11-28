@@ -29,6 +29,7 @@ export interface AttendanceCorrection {
   requestedStatus?: "PRESENT" | "ABSENT" | "LATE";
   reason: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  reviewNote?: string | null;
   reviewerNote?: string | null;
   createdAt: string;
   attendance?: {
@@ -45,14 +46,23 @@ export interface AttendanceCorrection {
 }
 
 export interface AttendanceShortageItem {
-  studentId: string;
+  id: string;
   rollNumber: string;
-  studentName: string;
-  department: string;
-  percentage: number;
-  attended: number;
-  total: number;
-  shortageGap: number;
+  user?: { firstName: string; lastName: string };
+  overall: {
+    attended: number;
+    total: number;
+    percentage: number;
+    health?: string;
+    classesNeeded?: number;
+    canMiss?: number;
+  };
+  flags?: Array<{
+    type: string;
+    subjectId?: string;
+    subjectName?: string;
+    detail?: string;
+  }>;
 }
 
 export interface TeacherScheduledSession {
@@ -72,6 +82,12 @@ export interface TeacherScheduledSession {
   isMarked: boolean;
   markedCount: number;
   sessionId?: string;
+  exception?: {
+    id: string;
+    type: "CANCELLED" | "RESCHEDULED" | "SUBSTITUTED";
+    reason: string;
+    substituteTeacherId?: string | null;
+  } | null;
 }
 
 export interface SessionRosterStudent {
@@ -238,10 +254,11 @@ export const attendanceApi = {
     });
   },
 
-  getSession: async (subjectOfferingId: string, date: string): Promise<AttendanceSession | null> => {
-    return apiClient<AttendanceSession | null>("/attendance/sessions", {
+  getSession: async (subjectOfferingId: string, date: string): Promise<AttendanceSession[]> => {
+    const raw = await apiClient<any>("/attendance/sessions", {
       params: { subjectOfferingId, date },
     });
+    return Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
   },
 
   requestCorrection: async (dto: {
@@ -277,8 +294,15 @@ export const attendanceApi = {
     return apiClient<any>(`/attendance/students/${studentId}/report`);
   },
 
-  getStudentRecords: async (studentId: string, params?: { subjectOfferingId?: string; from?: string; to?: string }) => {
+  getStudentRecords: async (studentId: string, params?: { subjectId?: string; from?: string; to?: string }) => {
     return apiClient<any>(`/attendance/students/${studentId}/records`, { params });
+  },
+
+  getStudentByIdCalendar: async (
+    studentId: string,
+    params?: { month?: number; year?: number; subjectId?: string },
+  ): Promise<StudentCalendarResponse> => {
+    return apiClient<StudentCalendarResponse>(`/attendance/students/${studentId}/calendar`, { params });
   },
 
   getStudentCalendar: async (params?: {

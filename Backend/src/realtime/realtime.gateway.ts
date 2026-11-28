@@ -49,17 +49,18 @@ export class RealtimeGateway implements OnGatewayConnection {
       if (this.redis.isHealthy()) {
         isRevoked = await this.redis.safeExists(revokedKey(payload.sid));
       }
-      if (!isRevoked && !this.redis.isHealthy()) {
+      if (!isRevoked) {
         const session = await this.prisma.authSession.findUnique({
           where: { id: payload.sid },
-          select: { revokedAt: true },
+          select: { revokedAt: true, expiresAt: true },
         });
-        isRevoked = !session || !!session.revokedAt;
+        isRevoked = !session || !!session.revokedAt || session.expiresAt < new Date();
       }
       if (isRevoked) throw new Error('revoked');
       const p = await this.principals.load(payload.sub);
       if (!p || p.status !== UserStatus.ACTIVE) throw new Error('inactive');
-      const { status: _s, ...rest } = p;
+      if (p.collegeStatus && p.collegeStatus !== 'ACTIVE') throw new Error('suspended');
+      const { status: _s, collegeStatus: _cs, ...rest } = p;
       (socket.data as SocketData).principal = { ...rest, sessionId: payload.sid };
       await socket.join(`user:${p.userId}`);
       if (p.collegeId) await socket.join(`tenant:${p.collegeId}`);

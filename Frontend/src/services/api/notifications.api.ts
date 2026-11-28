@@ -22,7 +22,7 @@ export const notificationsApi = {
   },
 
   markRead: async (ids?: string[]) => {
-    return apiClient<{ count: number }>("/notifications/read", {
+    return apiClient<{ updated: number }>("/notifications/read", {
       method: "POST",
       body: JSON.stringify({ ids }),
     });

@@ -26,8 +26,8 @@ export class AdminController {
   }
 
   private guard(p: Principal) {
-    if (!p.isSuperAdmin) {
-      throw new ForbiddenException('Platform super administrators only');
+    if (!p.isSuperAdmin && !p.roleKeys.includes(ROLE.COLLEGE_ADMIN)) {
+      throw new ForbiddenException('Administrators only');
     }
   }
   private q(name: string) {

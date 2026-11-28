@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Prisma } from '@prisma/client';
 import { AccessService } from '../access/access.service';
 import { isAdmin } from '../access/access.service';
 import { ROLE } from '../auth/permissions';
@@ -60,7 +61,6 @@ export class MessagingService {
     return { conversationId: convId, message };
   }
 
-  /** Student↔teacher requires a teaching relationship; teacher↔HOD requires the same department. */
   private async assertRelationship(
     p: Principal,
     c: string,
@@ -72,18 +72,57 @@ export class MessagingService {
   ) {
     if (isAdmin(p)) return;
     const mine = kindOf(p.roleKeys);
-    if (mine === 'STUDENT' && other.teacher && p.studentId) {
-      const ok = await this.prisma.enrollment.count({
-        where: { studentId: p.studentId, subjectOffering: { teacherId: other.teacher.id } },
-      });
-      const isHod = other.userRoles.some(
-        (ur) => ur.role.key === ROLE.HOD && p.departmentIds.includes(ur.departmentId || other.teacher!.departmentId),
-      );
-      if (!ok && !isHod)
-        throw new ForbiddenException({
-          message: 'You can only message teachers of your subjects or your HOD',
-          errorCode: 'MESSAGE_NOT_ALLOWED',
+    if (mine === 'STUDENT' && p.studentId) {
+      if (other.teacher) {
+        const ok = await this.prisma.enrollment.count({
+          where: { studentId: p.studentId, subjectOffering: { teacherId: other.teacher.id } },
         });
+        const isHod = other.userRoles.some(
+          (ur) => ur.role.key === ROLE.HOD && p.departmentIds.includes(ur.departmentId || other.teacher!.departmentId),
+        );
+        if (!ok && !isHod)
+          throw new ForbiddenException({
+            message: 'You can only message teachers of your subjects or your HOD',
+            errorCode: 'MESSAGE_NOT_ALLOWED',
+          });
+      } else {
+        const otherIsHod = other.userRoles.some((ur) => ur.role.key === ROLE.HOD);
+        const sameDeptHod = other.userRoles.some(
+          (ur) => ur.role.key === ROLE.HOD && !!ur.departmentId && p.departmentIds.includes(ur.departmentId),
+        );
+        if (otherIsHod && !sameDeptHod) {
+          throw new ForbiddenException({
+            message: 'You can only message your own department HOD',
+            errorCode: 'MESSAGE_NOT_ALLOWED',
+          });
+        }
+      }
+    }
+    if (mine === 'PARENT') {
+      if (!p.guardianOfStudentIds.length) {
+        throw new ForbiddenException({ message: 'No linked ward found', errorCode: 'MESSAGE_NOT_ALLOWED' });
+      }
+      if (other.teacher) {
+        const teachesWard = await this.prisma.enrollment.count({
+          where: { studentId: { in: p.guardianOfStudentIds }, subjectOffering: { teacherId: other.teacher.id } },
+        });
+        const wardDepts = await this.prisma.student.findMany({
+          where: { id: { in: p.guardianOfStudentIds } },
+          select: { departmentId: true },
+        });
+        const wardDeptIds = wardDepts.map((w) => w.departmentId);
+        const isWardHod = other.userRoles.some(
+          (ur) => ur.role.key === ROLE.HOD && wardDeptIds.includes(ur.departmentId || other.teacher!.departmentId),
+        );
+        if (!teachesWard && !isWardHod) {
+          throw new ForbiddenException({
+            message: 'Parents can only message teachers or HOD of their ward',
+            errorCode: 'MESSAGE_NOT_ALLOWED',
+          });
+        }
+      } else if (other.student && !p.guardianOfStudentIds.includes(other.student.id)) {
+        throw new ForbiddenException({ message: 'That student is outside your ward scope', errorCode: 'MESSAGE_NOT_ALLOWED' });
+      }
     }
     if (
       (mine === 'TEACHER' || mine === 'HOD') &&
@@ -98,6 +137,115 @@ export class MessagingService {
         errorCode: 'MESSAGE_NOT_ALLOWED',
       });
     }
+    if (mine === 'HOD') {
+      const otherDept =
+        other.teacher?.departmentId ??
+        other.userRoles.find((ur) => ur.departmentId)?.departmentId;
+      if (otherDept && !p.departmentIds.includes(otherDept)) {
+        throw new ForbiddenException({
+          message: 'HOD can only message members within their department',
+          errorCode: 'MESSAGE_NOT_ALLOWED',
+        });
+      }
+    }
+  }
+
+  /** Lists eligible recipients in the tenant according to caller's role & relationship scope. */
+  async listRecipients(p: Principal, c: string, search?: string) {
+    const searchFilter = search
+      ? {
+          OR: [
+            { firstName: { contains: search, mode: 'insensitive' as const } },
+            { lastName: { contains: search, mode: 'insensitive' as const } },
+            { loginId: { contains: search, mode: 'insensitive' as const } },
+            { email: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
+
+    const mine = kindOf(p.roleKeys);
+    let scopeWhere: Prisma.UserWhereInput = { collegeId: c, status: 'ACTIVE', id: { not: p.userId } };
+
+    if (!isAdmin(p)) {
+      if (mine === 'STUDENT') {
+        scopeWhere = {
+          ...scopeWhere,
+          OR: [
+            ...(p.studentId
+              ? [{ teacher: { subjectOfferings: { some: { enrollments: { some: { studentId: p.studentId } } } } } }]
+              : []),
+            { userRoles: { some: { role: { key: ROLE.HOD }, departmentId: { in: p.departmentIds } } } },
+            { userRoles: { some: { role: { key: { in: [ROLE.COLLEGE_ADMIN, ROLE.SUPER_ADMIN] } } } } },
+          ],
+        };
+      } else if (mine === 'PARENT') {
+        const wards = p.guardianOfStudentIds.length
+          ? await this.prisma.student.findMany({
+              where: { id: { in: p.guardianOfStudentIds } },
+              select: { departmentId: true },
+            })
+          : [];
+        const wardDepts = wards.map((w) => w.departmentId);
+        scopeWhere = {
+          ...scopeWhere,
+          OR: [
+            ...(p.guardianOfStudentIds.length
+              ? [
+                  {
+                    teacher: {
+                      subjectOfferings: { some: { enrollments: { some: { studentId: { in: p.guardianOfStudentIds } } } } },
+                    },
+                  },
+                ]
+              : []),
+            ...(wardDepts.length
+              ? [{ userRoles: { some: { role: { key: ROLE.HOD }, departmentId: { in: wardDepts } } } }]
+              : []),
+            { userRoles: { some: { role: { key: { in: [ROLE.COLLEGE_ADMIN, ROLE.SUPER_ADMIN] } } } } },
+          ],
+        };
+      } else if (mine === 'HOD') {
+        scopeWhere = {
+          ...scopeWhere,
+          OR: [
+            { student: { departmentId: { in: p.departmentIds } } },
+            { teacher: { departmentId: { in: p.departmentIds } } },
+            { userRoles: { some: { role: { key: { in: [ROLE.COLLEGE_ADMIN, ROLE.SUPER_ADMIN] } } } } },
+          ],
+        };
+      } else if (mine === 'TEACHER') {
+        scopeWhere = {
+          ...scopeWhere,
+          OR: [
+            ...(p.teacherId
+              ? [{ student: { enrollments: { some: { subjectOffering: { teacherId: p.teacherId } } } } }]
+              : []),
+            { teacher: { departmentId: { in: p.departmentIds } } },
+            { userRoles: { some: { role: { key: ROLE.HOD }, departmentId: { in: p.departmentIds } } } },
+            { userRoles: { some: { role: { key: { in: [ROLE.COLLEGE_ADMIN, ROLE.SUPER_ADMIN] } } } } },
+          ],
+        };
+      } else {
+        scopeWhere = {
+          ...scopeWhere,
+          userRoles: { some: { role: { key: { in: [ROLE.COLLEGE_ADMIN, ROLE.SUPER_ADMIN] } } } },
+        };
+      }
+    }
+
+    return this.prisma.user.findMany({
+      where: { AND: [scopeWhere, searchFilter] },
+      select: {
+        id: true,
+        loginId: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        userRoles: { select: { role: { select: { key: true } }, departmentId: true } },
+      },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      take: 50,
+    });
   }
 
   async send(p: Principal, c: string, conversationId: string, content: string) {

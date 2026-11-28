@@ -26,6 +26,13 @@ export class ScholarshipsController {
   matches(@CurrentUser() u: Principal, @Tenant() t: string) {
     return this.svc.matchesForStudent(u, t);
   }
+  @Get(':id/applications')
+  @RequirePermissions(P.SCHOLARSHIP_MANAGE)
+  @ApiOperation({ summary: 'List applications for a scholarship (admin)' })
+  applications(@Tenant() t: string, @Param('id') id: string) {
+    return this.svc.listApplications(t, id);
+  }
+
   @Get('applications/mine') @RequirePermissions(P.SCHOLARSHIP_VIEW) mine(@CurrentUser() u: Principal) {
     return this.svc.myApplications(u);
   }
@@ -56,7 +63,13 @@ export class ScholarshipsController {
   }
   @Post(':id/applications/:studentId/decision')
   @RequirePermissions(P.SCHOLARSHIP_MANAGE)
-  decide(@Tenant() t: string, @Param('id') id: string, @Param('studentId') sid: string, @Body() dto: DecisionDto) {
-    return this.svc.decide(t, id, sid, dto.status);
+  decide(
+    @CurrentUser() u: Principal,
+    @Tenant() t: string,
+    @Param('id') id: string,
+    @Param('studentId') sid: string,
+    @Body() dto: DecisionDto,
+  ) {
+    return this.svc.decide(t, id, sid, dto.status, u.userId);
   }
 }

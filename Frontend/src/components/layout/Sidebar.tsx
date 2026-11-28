@@ -63,36 +63,80 @@ export function Sidebar() {
       case "HOD":
         return [
           { href: "/hod/dashboard", label: "Department Intelligence", icon: LayoutDashboard },
+          { href: "/principal/dashboard", label: "Institutional Brief", icon: Sparkles },
           { href: "/teacher/attendance", label: "Department Attendance", icon: CalendarCheck2 },
           { href: "/teacher/students", label: "Course Health", icon: BarChart3 },
           { href: "/student/complaints", label: "Grievances & Tickets", icon: AlertCircle },
           { href: "/notices", label: "Announcements", icon: Bell },
+          { href: "/messages", label: "Department Messaging", icon: MessageSquare },
         ];
       case "ADMIN":
+      case "COLLEGE_ADMIN":
+      case "SUPER_ADMIN":
         return [
           { href: "/admin/dashboard", label: "Triage Operations", icon: LayoutDashboard },
+          { href: "/principal/dashboard", label: "Principal & Executive", icon: Award },
           { href: "/admin/analytics", label: "Executive Analytics", icon: BarChart3 },
           { href: "/admin/users", label: "User Directory", icon: Users },
           { href: "/admin/academics", label: "Timetable Builder", icon: CalendarDays },
-          { href: "/student/complaints", label: "Grievances & SLA Triage", icon: AlertCircle },
+          { href: "/exam-controller/dashboard", label: "Exams & Moderation", icon: GraduationCap },
+          { href: "/accountant/dashboard", label: "Finance & Ledger", icon: CreditCard },
+          { href: "/admin/scholarships", label: "Scholarships Admin", icon: Gift },
+          { href: "/placement-officer/dashboard", label: "TPO Placements", icon: Briefcase },
+          { href: "/support/dashboard", label: "Grievance SLA Desk", icon: AlertCircle },
           { href: "/admin/ai-observability", label: "AI Observability", icon: Cpu },
           { href: "/documents", label: "College Knowledge", icon: BookOpen },
           { href: "/notices", label: "Campus Broadcasts", icon: Bell },
           { href: "/settings", label: "System Config", icon: Settings },
         ];
+      case "EXAM_CONTROLLER":
+        return [
+          { href: "/exam-controller/dashboard", label: "Exam Control Hub", icon: GraduationCap },
+          { href: "/admin/analytics", label: "Academic Analytics", icon: BarChart3 },
+          { href: "/notices", label: "Exam Circulars", icon: Bell },
+          { href: "/documents", label: "Ordinances & Policies", icon: BookOpen },
+        ];
       case "PLACEMENT_OFFICER":
         return [
-          { href: "/student/placements", label: "Placements & Drives", icon: Briefcase },
+          { href: "/placement-officer/dashboard", label: "TPO Hub & Drives", icon: Briefcase },
+          { href: "/student/placements", label: "Job Board & Match", icon: Sparkles },
+          { href: "/admin/analytics", label: "Placement Analytics", icon: BarChart3 },
           { href: "/notices", label: "Placement Notices", icon: Bell },
           { href: "/messages", label: "Student Messages", icon: MessageSquare },
           { href: "/documents", label: "Company Profiles", icon: BookOpen },
         ];
       case "ACCOUNTANT":
         return [
-          { href: "/student/fees", label: "Fee Ledger & Dues", icon: CreditCard },
+          { href: "/accountant/dashboard", label: "Accounts & Ledger", icon: CreditCard },
+          { href: "/student/fees", label: "Fee Structures", icon: Gift },
           { href: "/admin/analytics", label: "Financial Analytics", icon: BarChart3 },
           { href: "/notices", label: "Financial Circulars", icon: Bell },
           { href: "/documents", label: "Audits & Receipts", icon: BookOpen },
+        ];
+      case "PARENT":
+        return [
+          { href: "/parent/dashboard", label: "Ward Overview", icon: LayoutDashboard },
+          { href: "/student/attendance", label: "Ward Attendance", icon: CalendarCheck2 },
+          { href: "/student/timetable", label: "Ward Timetable", icon: CalendarDays },
+          { href: "/student/assignments", label: "Ward Assignments", icon: FileText },
+          { href: "/student/exams", label: "Ward Exams", icon: GraduationCap },
+          { href: "/student/results", label: "Ward Results", icon: Award },
+          { href: "/student/fees", label: "Ward Fees & Receipts", icon: CreditCard },
+          { href: "/notices", label: "College Notices", icon: Bell },
+          { href: "/messages", label: "Faculty Messages", icon: MessageSquare },
+        ];
+      case "SUPPORT_STAFF":
+        return [
+          { href: "/support/dashboard", label: "Grievance Triage Desk", icon: AlertCircle },
+          { href: "/notices", label: "Campus Notices", icon: Bell },
+          { href: "/documents", label: "SOPs & Guides", icon: BookOpen },
+          { href: "/messages", label: "Helpdesk Messages", icon: MessageSquare },
+        ];
+      case "LIBRARY_STAFF":
+        return [
+          { href: "/library/dashboard", label: "Knowledge Curation", icon: BookOpen },
+          { href: "/documents", label: "Document Repository", icon: FileText },
+          { href: "/notices", label: "Library Notices", icon: Bell },
         ];
       case "STUDENT":
       default:

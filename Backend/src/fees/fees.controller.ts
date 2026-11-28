@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { P } from '../auth/permissions';
-import { CurrentUser, Public, RequirePermissions, Tenant } from '../common/decorators/auth.decorators';
+import { CurrentUser, Public, RequireAnyPermission, RequirePermissions, Tenant } from '../common/decorators/auth.decorators';
 import { SkipEnvelope } from '../common/decorators/skip-envelope.decorator';
 import { Principal } from '../common/types/principal';
 import * as D from './dto/fees.dto';
@@ -59,6 +59,23 @@ export class FeesController {
   @ApiOperation({ summary: 'Record a counter payment (cash / DD / bank transfer)' })
   manual(@CurrentUser() u: Principal, @Tenant() t: string, @Param('id') id: string, @Body() dto: D.ManualPaymentDto) {
     return this.svc.recordManual(t, id, dto, u.userId);
+  }
+  @Post('payments/:paymentId/complete')
+  @RequireAnyPermission(P.FEE_VIEW_OWN, P.FEE_MANAGE)
+  @ApiOperation({ summary: 'Complete a pending mock-gateway payment (non-production mock gateway only)' })
+  completeMock(
+    @CurrentUser() u: Principal,
+    @Tenant() t: string,
+    @Param('paymentId') id: string,
+    @Body() dto: D.CompleteMockPaymentDto,
+  ) {
+    return this.svc.completeMockPayment(u, t, id, dto.succeed ?? true);
+  }
+  @Get('refunds')
+  @RequirePermissions(P.FEE_VIEW_ALL)
+  @ApiOperation({ summary: 'List processed fee refunds' })
+  refunds(@Tenant() t: string, @Query() q: D.FeeListQueryDto) {
+    return this.svc.listRefunds(t, q);
   }
   @Get('payments/:paymentId/receipt')
   @RequirePermissions(P.FEE_VIEW_OWN)

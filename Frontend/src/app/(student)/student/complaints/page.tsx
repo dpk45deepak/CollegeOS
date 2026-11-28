@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { studentApi } from "@/lib/api/student";
-import { complaintsApi, ComplaintItem, ComplaintStatus } from "@/services/api/complaints.api";
+import { complaintsApi, ComplaintItem, ComplaintStatus, RoutePreviewResult } from "@/services/api/complaints.api";
 import { useAuthStore } from "@/lib/auth/authStore";
 import { Complaint } from "@/types";
 import {
@@ -35,13 +35,29 @@ export default function StudentComplaintsPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
 
-  const isStaffOrAdmin = user?.role === "ADMIN" || user?.role === "HOD" || user?.role === "TEACHER";
+  const roleKeys = user?.roleKeys || [];
+  const hasRole = (r: string) => user?.role === r || roleKeys.includes(r);
+  const isStaffOrAdmin =
+    hasRole("ADMIN") ||
+    hasRole("COLLEGE_ADMIN") ||
+    hasRole("SUPER_ADMIN") ||
+    hasRole("HOD") ||
+    hasRole("SUPPORT_STAFF") ||
+    hasRole("ACCOUNTANT") ||
+    hasRole("EXAM_CONTROLLER");
+  const canViewOwnComplaints =
+    hasRole("STUDENT") ||
+    hasRole("PARENT") ||
+    hasRole("ADMIN") ||
+    hasRole("COLLEGE_ADMIN") ||
+    hasRole("SUPER_ADMIN");
   const [activeTab, setActiveTab] = useState<"student" | "queue">(isStaffOrAdmin ? "queue" : "student");
 
   // Student's personal complaints
   const { data: complaints, isLoading: isStudentLoading, error: studentError, refetch: refetchStudent } = useQuery({
     queryKey: ["student_complaints"],
     queryFn: () => studentApi.getComplaints(),
+    enabled: canViewOwnComplaints,
   });
 
   // Staff triage queue (all tickets routed to my department / admin)
@@ -57,11 +73,30 @@ export default function StudentComplaintsPage() {
 
   // Log new grievance state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [category, setCategory] = useState<Complaint["category"]>("Infrastructure");
+  const [category, setCategory] = useState<Complaint["category"]>("INFRASTRUCTURE" as any);
   const [priority, setPriority] = useState<Complaint["priority"]>("MEDIUM");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [routePreview, setRoutePreview] = useState<RoutePreviewResult | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const handlePreviewRoute = async () => {
+    const text = `${subject} ${description}`.trim();
+    if (text.length < 5) {
+      toast.error("Enter a brief subject or description first to preview routing.");
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const res = await complaintsApi.previewRoute(text);
+      setRoutePreview(res);
+    } catch (err: any) {
+      toast.error(err?.message || "Could not preview complaint route");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: {
@@ -105,8 +140,8 @@ export default function StudentComplaintsPage() {
     },
   });
 
-  // Staff Action: Add Comment
-  const [commentModalTicket, setCommentModalTicket] = useState<ComplaintItem | null>(null);
+  // Staff / Student Action: Add Comment
+  const [commentModalTicket, setCommentModalTicket] = useState<{ id: string; isStudentReply?: boolean } | null>(null);
   const [commentText, setCommentText] = useState("");
   const [isInternalComment, setIsInternalComment] = useState(false);
 
@@ -117,10 +152,35 @@ export default function StudentComplaintsPage() {
       toast.success("Comment added to ticket record!");
       setCommentModalTicket(null);
       setCommentText("");
+      setIsInternalComment(false);
       queryClient.invalidateQueries({ queryKey: ["staff_complaints_queue"] });
+      queryClient.invalidateQueries({ queryKey: ["student_complaints"] });
     },
     onError: (err: any) => {
       toast.error(err?.message || "Failed to add comment");
+    },
+  });
+
+  // Student Action: Submit Resolution Feedback / Reopen
+  const [feedbackTicket, setFeedbackTicket] = useState<Complaint | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState<number>(5);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [reopenTicket, setReopenTicket] = useState(false);
+
+  const feedbackMutation = useMutation({
+    mutationFn: ({ id, rating, comment, reopen }: { id: string; rating: number; comment?: string; reopen?: boolean }) =>
+      complaintsApi.submitFeedback(id, { rating, comment, reopen }),
+    onSuccess: (_, vars) => {
+      toast.success(vars.reopen ? "Ticket reopened and routed back for investigation." : "Feedback recorded. Thank you!");
+      setFeedbackTicket(null);
+      setFeedbackRating(5);
+      setFeedbackComment("");
+      setReopenTicket(false);
+      queryClient.invalidateQueries({ queryKey: ["student_complaints"] });
+      queryClient.invalidateQueries({ queryKey: ["staff_complaints_queue"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to submit resolution feedback");
     },
   });
 
@@ -138,11 +198,14 @@ export default function StudentComplaintsPage() {
       toast.error("Description must be at least 10 characters long");
       return;
     }
+    const mergedDescription = location.trim()
+      ? `${description.trim()}\n\n[Location: ${location.trim()}]`
+      : description.trim();
     createMutation.mutate({
       category,
       priority,
       subject: subject.trim(),
-      description: description.trim(),
+      description: mergedDescription,
       location: location.trim() || undefined,
     });
   };
@@ -161,9 +224,10 @@ export default function StudentComplaintsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {isStaffOrAdmin && (
+          {isStaffOrAdmin && canViewOwnComplaints && (
             <div className="flex items-center bg-muted/60 p-1 rounded-xl border border-border">
               <button
+                type="button"
                 onClick={() => setActiveTab("queue")}
                 className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
                   activeTab === "queue"
@@ -174,6 +238,7 @@ export default function StudentComplaintsPage() {
                 Staff Triage Queue
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab("student")}
                 className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
                   activeTab === "student"
@@ -186,13 +251,15 @@ export default function StudentComplaintsPage() {
             </div>
           )}
 
-          <Button
-            size="sm"
-            onClick={() => setIsCreateModalOpen(true)}
-            className="text-xs gap-1.5 shadow-sm"
-          >
-            <Plus className="h-4 w-4" /> Log Grievance
-          </Button>
+          {canViewOwnComplaints && (
+            <Button
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="text-xs gap-1.5 shadow-sm"
+            >
+              <Plus className="h-4 w-4" /> Log Grievance
+            </Button>
+          )}
         </div>
       </div>
 
@@ -209,10 +276,14 @@ export default function StudentComplaintsPage() {
                 className="h-8 rounded-lg border border-input bg-background px-2.5 text-xs"
               >
                 <option value="ALL">All Active Tickets</option>
-                <option value="SUBMITTED">Submitted (New)</option>
-                <option value="IN_PROGRESS">In Progress</option>
+                <option value="OPEN">Open (Submitted)</option>
+                <option value="ASSIGNED">Assigned</option>
+                <option value="INVESTIGATING">Investigating</option>
+                <option value="AWAITING_FEEDBACK">Awaiting Feedback</option>
                 <option value="RESOLVED">Resolved</option>
                 <option value="CLOSED">Closed</option>
+                <option value="ESCALATED">Escalated</option>
+                <option value="REOPENED">Reopened</option>
               </select>
             </div>
             <div className="text-xs text-muted-foreground">
@@ -225,6 +296,8 @@ export default function StudentComplaintsPage() {
               <Skeleton className="h-28 w-full rounded-xl" />
               <Skeleton className="h-28 w-full rounded-xl" />
             </div>
+          ) : queueError ? (
+            <ErrorState message="Could not load departmental grievance queue." onRetry={refetchQueue} />
           ) : !staffQueue || staffQueue.length === 0 ? (
             <div className="p-12 text-center border rounded-2xl bg-card border-dashed">
               <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-2 opacity-80" />
@@ -261,7 +334,7 @@ export default function StudentComplaintsPage() {
                         className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
                           ticket.status === "RESOLVED" || ticket.status === "CLOSED"
                             ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200"
-                            : ticket.status === "IN_PROGRESS"
+                            : ticket.status === "INVESTIGATING" || ticket.status === "ASSIGNED"
                             ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200"
                             : "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200"
                         }`}
@@ -282,11 +355,13 @@ export default function StudentComplaintsPage() {
                       </p>
                     </div>
 
-                    {ticket.student && (
+                    {(ticket.complainant || ticket.student) && (
                       <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1 border-t border-border">
                         <span className="font-semibold text-foreground">Complainant:</span>
                         <span>
-                          {ticket.student?.user?.firstName} {ticket.student?.user?.lastName} (Roll: {ticket.student?.rollNumber})
+                          {ticket.complainant
+                            ? `${ticket.complainant.firstName} ${ticket.complainant.lastName}`
+                            : `${ticket.student?.user?.firstName} ${ticket.student?.user?.lastName} (Roll: ${ticket.student?.rollNumber})`}
                         </span>
                       </div>
                     )}
@@ -294,8 +369,14 @@ export default function StudentComplaintsPage() {
                     {/* Staff Actions Toolbar */}
                     <div className="flex items-center justify-between gap-2 pt-2 border-t border-border flex-wrap">
                       <div className="text-[11px] text-muted-foreground">
-                        {ticket.assignee ? (
-                          <span>Assigned to: <strong className="text-foreground">{ticket.assignee.firstName} {ticket.assignee.lastName}</strong></span>
+                        {((ticket as any).assignedTo || ticket.assignee) ? (
+                          <span>
+                            Assigned to:{" "}
+                            <strong className="text-foreground">
+                              {((ticket as any).assignedTo || ticket.assignee).firstName}{" "}
+                              {((ticket as any).assignedTo || ticket.assignee).lastName}
+                            </strong>
+                          </span>
                         ) : (
                           <span className="text-amber-600 font-medium">Unassigned</span>
                         )}
@@ -306,25 +387,39 @@ export default function StudentComplaintsPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setCommentModalTicket(ticket);
+                            setCommentModalTicket({ id: ticket.id, isStudentReply: false });
                             setCommentText("");
+                            setIsInternalComment(false);
                           }}
                           className="text-xs h-7 gap-1"
                         >
                           <MessageSquare className="h-3.5 w-3.5" /> Note
                         </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => {
-                            setStatusModalTicket(ticket);
-                            setNewStatus(ticket.status === "SUBMITTED" ? "IN_PROGRESS" : "RESOLVED");
-                            setStatusNote("");
-                          }}
-                          className="text-xs h-7 gap-1"
-                        >
-                          <UserCheck className="h-3.5 w-3.5" /> Update Status
-                        </Button>
+                        {ticket.status !== "CLOSED" && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              const validNext: Record<string, ComplaintStatus[]> = {
+                                OPEN: ["ASSIGNED", "ESCALATED"],
+                                ASSIGNED: ["INVESTIGATING", "RESOLVED", "ESCALATED"],
+                                INVESTIGATING: ["AWAITING_FEEDBACK", "RESOLVED", "ESCALATED"],
+                                AWAITING_FEEDBACK: ["RESOLVED", "REOPENED", "CLOSED"],
+                                RESOLVED: ["CLOSED", "REOPENED"],
+                                REOPENED: ["ASSIGNED", "INVESTIGATING", "RESOLVED"],
+                                ESCALATED: ["ASSIGNED", "INVESTIGATING", "RESOLVED", "CLOSED"],
+                                CLOSED: [],
+                              };
+                              const choices = validNext[ticket.status] || ["ASSIGNED"];
+                              setStatusModalTicket(ticket);
+                              setNewStatus(choices[0]);
+                              setStatusNote("");
+                            }}
+                            className="text-xs h-7 gap-1"
+                          >
+                            <UserCheck className="h-3.5 w-3.5" /> Update Status
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -336,7 +431,7 @@ export default function StudentComplaintsPage() {
       )}
 
       {/* VIEW 2: STUDENT'S PERSONAL GRIEVANCES */}
-      {(!isStaffOrAdmin || activeTab === "student") && (
+      {canViewOwnComplaints && (!isStaffOrAdmin || activeTab === "student") && (
         <div className="space-y-4">
           {isStudentLoading ? (
             <div className="space-y-4">
@@ -449,6 +544,43 @@ export default function StudentComplaintsPage() {
                         <span className="text-[10px] text-emerald-600 font-semibold">Verified Feedback</span>
                       </div>
                     )}
+
+                    {/* Student Actions Toolbar */}
+                    {item.status !== "CLOSED" && (
+                      <div className="pt-2 border-t border-border flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-[11px] text-muted-foreground">
+                          Handler: <strong className="text-foreground">{item.assignedTo || "Campus Operations Committee"}</strong>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setCommentModalTicket({ id: item.id, isStudentReply: true });
+                              setCommentText("");
+                              setIsInternalComment(false);
+                            }}
+                            className="text-xs h-7 gap-1"
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" /> Add Follow-up
+                          </Button>
+                          {(item.status === "RESOLVED" || (item.status as string) === "AWAITING_FEEDBACK") && !item.studentFeedback && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setFeedbackTicket(item);
+                                setFeedbackRating(5);
+                                setFeedbackComment("");
+                                setReopenTicket(false);
+                              }}
+                              className="text-xs h-7 gap-1"
+                            >
+                              <Star className="h-3.5 w-3.5" /> Rate / Reopen
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -483,10 +615,22 @@ export default function StudentComplaintsPage() {
               onChange={(e) => setNewStatus(e.target.value as ComplaintStatus)}
               className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
             >
-              <option value="IN_PROGRESS">IN PROGRESS (Work Underway)</option>
-              <option value="RESOLVED">RESOLVED (Corrective Action Complete)</option>
-              <option value="REOPENED">REOPENED</option>
-              <option value="CLOSED">CLOSED (Finalized)</option>
+              {(
+                ({
+                  OPEN: ["ASSIGNED", "ESCALATED"],
+                  ASSIGNED: ["INVESTIGATING", "RESOLVED", "ESCALATED"],
+                  INVESTIGATING: ["AWAITING_FEEDBACK", "RESOLVED", "ESCALATED"],
+                  AWAITING_FEEDBACK: ["RESOLVED", "REOPENED", "CLOSED"],
+                  RESOLVED: ["CLOSED", "REOPENED"],
+                  REOPENED: ["ASSIGNED", "INVESTIGATING", "RESOLVED"],
+                  ESCALATED: ["ASSIGNED", "INVESTIGATING", "RESOLVED", "CLOSED"],
+                  CLOSED: [],
+                } as Record<string, string[]>)[statusModalTicket?.status || "OPEN"] || ["ASSIGNED"]
+              ).map((st) => (
+                <option key={st} value={st}>
+                  {st.replace(/_/g, " ")}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -553,18 +697,20 @@ export default function StudentComplaintsPage() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="internalComment"
-              checked={isInternalComment}
-              onChange={(e) => setIsInternalComment(e.target.checked)}
-              className="rounded border-input text-brand-600"
-            />
-            <label htmlFor="internalComment" className="text-xs text-muted-foreground cursor-pointer">
-              Internal departmental note (hidden from student)
-            </label>
-          </div>
+          {!commentModalTicket?.isStudentReply && (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="internalComment"
+                checked={isInternalComment}
+                onChange={(e) => setIsInternalComment(e.target.checked)}
+                className="rounded border-input text-brand-600"
+              />
+              <label htmlFor="internalComment" className="text-xs text-muted-foreground cursor-pointer">
+                Internal departmental note (hidden from student)
+              </label>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button
@@ -626,7 +772,7 @@ export default function StudentComplaintsPage() {
                 <option value="LOW">Low</option>
                 <option value="MEDIUM">Medium</option>
                 <option value="HIGH">High</option>
-                <option value="URGENT">Urgent (Immediate Safety)</option>
+                <option value="CRITICAL">Critical (Immediate Safety)</option>
               </select>
             </div>
           </div>
@@ -637,6 +783,7 @@ export default function StudentComplaintsPage() {
               type="text"
               placeholder="e.g. Workstation monitor faulty in Lab 3B"
               value={subject}
+              maxLength={160}
               onChange={(e) => setSubject(e.target.value)}
               required
             />
@@ -648,6 +795,7 @@ export default function StudentComplaintsPage() {
               type="text"
               placeholder="e.g. Block C, 3rd Floor, Station 14"
               value={location}
+              maxLength={120}
               onChange={(e) => setLocation(e.target.value)}
             />
           </div>
@@ -658,18 +806,46 @@ export default function StudentComplaintsPage() {
               rows={3}
               placeholder="Describe the issue, frequency, and impact on academics..."
               value={description}
+              maxLength={5000}
               onChange={(e) => setDescription(e.target.value)}
               required
               className="w-full rounded-lg border border-input bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-brand-500"
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          {routePreview && (
+            <div className="p-2.5 rounded-xl border border-brand-500/30 bg-brand-500/5 text-[11px] space-y-1">
+              <div className="font-semibold text-foreground flex items-center justify-between">
+                <span>Detected Desk: {routePreview.handlerRole} ({routePreview.category})</span>
+                <span className="font-mono text-[10px] text-brand-600">{routePreview.priority}</span>
+              </div>
+              <div className="text-muted-foreground">{routePreview.rationale}</div>
+              {routePreview.assignee && (
+                <div className="text-foreground">Handler: <strong>{routePreview.assignee.name}</strong></div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-between items-center gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handlePreviewRoute}
+              isLoading={previewLoading}
+              className="text-xs gap-1"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-brand-600" /> Preview Routing
+            </Button>
+            <div className="flex gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setIsCreateModalOpen(false)}
+              onClick={() => {
+                setIsCreateModalOpen(false);
+                setRoutePreview(null);
+              }}
             >
               Cancel
             </Button>
@@ -680,6 +856,82 @@ export default function StudentComplaintsPage() {
               isLoading={createMutation.isPending}
             >
               Submit Ticket
+            </Button>
+            </div>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Student Feedback / Reopen Modal */}
+      <Dialog
+        isOpen={!!feedbackTicket}
+        onClose={() => setFeedbackTicket(null)}
+        title={`Resolution Feedback: ${feedbackTicket?.ticketNumber || feedbackTicket?.subject}`}
+        description="Rate how satisfactorily your grievance was resolved, or request reopening if unresolved."
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!feedbackTicket) return;
+            feedbackMutation.mutate({
+              id: feedbackTicket.id,
+              rating: feedbackRating,
+              comment: feedbackComment.trim() || undefined,
+              reopen: reopenTicket,
+            });
+          }}
+          className="space-y-4 text-xs"
+        >
+          <div>
+            <label className="font-medium text-foreground block mb-1.5">Satisfaction Rating (1–5)</label>
+            <div className="flex items-center gap-1.5">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setFeedbackRating(star)}
+                  className={`p-1.5 rounded-lg border transition-colors ${
+                    feedbackRating >= star
+                      ? "bg-amber-50 border-amber-300 text-amber-500 dark:bg-amber-950/40"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  <Star className={`h-4 w-4 ${feedbackRating >= star ? "fill-current" : ""}`} />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="font-medium text-foreground block mb-1">Comments (Optional)</label>
+            <textarea
+              rows={3}
+              placeholder="Share details on resolution quality or why this ticket needs further work..."
+              value={feedbackComment}
+              onChange={(e) => setFeedbackComment(e.target.value)}
+              className="w-full rounded-lg border border-input bg-background p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-brand-500"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="reopenTicket"
+              checked={reopenTicket}
+              onChange={(e) => setReopenTicket(e.target.checked)}
+              className="rounded border-input text-brand-600"
+            />
+            <label htmlFor="reopenTicket" className="text-xs text-foreground cursor-pointer font-medium">
+              Issue is still unresolved — reopen ticket for further action
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setFeedbackTicket(null)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" isLoading={feedbackMutation.isPending}>
+              {reopenTicket ? "Reopen Ticket" : "Submit Feedback & Close"}
             </Button>
           </div>
         </form>

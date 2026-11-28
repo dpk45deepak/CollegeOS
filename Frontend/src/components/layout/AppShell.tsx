@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/auth/authStore";
+import { getRoleHomePath, isAuthorizedForPath } from "@/lib/roles";
 import { UserRole } from "@/types";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -19,57 +20,12 @@ const PUBLIC_ROUTES = [
   "/about",
   "/academics",
   "/admissions",
-  "/campus-life",
   "/contact",
   "/research",
   "/forgot-password",
   "/reset-password",
   "/verify-email",
 ];
-
-function getRoleHomePath(role?: UserRole): string {
-  switch (role) {
-    case "STUDENT":
-      return "/student/dashboard";
-    case "TEACHER":
-      return "/teacher/dashboard";
-    case "HOD":
-      return "/hod/dashboard";
-    case "ADMIN":
-      return "/admin/dashboard";
-    default:
-      return "/profile";
-  }
-}
-
-function isAuthorizedForPath(pathname: string, role?: UserRole): boolean {
-  if (!role) return false;
-
-  if (pathname.startsWith("/admin")) {
-    return role === "ADMIN";
-  }
-  if (pathname.startsWith("/hod")) {
-    return role === "HOD" || role === "ADMIN";
-  }
-  if (pathname.startsWith("/teacher")) {
-    return role === "TEACHER" || role === "HOD" || role === "ADMIN";
-  }
-  if (pathname.startsWith("/student")) {
-    if (pathname.startsWith("/student/placements")) {
-      return role === "STUDENT" || role === "ADMIN" || role === "PLACEMENT_OFFICER";
-    }
-    if (pathname.startsWith("/student/fees")) {
-      return role === "STUDENT" || role === "ADMIN" || role === "ACCOUNTANT";
-    }
-    if (pathname.startsWith("/student/complaints")) {
-      return role === "STUDENT" || role === "ADMIN" || role === "HOD" || role === "TEACHER";
-    }
-    return role === "STUDENT" || role === "ADMIN";
-  }
-
-  // Common protected routes (/profile, /settings, /messages, /notices, /documents) allowed for all authenticated users
-  return true;
-}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -137,7 +93,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   // Check role-based route permissions
-  const authorized = isAuthorizedForPath(pathname, user.role);
+  const authorized = isAuthorizedForPath(pathname, user.role, user);
   if (!authorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg-cream)] p-4">

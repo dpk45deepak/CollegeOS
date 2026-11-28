@@ -21,7 +21,7 @@ export const BACKDATE_DAYS = 2;
 const startOfUtcDay = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 
 export function resolvePeriodKey(mode: AttendanceMode, dto: { timetableSlotId?: string; periodKey?: string }): string {
-  if (mode === 'DAILY') return 'DAY';
+  if (mode === 'DAILY') return dto.periodKey || 'DAY';
   const key = dto.timetableSlotId ?? dto.periodKey;
   if (!key) throw new BadRequestException(`${mode} attendance requires timetableSlotId or periodKey`);
   return key;
@@ -38,7 +38,34 @@ export class AttendanceService {
 
   // ───────── marking ─────────
   async mark(p: Principal, c: string, dto: D.MarkAttendanceDto) {
-    const offering = await this.access.assertManagesOffering(p, c, dto.subjectOfferingId);
+    const today = startOfUtcDay(new Date());
+    const date = startOfUtcDay(dto.date);
+    if (date > today) throw new BadRequestException('Cannot mark attendance for a future date');
+
+    let isSubstituteTeacher = false;
+    let exceptionType: string | null = null;
+    if (dto.timetableSlotId && this.prisma.timetableException?.findFirst) {
+      const exc = await this.prisma.timetableException.findFirst({
+        where: { collegeId: c, slotId: dto.timetableSlotId, date },
+      });
+      exceptionType = exc?.type ?? null;
+      if (exc?.type === 'CANCELLED') {
+        throw new BadRequestException({
+          message: 'Cannot mark attendance for a cancelled lecture',
+          errorCode: 'LECTURE_CANCELLED',
+        });
+      }
+      if (exc?.type === 'SUBSTITUTED' && p.teacherId && exc.substituteTeacherId === p.teacherId) {
+        isSubstituteTeacher = true;
+      }
+    }
+
+    const offering = isSubstituteTeacher
+      ? await this.prisma.subjectOffering.findFirstOrThrow({
+          where: { id: dto.subjectOfferingId, collegeId: c },
+          include: { subject: true },
+        })
+      : await this.access.assertManagesOffering(p, c, dto.subjectOfferingId);
     const college = await this.prisma.college.findUniqueOrThrow({ where: { id: c }, select: { attendanceMode: true } });
 
     if (dto.timetableSlotId) {
@@ -48,11 +75,28 @@ export class AttendanceService {
       if (!slot) {
         throw new BadRequestException('Timetable slot does not exist or does not match subject offering');
       }
+      if (slot.validFrom) {
+        const validFrom = startOfUtcDay(new Date(slot.validFrom));
+        const validTo = slot.validTo ? startOfUtcDay(new Date(slot.validTo)) : null;
+        if (date < validFrom || (validTo && date > validTo)) {
+          throw new BadRequestException({
+            message: 'Selected timetable slot is not active on this date',
+            errorCode: 'LECTURE_OUTSIDE_TERM',
+          });
+        }
+      }
+      if (slot.dayOfWeek && exceptionType !== 'RESCHEDULED') {
+        const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
+        const dateDay = dayNames[date.getUTCDay()];
+        if (slot.dayOfWeek !== dateDay) {
+          throw new BadRequestException({
+            message: `Timetable slot is scheduled for ${slot.dayOfWeek}, not ${dateDay}`,
+            errorCode: 'LECTURE_WRONG_DAY',
+          });
+        }
+      }
     }
 
-    const today = startOfUtcDay(new Date());
-    const date = startOfUtcDay(dto.date);
-    if (date > today) throw new BadRequestException('Cannot mark attendance for a future date');
     if (!isAdmin(p) && (today.getTime() - date.getTime()) / 86_400_000 > BACKDATE_DAYS) {
       throw new ForbiddenException({
         message: `Attendance older than ${BACKDATE_DAYS} days can only be changed through a correction request`,
@@ -166,13 +210,20 @@ export class AttendanceService {
       0: 'SUN', 1: 'MON', 2: 'TUE', 3: 'WED', 4: 'THU', 5: 'FRI', 6: 'SAT',
     };
     const dayOfWeek = dayOfWeekMap[targetDate.getUTCDay()];
-    const teacherFilter = p.teacherId ? { teacherId: p.teacherId } : {};
+    const teacherScope: Prisma.TimetableSlotWhereInput = p.teacherId
+      ? {
+          OR: [
+            { subjectOffering: { teacherId: p.teacherId } },
+            { exceptions: { some: { date: targetDate, substituteTeacherId: p.teacherId, type: 'SUBSTITUTED' } } },
+          ],
+        }
+      : {};
 
     const slots = await this.prisma.timetableSlot.findMany({
       where: {
         collegeId: c,
-        dayOfWeek: dayOfWeek as any,
-        subjectOffering: teacherFilter,
+        dayOfWeek,
+        ...teacherScope,
         validFrom: { lte: targetDate },
         OR: [{ validTo: null }, { validTo: { gte: targetDate } }],
       },
@@ -191,24 +242,40 @@ export class AttendanceService {
       orderBy: { startMinute: 'asc' },
     });
 
-    const sessions = await this.prisma.attendanceSession.findMany({
-      where: {
-        collegeId: c,
-        date: targetDate,
-        timetableSlotId: { in: slots.map((s) => s.id) },
-      },
-      include: {
-        _count: { select: { records: true } },
-      },
-    });
+    const [sessions, exceptions] = await Promise.all([
+      this.prisma.attendanceSession.findMany({
+        where: {
+          collegeId: c,
+          date: targetDate,
+          timetableSlotId: { in: slots.map((s) => s.id) },
+        },
+        include: {
+          _count: { select: { records: true } },
+        },
+      }),
+      this.prisma.timetableException?.findMany
+        ? this.prisma.timetableException.findMany({
+            where: { collegeId: c, date: targetDate, slotId: { in: slots.map((s) => s.id) } },
+            include: {
+              substituteTeacher: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
+              overrideRoom: { select: { id: true, code: true, capacity: true } },
+            },
+          })
+        : Promise.resolve([]),
+    ]);
     const sessionMap = new Map(sessions.map((s) => [s.timetableSlotId, s]));
+    const excMap = new Map(exceptions.map((e) => [e.slotId, e]));
 
     return slots.map((slot) => {
       const existingSession = sessionMap.get(slot.id);
-      const startH = Math.floor(slot.startMinute / 60);
-      const startM = slot.startMinute % 60;
-      const endH = Math.floor(slot.endMinute / 60);
-      const endM = slot.endMinute % 60;
+      const exc = excMap.get(slot.id);
+      const effStart = exc?.overrideStartMinute ?? slot.startMinute;
+      const effEnd = exc?.overrideEndMinute ?? slot.endMinute;
+      const effRoom = exc?.overrideRoom ?? slot.room;
+      const startH = Math.floor(effStart / 60);
+      const startM = effStart % 60;
+      const endH = Math.floor(effEnd / 60);
+      const endM = effEnd % 60;
 
       return {
         slotId: slot.id,
@@ -228,19 +295,24 @@ export class AttendanceService {
           academicYear: slot.subjectOffering.semester.academicYear,
         },
         teacher: {
-          id: slot.subjectOffering.teacher.id,
-          name: `${slot.subjectOffering.teacher.user.firstName} ${slot.subjectOffering.teacher.user.lastName}`.trim(),
+          id: exc?.substituteTeacher?.id ?? slot.subjectOffering.teacher.id,
+          name: exc?.substituteTeacher
+            ? `${exc.substituteTeacher.user.firstName} ${exc.substituteTeacher.user.lastName}`.trim()
+            : `${slot.subjectOffering.teacher.user.firstName} ${slot.subjectOffering.teacher.user.lastName}`.trim(),
         },
-        room: slot.room ? { id: slot.room.id, code: slot.room.code, capacity: slot.room.capacity } : null,
+        room: effRoom ? { id: effRoom.id, code: effRoom.code, capacity: effRoom.capacity } : null,
         date: targetDate.toISOString().split('T')[0],
-        startMinute: slot.startMinute,
-        endMinute: slot.endMinute,
+        startMinute: effStart,
+        endMinute: effEnd,
         startTime: `${startH.toString().padStart(2, '0')}:${startM.toString().padStart(2, '0')}`,
         endTime: `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`,
         enrolledStudents: slot.subjectOffering._count.enrollments,
         isMarked: !!existingSession && existingSession._count.records > 0,
         markedCount: existingSession?._count.records || 0,
         sessionId: existingSession?.id,
+        exception: exc
+          ? { id: exc.id, type: exc.type, reason: exc.reason, substituteTeacherId: exc.substituteTeacherId }
+          : null,
       };
     });
   }
@@ -260,9 +332,16 @@ export class AttendanceService {
       },
     });
     if (!slot) throw new NotFoundException('Scheduled lecture slot not found');
-    await this.access.assertManagesOffering(p, c, slot.subjectOfferingId);
-
     const targetDate = startOfUtcDay(queryDate ? new Date(queryDate) : new Date());
+    const exc = this.prisma.timetableException?.findFirst
+      ? await this.prisma.timetableException.findFirst({
+          where: { collegeId: c, slotId, date: targetDate },
+        })
+      : null;
+    const isSubstitute = !!(exc?.type === 'SUBSTITUTED' && p.teacherId && exc.substituteTeacherId === p.teacherId);
+    if (!isSubstitute) {
+      await this.access.assertManagesOffering(p, c, slot.subjectOfferingId);
+    }
 
     const enrollments = await this.prisma.enrollment.findMany({
       where: { subjectOfferingId: slot.subjectOfferingId, collegeId: c },
@@ -367,8 +446,17 @@ export class AttendanceService {
           errorCode: 'NOT_OWN_ATTENDANCE',
         });
       }
-    } else if (!isAdmin(p) && !p.roleKeys.includes('HOD')) {
-      await this.access.assertManagesOffering(p, c, att.session.subjectOfferingId);
+    } else if (!isAdmin(p)) {
+      if (p.roleKeys.includes('HOD')) {
+        if (!this.access.canReviewDepartment(p, att.session.subjectOffering.subject.departmentId)) {
+          throw new ForbiddenException({
+            message: 'HOD can only request corrections within their assigned department',
+            errorCode: 'SCOPE_DENIED',
+          });
+        }
+      } else {
+        await this.access.assertManagesOffering(p, c, att.session.subjectOfferingId);
+      }
     }
     if (att.status === dto.newStatus) throw new BadRequestException('New status equals current status');
     if (
@@ -422,21 +510,24 @@ export class AttendanceService {
   }
 
   async listCorrections(p: Principal, c: string, q: D.CorrectionListQueryDto) {
+    const isHod = p.roleKeys.includes('HOD') && p.departmentIds.length > 0;
     const scope: Prisma.AttendanceCorrectionWhereInput = isAdmin(p)
       ? {}
       : p.studentId
         ? { attendance: { studentId: p.studentId } }
-        : p.teacherId
-          ? {
-              OR: [
-                { requestedById: p.userId },
-                { attendance: { session: { subjectOffering: { teacherId: p.teacherId } } } },
-                ...(p.departmentIds.length && p.roleKeys.includes('HOD')
-                  ? [{ attendance: { session: { subjectOffering: { subject: { departmentId: { in: p.departmentIds } } } } } }]
-                  : []),
-              ],
-            }
-          : { requestedById: p.userId };
+        : p.roleKeys.includes('PARENT')
+          ? { attendance: { studentId: { in: p.guardianOfStudentIds } } }
+          : p.teacherId || isHod
+            ? {
+                OR: [
+                  { requestedById: p.userId },
+                  ...(p.teacherId ? [{ attendance: { session: { subjectOffering: { teacherId: p.teacherId } } } }] : []),
+                  ...(isHod
+                    ? [{ attendance: { session: { subjectOffering: { subject: { departmentId: { in: p.departmentIds } } } } } }]
+                    : []),
+                ],
+              }
+            : { requestedById: p.userId };
     const studentFilter: Prisma.AttendanceCorrectionWhereInput = q.studentId
       ? { attendance: { studentId: q.studentId } }
       : {};
@@ -579,8 +670,25 @@ export class AttendanceService {
       },
     });
     if (!corr) throw new NotFoundException('Correction not found');
-    if (p.studentId && corr.attendance.studentId !== p.studentId) {
-      throw new ForbiddenException({ message: 'Access denied', errorCode: 'NOT_OWN_ATTENDANCE' });
+    const offering = corr.attendance.session.subjectOffering;
+    const deptId = offering.subject.departmentId;
+    if (!isAdmin(p)) {
+      if (p.studentId) {
+        if (corr.attendance.studentId !== p.studentId) {
+          throw new ForbiddenException({ message: 'Access denied', errorCode: 'NOT_OWN_ATTENDANCE' });
+        }
+      } else if (p.roleKeys.includes('PARENT')) {
+        if (!p.guardianOfStudentIds.includes(corr.attendance.studentId)) {
+          throw new ForbiddenException({ message: 'Access denied', errorCode: 'NOT_OWN_ATTENDANCE' });
+        }
+      } else {
+        const isRequester = corr.requestedById === p.userId;
+        const isAssignedTeacher = !!p.teacherId && offering.teacherId === p.teacherId;
+        const isDeptHod = this.access.canReviewDepartment(p, deptId);
+        if (!isRequester && !isAssignedTeacher && !isDeptHod) {
+          throw new ForbiddenException({ message: 'Access denied', errorCode: 'SCOPE_DENIED' });
+        }
+      }
     }
     return corr;
   }
@@ -798,7 +906,8 @@ export class AttendanceService {
     ];
     const monthName = monthNames[targetMonth - 1];
 
-    const [offering, enrollments, sessions] = await Promise.all([
+    const [college, offering, enrollments, sessions] = await Promise.all([
+      this.prisma.college.findUnique({ where: { id: c }, select: { attendanceThreshold: true } }),
       this.prisma.subjectOffering.findUniqueOrThrow({
         where: { id: subjectOfferingId },
         include: {
@@ -927,7 +1036,8 @@ export class AttendanceService {
 
       overallAttendedSum += attended;
       overallHeldSum += held;
-      if (pct < 75 && held > 0) defaultersCount += 1;
+      const threshold = Number(college?.attendanceThreshold ?? 75);
+      if (pct < threshold && held > 0) defaultersCount += 1;
 
       return {
         studentId: e.studentId,

@@ -11,13 +11,9 @@ export type ComplaintCategory =
   | "SCHOLARSHIP"
   | "EXAMINATION"
   | "ATTENDANCE"
-  | "OTHER"
-  | "FACILITY"
-  | "FINANCE"
-  | "DISCIPLINE"
-  | "HARASSMENT";
+  | "OTHER";
 
-export type ComplaintPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT" | "CRITICAL";
+export type ComplaintPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 export type ComplaintStatus =
   | "OPEN"
@@ -27,10 +23,7 @@ export type ComplaintStatus =
   | "AWAITING_FEEDBACK"
   | "CLOSED"
   | "ESCALATED"
-  | "REOPENED"
-  | "SUBMITTED"
-  | "UNDER_REVIEW"
-  | "IN_PROGRESS";
+  | "REOPENED";
 
 export interface ComplaintItem {
   id: string;
@@ -42,23 +35,30 @@ export interface ComplaintItem {
   status: ComplaintStatus;
   createdAt: string;
   updatedAt: string;
-  student?: {
-    id: string;
-    rollNumber: string;
-    user: { firstName: string; lastName: string; email: string };
-  };
-  assignee?: {
+  complainant?: {
     id: string;
     firstName: string;
     lastName: string;
-    email: string;
+    email?: string;
+  };
+  assignedTo?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+  };
+  assignedDepartment?: {
+    id: string;
+    name: string;
+    code?: string;
   };
   events?: Array<{
     id: string;
-    eventType: string;
+    type: string;
     note?: string;
     createdAt: string;
-    actor?: { firstName: string; lastName: string };
+    actorId?: string;
+    metadata?: Record<string, any>;
   }>;
   feedbackRating?: number;
   feedbackComment?: string;
@@ -66,10 +66,12 @@ export interface ComplaintItem {
 
 export interface RoutePreviewResult {
   category: ComplaintCategory;
+  handlerRole: string;
+  departmental: boolean;
   priority: ComplaintPriority;
-  desk: string;
-  assigneeName?: string;
-  slaHours: number;
+  confidence: number;
+  rationale: string;
+  assignee: { userId: string; name: string; role: string } | null;
 }
 
 export interface CreateComplaintDto {

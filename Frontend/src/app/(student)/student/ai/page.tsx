@@ -2,6 +2,9 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAIStore } from "@/stores/useAIStore";
+import { aiApi } from "@/lib/api/ai";
+import { getPreferences } from "@/lib/preferences";
+import { Dialog } from "@/components/ui/dialog";
 import {
   Sparkles,
   Send,
@@ -28,6 +31,8 @@ import {
   Scale,
   Briefcase,
   DollarSign,
+  History,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -236,14 +241,55 @@ function renderInlineMarkdown(text: string): React.ReactNode {
 }
 
 export default function StudentAIPage() {
-  const { messages, isStreaming, sendMessage, resetConversation, confirmDraft, cancelDraft } =
-    useAIStore();
+  const {
+    messages,
+    conversations,
+    conversationId,
+    isLoadingHistory,
+    isStreaming,
+    isConfirmingDraft,
+    sendMessage,
+    loadConversations,
+    selectConversation,
+    deleteConversation,
+    resetConversation,
+    confirmDraft,
+    cancelDraft,
+  } = useAIStore();
 
   const [input, setInput] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedTrace, setExpandedTrace] = useState<Record<string, boolean>>({});
+  const [showHistory, setShowHistory] = useState(false);
+  const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
+  const [advisorData, setAdvisorData] = useState<any | null>(null);
+  const [loadingAdvisor, setLoadingAdvisor] = useState(false);
+  const [prefs, setPrefs] = useState(() => getPreferences());
+  const [agents, setAgents] = useState<Array<{ name: string; description: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    loadConversations();
+    aiApi.getAgents().then((list) => setAgents(Array.isArray(list) ? list : [])).catch(() => {});
+    const syncPrefs = () => setPrefs(getPreferences());
+    window.addEventListener("college_os_prefs_updated", syncPrefs);
+    return () => window.removeEventListener("college_os_prefs_updated", syncPrefs);
+  }, [loadConversations]);
+
+  const handleOpenAdvisor = async () => {
+    setIsAdvisorOpen(true);
+    setLoadingAdvisor(true);
+    try {
+      const res = await aiApi.getAdvisor();
+      setAdvisorData(res);
+    } catch (err: any) {
+      toast.error(err?.message || "Could not load academic advisor brief");
+      setIsAdvisorOpen(false);
+    } finally {
+      setLoadingAdvisor(false);
+    }
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -304,7 +350,7 @@ export default function StudentAIPage() {
                 Campus Intelligence Copilot
               </h1>
               <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono bg-brand-500/10 text-brand-600 dark:text-brand-300 border-brand-500/20">
-                Gemini 3.5 Flash
+                Institutional AI
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
@@ -315,7 +361,30 @@ export default function StudentAIPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {prefs.aiSuggestions && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleOpenAdvisor}
+              className="text-xs gap-1.5 rounded-xl border-border/80 hover:bg-muted/60 transition-colors"
+            >
+              <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+              Study Plan Advisor
+            </Button>
+          )}
           <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowHistory((v) => !v)}
+            className="text-xs gap-1.5 rounded-xl border-border/80 hover:bg-muted/60 transition-colors"
+          >
+            <History className="h-3.5 w-3.5 text-muted-foreground" />
+            History ({conversations.length})
+          </Button>
+          <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={resetConversation}
@@ -326,6 +395,68 @@ export default function StudentAIPage() {
           </Button>
         </div>
       </div>
+
+      {/* Specialist Agents Directory Strip */}
+      {agents.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 px-1 shrink-0">
+          <span className="text-[11px] font-semibold text-muted-foreground mr-1 flex items-center gap-1">
+            <Cpu className="h-3 w-3 text-brand-500" /> Specialist Agents:
+          </span>
+          {agents.map((ag) => (
+            <span
+              key={ag.name}
+              title={ag.description}
+              className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-border bg-muted/40 text-foreground"
+            >
+              {ag.name.replace(/Agent$/, "")}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Collapsible Saved Conversation History Bar */}
+      {showHistory && (
+        <div className="rounded-2xl border border-border bg-card p-3 space-y-2 shrink-0">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-foreground">Saved Copilot Conversations</span>
+            <span className="text-[11px] text-muted-foreground">
+              {isLoadingHistory ? "Loading..." : `${conversations.length} thread(s)`}
+            </span>
+          </div>
+          {conversations.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-2">No saved conversations yet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
+              {conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs ${
+                    conversationId === conv.id
+                      ? "border-brand-500 bg-brand-500/10 text-foreground font-semibold"
+                      : "border-border bg-muted/40 text-muted-foreground"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => selectConversation(conv.id)}
+                    className="hover:text-foreground truncate max-w-[180px]"
+                  >
+                    {conv.title || `Session ${new Date(conv.updatedAt).toLocaleDateString()}`}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Delete conversation"
+                    onClick={() => deleteConversation(conv.id)}
+                    className="text-rose-500 hover:text-rose-700"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Conversation Stream */}
       <div className="flex-1 overflow-y-auto px-1 space-y-4">
@@ -437,11 +568,21 @@ export default function StudentAIPage() {
                             >
                               <div className="flex items-center justify-between">
                                 <span className="font-semibold text-foreground flex items-center gap-1.5">
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                  {item.ok ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                  ) : (
+                                    <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
+                                  )}
                                   {item.tool}()
                                 </span>
-                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                                  Query Succeeded
+                                <span
+                                  className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                    item.ok
+                                      ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+                                      : "text-rose-600 dark:text-rose-400 bg-rose-500/10"
+                                  }`}
+                                >
+                                  {item.ok ? "Query Succeeded" : "Tool Warning / Denied"}
                                 </span>
                               </div>
                               <p className="font-sans text-xs text-muted-foreground">
@@ -489,6 +630,8 @@ export default function StudentAIPage() {
                       <div className="flex items-center gap-2 pt-1">
                         <Button
                           size="sm"
+                          disabled={isConfirmingDraft}
+                          isLoading={isConfirmingDraft}
                           onClick={() => confirmDraft(msg.pendingDraftId!)}
                           className="text-xs gap-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg"
                         >
@@ -498,17 +641,21 @@ export default function StudentAIPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          disabled={isConfirmingDraft}
                           onClick={() => cancelDraft(msg.pendingDraftId!)}
                           className="text-xs text-muted-foreground hover:text-foreground"
                         >
                           Discard Draft
                         </Button>
                       </div>
+                      {msg.disclaimer && (
+                        <p className="text-[11px] text-muted-foreground italic">{msg.disclaimer}</p>
+                      )}
                     </div>
                   )}
 
                   {/* Grounded Source Citations */}
-                  {!isUser && msg.citations && msg.citations.length > 0 && (
+                  {!isUser && prefs.citationVerbosity && msg.citations && msg.citations.length > 0 && (
                     <div className="rounded-xl border border-border/70 bg-card p-3 space-y-2">
                       <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                         <BookOpen className="h-3.5 w-3.5 text-brand-500" />
@@ -547,10 +694,11 @@ export default function StudentAIPage() {
                         {msg.quickActions?.map((action, i) => (
                           <button
                             key={i}
+                            disabled={isStreaming}
                             onClick={() => {
                               sendMessage(action.prompt);
                             }}
-                            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-muted/60 hover:bg-muted text-foreground/80 hover:text-foreground transition-all border border-border/60 flex items-center gap-1 shadow-2xs hover:border-brand-500/40"
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-muted/60 hover:bg-muted text-foreground/80 hover:text-foreground transition-all border border-border/60 flex items-center gap-1 shadow-2xs hover:border-brand-500/40 disabled:opacity-50"
                           >
                             {action.label}
                             <ArrowRight className="h-2.5 w-2.5 opacity-60" />
@@ -661,6 +809,67 @@ export default function StudentAIPage() {
           </div>
         </div>
       </div>
+
+      {/* Personal AI Academic Advisor Modal (GET /ai/advisor) */}
+      <Dialog
+        isOpen={isAdvisorOpen}
+        onClose={() => setIsAdvisorOpen(false)}
+        title="Personal AI Academic Advisor"
+        description="Deterministic risk check, upcoming deadlines, weak subjects, and prioritized study plan."
+      >
+        {loadingAdvisor ? (
+          <div className="py-8 text-center text-xs text-muted-foreground">Analyzing your academic records...</div>
+        ) : !advisorData ? (
+          <div className="py-6 text-center text-xs text-muted-foreground">Advisor brief unavailable.</div>
+        ) : (
+          <div className="space-y-4 text-xs max-h-[70vh] overflow-y-auto pr-1">
+            <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/30">
+              <div>
+                <div className="font-semibold text-foreground">Academic Risk Indicator</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Attendance: {advisorData.collegeData?.attendance?.overall ?? 0}% (Min {advisorData.collegeData?.attendance?.minimum ?? 75}%)
+                </div>
+              </div>
+              <Badge
+                variant={
+                  advisorData.riskIndicator?.level === "HIGH"
+                    ? "destructive"
+                    : advisorData.riskIndicator?.level === "MEDIUM"
+                    ? "secondary"
+                    : "default"
+                }
+              >
+                {advisorData.riskIndicator?.level || "LOW"} RISK
+              </Badge>
+            </div>
+
+            {advisorData.narrative && (
+              <div className="p-3 rounded-xl border border-brand-500/30 bg-brand-500/5 text-foreground leading-relaxed whitespace-pre-line">
+                {advisorData.narrative}
+              </div>
+            )}
+
+            {(advisorData.recommendations || []).length > 0 && (
+              <div className="space-y-2">
+                <div className="font-bold uppercase text-[10px] text-muted-foreground">Prioritized Action Plan</div>
+                {advisorData.recommendations.map((rec: any, i: number) => (
+                  <div key={i} className="p-2.5 rounded-xl border border-border bg-card space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-foreground">{rec.subject || rec.title || "Action"}</span>
+                      {rec.priority && <Badge variant="outline" className="text-[10px]">{rec.priority}</Badge>}
+                    </div>
+                    <p className="text-muted-foreground">{rec.action || rec.reason || rec.detail}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {advisorData.disclaimer && (
+              <p className="text-[10px] text-muted-foreground italic">{advisorData.disclaimer}</p>
+            )}
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }

@@ -4,6 +4,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth/authStore";
 import { messagesApi, MessageConversation, MessageItem } from "@/lib/api/messages";
+import { messagingApi } from "@/services/api/messaging.api";
+import { useDepartments } from "@/hooks/useAcademic";
+import { toast } from "sonner";
 import {
   MessageSquare,
   Send,
@@ -14,6 +17,7 @@ import {
   Clock,
   Sparkles,
   Plus,
+  Megaphone,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,12 +35,48 @@ export default function MessagesPage() {
     queryFn: () => messagesApi.getConversations(),
   });
 
+  const { data: recipients = [] } = useQuery({
+    queryKey: ["message_recipients"],
+    queryFn: () => messagesApi.getRecipients(),
+  });
+
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [inputText, setInputText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [newRecipient, setNewRecipient] = useState("");
   const [newFirstMessage, setNewFirstMessage] = useState("");
+  const [isAnnounceOpen, setIsAnnounceOpen] = useState(false);
+  const [annDeptId, setAnnDeptId] = useState("");
+  const [annTitle, setAnnTitle] = useState("");
+  const [annContent, setAnnContent] = useState("");
+
+  const roleKeys = user?.roleKeys || [];
+  const canAnnounce =
+    user?.role === "HOD" ||
+    user?.role === "ADMIN" ||
+    user?.role === "COLLEGE_ADMIN" ||
+    user?.role === "SUPER_ADMIN" ||
+    roleKeys.some((r) => ["HOD", "COLLEGE_ADMIN", "SUPER_ADMIN"].includes(r));
+
+  const { data: departments = [] } = useDepartments();
+
+  const announceMutation = useMutation({
+    mutationFn: () =>
+      messagingApi.sendAnnouncement({
+        departmentId: annDeptId || departments[0]?.id || "",
+        title: annTitle.trim() || undefined,
+        content: annContent.trim(),
+      }),
+    onSuccess: () => {
+      toast.success("Department announcement broadcast sent.");
+      setIsAnnounceOpen(false);
+      setAnnTitle("");
+      setAnnContent("");
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to send announcement"),
+  });
 
   const activeConv = conversations?.find((c) => c.id === activeThreadId) || conversations?.[0];
 
@@ -135,10 +175,20 @@ export default function MessagesPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Direct Messages</h2>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-semibold bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 px-2 py-0.5 rounded-full">
-                Encrypted
-              </span>
+              {canAnnounce && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsAnnounceOpen(true)}
+                  className="h-6 px-1.5 text-[10px] gap-1"
+                  title="Broadcast Department Announcement"
+                >
+                  <Megaphone className="h-3 w-3" /> Announce
+                </Button>
+              )}
               <Button
+                type="button"
                 size="sm"
                 variant="outline"
                 onClick={() => setIsNewModalOpen(true)}
@@ -346,12 +396,27 @@ export default function MessagesPage() {
         description="Initiate an official message thread with course faculty or academic mentors."
       >
         <form onSubmit={handleStartConversation} className="space-y-4 text-xs">
-          <div className="space-y-1">
+          <div className="space-y-2">
             <label className="font-semibold text-foreground block">
-              Recipient User ID or Login ID
+              Select Eligible Recipient
             </label>
+            {recipients.length > 0 && (
+              <select
+                value={newRecipient}
+                onChange={(e) => setNewRecipient(e.target.value)}
+                className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs text-foreground"
+              >
+                <option value="">Choose a student, teacher, or HOD...</option>
+                {recipients.map((r: any) => (
+                  <option key={r.id} value={r.id}>
+                    {r.firstName} {r.lastName} ({r.loginId})
+                    {r.userRoles?.[0]?.role?.key ? ` — ${r.userRoles[0].role.key}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
             <Input
-              placeholder="e.g. FAC001, CSE23002, or HOD_CSE"
+              placeholder="Or paste recipient User ID"
               value={newRecipient}
               onChange={(e) => setNewRecipient(e.target.value)}
               required
@@ -376,12 +441,61 @@ export default function MessagesPage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setIsNewModalOpen(false)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsNewModalOpen(false)}>
               Cancel
             </Button>
             <Button size="sm" type="submit" isLoading={startConvMutation.isPending}>
               Send Message
             </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Department Broadcast Announcement Modal (POST /messages/announcements) */}
+      <Dialog
+        isOpen={isAnnounceOpen}
+        onClose={() => setIsAnnounceOpen(false)}
+        title="Broadcast Department Announcement"
+        description="Send a high-priority broadcast channel message to a department cohort."
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!(annDeptId || departments[0]?.id) || !annContent.trim()) return;
+            announceMutation.mutate();
+          }}
+          className="space-y-3 text-xs"
+        >
+          <div>
+            <label className="font-semibold block mb-1">Target Department</label>
+            <select
+              value={annDeptId || departments[0]?.id || ""}
+              onChange={(e) => setAnnDeptId(e.target.value)}
+              className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
+            >
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="font-semibold block mb-1">Title (Optional)</label>
+            <Input placeholder="e.g. Lab Schedule Update" value={annTitle} onChange={(e) => setAnnTitle(e.target.value)} />
+          </div>
+          <div>
+            <label className="font-semibold block mb-1">Announcement Content</label>
+            <textarea
+              rows={3}
+              value={annContent}
+              onChange={(e) => setAnnContent(e.target.value)}
+              placeholder="Write department-wide announcement..."
+              required
+              className="w-full rounded-lg border border-input bg-background p-2.5 text-xs"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsAnnounceOpen(false)}>Cancel</Button>
+            <Button type="submit" size="sm" isLoading={announceMutation.isPending}>Broadcast</Button>
           </div>
         </form>
       </Dialog>

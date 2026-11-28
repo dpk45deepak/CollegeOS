@@ -36,7 +36,7 @@ export function useDeleteAIConversation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => aiApi.deleteConversation(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: aiKeys.conversations() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...aiKeys.all, "conversations"] }),
   });
 }
 

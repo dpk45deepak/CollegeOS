@@ -3,17 +3,20 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { teacherApi } from "@/lib/api/teacher";
+import { attendanceApi } from "@/services/api/attendance.api";
 import {
   FileText,
   Plus,
   Clock,
   CheckCircle2,
   Upload,
+  Download,
   User,
   Sparkles,
   Search,
   ExternalLink,
   Users,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,17 +35,20 @@ export default function TeacherAssignmentsPage() {
     queryFn: () => teacherApi.getPendingAssignmentsToGrade(),
   });
 
-  const { data: classes } = useQuery({
-    queryKey: ["teacher_classes"],
-    queryFn: () => teacherApi.getTodayClasses(),
+  const { data: teacherOfferings = [] } = useQuery({
+    queryKey: ["teacher_offerings_all"],
+    queryFn: () => attendanceApi.getTeacherOfferings({ limit: 100 }),
   });
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isGradeOpen, setIsGradeOpen] = useState(false);
+  const [submissionTab, setSubmissionTab] = useState<"submitted" | "missing">("submitted");
   const [selectedAssignment, setSelectedAssignment] = useState<{
     id: string;
     title: string;
     subject: string;
+    maxMarks?: number;
+    attachmentKeys?: string[];
   } | null>(null);
 
   const {
@@ -58,6 +64,15 @@ export default function TeacherAssignmentsPage() {
     enabled: !!selectedAssignment,
   });
 
+  const { data: missingData, isLoading: missingLoading } = useQuery({
+    queryKey: ["assignment_missing", selectedAssignment?.id],
+    queryFn: () =>
+      selectedAssignment
+        ? teacherApi.getMissingSubmissions(selectedAssignment.id)
+        : Promise.resolve({ pastDue: false, students: [] }),
+    enabled: !!selectedAssignment,
+  });
+
   const [activeSubmission, setActiveSubmission] = useState<{
     id: string;
     studentName: string;
@@ -65,12 +80,14 @@ export default function TeacherAssignmentsPage() {
     title: string;
     submittedAt: string;
     submissionText?: string;
+    fileKeys?: string[];
   } | null>(null);
 
   const [marks, setMarks] = useState("25");
   const [feedback, setFeedback] = useState("");
   const [title, setTitle] = useState("");
-  const [subject, setSubject] = useState(classes?.[0]?.id || "");
+  const [description, setDescription] = useState("");
+  const [subject, setSubject] = useState("");
   const [deadline, setDeadline] = useState("");
   const [maxMarks, setMaxMarks] = useState("30");
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -82,6 +99,7 @@ export default function TeacherAssignmentsPage() {
     mutationFn: (data: {
       subjectOfferingId: string;
       title: string;
+      description?: string;
       dueAt: string;
       maxMarks: number;
       attachmentKeys?: string[];
@@ -90,7 +108,9 @@ export default function TeacherAssignmentsPage() {
       setActionSuccess("Assignment published successfully to student portal!");
       setIsCreateOpen(false);
       setTitle("");
+      setDescription("");
       setDeadline("");
+      setAttachedFile(null);
       queryClient.invalidateQueries({ queryKey: ["teacher_pending_assignments"] });
       setTimeout(() => setActionSuccess(null), 3000);
     },
@@ -115,9 +135,13 @@ export default function TeacherAssignmentsPage() {
       );
       setIsGradeOpen(false);
       queryClient.invalidateQueries({ queryKey: ["teacher_pending_assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["teacher_pending_grading"] });
       if (selectedAssignment) {
         queryClient.invalidateQueries({
           queryKey: ["assignment_submissions", selectedAssignment.id],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["assignment_missing", selectedAssignment.id],
         });
       }
       setTimeout(() => setActionSuccess(null), 3000);
@@ -127,8 +151,15 @@ export default function TeacherAssignmentsPage() {
     },
   });
 
-  const handleOpenSubmissions = (a: { id: string; title: string; subject: string }) => {
+  const handleOpenSubmissions = (a: {
+    id: string;
+    title: string;
+    subject: string;
+    maxMarks?: number;
+    attachmentKeys?: string[];
+  }) => {
     setSelectedAssignment(a);
+    setSubmissionTab("submitted");
   };
 
   const handleGradeSubmission = (sub: any) => {
@@ -147,8 +178,9 @@ export default function TeacherAssignmentsPage() {
         ? new Date(sub.submittedAt).toLocaleDateString()
         : "Submitted",
       submissionText: sub.text,
+      fileKeys: Array.isArray(sub.fileKeys) ? sub.fileKeys : [],
     });
-    setMarks(sub.marks != null ? String(sub.marks) : "25");
+    setMarks(sub.marks != null ? String(sub.marks) : "0");
     setFeedback(sub.feedback || "Evaluated by course faculty.");
     setIsGradeOpen(true);
   };
@@ -156,39 +188,55 @@ export default function TeacherAssignmentsPage() {
   const handleSaveGrade = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeSubmission) return;
+    const numericMarks = Number(marks);
+    const max = selectedAssignment?.maxMarks || 100;
+    if (Number.isNaN(numericMarks) || numericMarks < 0 || numericMarks > max) {
+      toast.error(`Marks must be between 0 and ${max}.`);
+      return;
+    }
     gradeMutation.mutate({
       subId: activeSubmission.id,
-      marks: Number(marks) || 0,
+      marks: numericMarks,
       feedback,
     });
   };
 
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handlePublishAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
-    const offeringId = subject || classes?.[0]?.id;
-    if (!offeringId || !title || !deadline) {
+    if (isUploading || createMutation.isPending) return;
+    const offeringId = subject || teacherOfferings?.[0]?.id;
+    if (!offeringId || !title.trim() || !deadline) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+    if (new Date(deadline) <= new Date()) {
+      toast.error("Submission deadline must be in the future.");
       return;
     }
 
     let attachmentKeys: string[] | undefined;
     if (attachedFile) {
+      setIsUploading(true);
       try {
         const uploadRes = await storageApi.uploadAttachment(attachedFile);
         attachmentKeys = [uploadRes.key];
       } catch (err) {
         toast.error("Failed to upload assignment attachment");
         return;
+      } finally {
+        setIsUploading(false);
       }
     }
 
     createMutation.mutate({
       subjectOfferingId: offeringId,
-      title,
+      title: title.trim(),
+      description: description.trim() || undefined,
       dueAt: deadline,
-      maxMarks: Number(maxMarks) || 30,
+      maxMarks: Math.max(1, Number(maxMarks) || 30),
       attachmentKeys,
     });
   };
@@ -310,27 +358,96 @@ export default function TeacherAssignmentsPage() {
       {/* Selected Assignment Submissions Drawer / Section */}
       {selectedAssignment && (
         <Card className="border-brand-200 dark:border-brand-900 shadow-sm">
-          <CardHeader className="p-4 pb-2 border-b border-border flex flex-row items-center justify-between">
+          <CardHeader className="p-4 pb-2 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
                 <FileText className="h-4 w-4 text-brand-600" />
-                <span>Submissions: {selectedAssignment.title}</span>
+                <span>Deliverable Roster: {selectedAssignment.title}</span>
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Course: {selectedAssignment.subject} • Click Grade on any student submission to evaluate and publish marks.
+                Course: {selectedAssignment.subject} • Download submitted files and record marks or inspect missing students.
               </p>
+              {selectedAssignment.attachmentKeys && selectedAssignment.attachmentKeys.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {selectedAssignment.attachmentKeys.map((k, idx) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() =>
+                        storageApi.downloadFile(k).catch((err: any) =>
+                          toast.error(err?.message || "Failed to download question sheet"),
+                        )
+                      }
+                      className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] hover:bg-muted/80"
+                    >
+                      <Download className="h-3 w-3 text-brand-600" /> Spec File {idx + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedAssignment(null)}
-              className="text-xs h-7"
-            >
-              Close Roster
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-lg bg-muted p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSubmissionTab("submitted")}
+                  className={`px-2.5 py-1 rounded-md font-semibold ${
+                    submissionTab === "submitted" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground"
+                  }`}
+                >
+                  Submitted ({submissions?.length ?? 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSubmissionTab("missing")}
+                  className={`px-2.5 py-1 rounded-md font-semibold ${
+                    submissionTab === "missing" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground"
+                  }`}
+                >
+                  Not Submitted ({missingData?.students?.length ?? 0})
+                </button>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedAssignment(null)}
+                className="text-xs h-7"
+              >
+                Close
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
-            {submissionsLoading ? (
+            {submissionTab === "missing" ? (
+              missingLoading ? (
+                <div className="p-6 space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : !missingData?.students?.length ? (
+                <div className="p-8 text-center text-xs text-muted-foreground">
+                  Every enrolled student has submitted this assignment.
+                </div>
+              ) : (
+                <div className="p-4 space-y-2">
+                  {missingData.pastDue && (
+                    <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0" /> Deadline has passed — these students have missing submissions.
+                    </div>
+                  )}
+                  <div className="divide-y divide-border border rounded-xl">
+                    {missingData.students.map((st) => (
+                      <div key={st.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                        <span className="font-semibold">
+                          {st.user ? `${st.user.firstName} ${st.user.lastName}` : "Student"}
+                        </span>
+                        <span className="font-mono text-muted-foreground">{st.rollNumber}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            ) : submissionsLoading ? (
               <div className="p-6 space-y-2">
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
@@ -346,6 +463,7 @@ export default function TeacherAssignmentsPage() {
                     <th className="p-3 pl-4">Roll Number</th>
                     <th className="p-3">Student Name</th>
                     <th className="p-3">Submission Date</th>
+                    <th className="p-3">Attachments</th>
                     <th className="p-3">Status</th>
                     <th className="p-3">Marks</th>
                     <th className="p-3 pr-4 text-right">Action</th>
@@ -359,6 +477,7 @@ export default function TeacherAssignmentsPage() {
                       : sub.student?.name || "Student";
                     const roll = sub.student?.rollNumber || "ID";
                     const isGraded = sub.status === "GRADED" || sub.marks != null;
+                    const files: string[] = Array.isArray(sub.fileKeys) ? sub.fileKeys : [];
 
                     return (
                       <tr key={sub.id} className="hover:bg-muted/20">
@@ -370,6 +489,28 @@ export default function TeacherAssignmentsPage() {
                           {sub.submittedAt
                             ? new Date(sub.submittedAt).toLocaleDateString()
                             : "Submitted"}
+                        </td>
+                        <td className="p-3">
+                          {files.length === 0 ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {files.map((key, idx) => (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  onClick={() =>
+                                    storageApi.downloadFile(key).catch((err: any) =>
+                                      toast.error(err?.message || "Failed to download file"),
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 rounded border border-border bg-muted px-2 py-0.5 text-[11px] hover:bg-muted/80"
+                                >
+                                  <Download className="h-3 w-3 text-brand-600" /> File {idx + 1}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td className="p-3">
                           <span
@@ -419,14 +560,14 @@ export default function TeacherAssignmentsPage() {
             <div>
               <label className="font-semibold text-foreground block mb-1">Subject Offering</label>
               <select
-                value={subject || classes?.[0]?.id || ""}
+                value={subject || teacherOfferings?.[0]?.id || ""}
                 onChange={(e) => setSubject(e.target.value)}
                 className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
                 required
               >
-                {(classes || []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.subjectCode}: {c.subjectName} (Sec {c.section})
+                {teacherOfferings.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.subject?.code}: {o.subject?.name} (Sec {o.section?.name})
                   </option>
                 ))}
               </select>
@@ -435,6 +576,7 @@ export default function TeacherAssignmentsPage() {
               <label className="font-semibold text-foreground block mb-1">Max Marks</label>
               <Input
                 type="number"
+                min={1}
                 value={maxMarks}
                 onChange={(e) => setMaxMarks(e.target.value)}
                 required
@@ -447,8 +589,20 @@ export default function TeacherAssignmentsPage() {
             <Input
               placeholder="e.g. Relational Calculus & Complex Joins"
               value={title}
+              maxLength={160}
               onChange={(e) => setTitle(e.target.value)}
               required
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-semibold text-foreground block">Instructions / Description (Optional)</label>
+            <textarea
+              rows={2}
+              placeholder="Provide submission guidelines or rubric notes..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full rounded-lg border border-input bg-background p-2 text-xs text-foreground"
             />
           </div>
 
@@ -477,10 +631,10 @@ export default function TeacherAssignmentsPage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setIsCreateOpen(false)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateOpen(false)}>
               Cancel
             </Button>
-            <Button size="sm" type="submit" isLoading={createMutation.isPending}>
+            <Button size="sm" type="submit" disabled={isUploading || createMutation.isPending} isLoading={isUploading || createMutation.isPending}>
               Publish to Students
             </Button>
           </div>
@@ -507,12 +661,32 @@ export default function TeacherAssignmentsPage() {
                 &ldquo;{activeSubmission.submissionText}&rdquo;
               </p>
             )}
+            {activeSubmission?.fileKeys && activeSubmission.fileKeys.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border">
+                {activeSubmission.fileKeys.map((key, idx) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() =>
+                      storageApi.downloadFile(key).catch((err: any) =>
+                        toast.error(err?.message || "Failed to download submitted file"),
+                      )
+                    }
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:bg-muted"
+                  >
+                    <Download className="h-3 w-3 text-brand-600" /> Download File {idx + 1}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1">
-            <label className="font-semibold text-foreground block">Marks Awarded</label>
+            <label className="font-semibold text-foreground block">Marks Awarded (0 - {selectedAssignment?.maxMarks || 100})</label>
             <Input
               type="number"
+              min={0}
+              max={selectedAssignment?.maxMarks || 100}
               value={marks}
               onChange={(e) => setMarks(e.target.value)}
               required
@@ -530,7 +704,7 @@ export default function TeacherAssignmentsPage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setIsGradeOpen(false)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsGradeOpen(false)}>
               Cancel
             </Button>
             <Button size="sm" type="submit" isLoading={gradeMutation.isPending}>

@@ -36,11 +36,52 @@ export interface BackendChatResponse {
   disclaimer?: string;
 }
 
+export function mapBackendChatResponse(response: BackendChatResponse): AIChatMessage {
+  const hasCollegeData = (response.collegeData?.length ?? 0) > 0;
+  const primaryTool = response.collegeData?.[0];
+
+  return {
+    id: `msg_${Date.now()}`,
+    sender: "assistant",
+    conversationId: response.conversationId,
+    content: response.reply,
+    timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    isOfficial: hasCollegeData || response.mode === "tool",
+    isRecommendation: response.mode === "rag" || !hasCollegeData,
+    agent: response.agent,
+    mode: response.mode,
+    disclaimer: response.disclaimer,
+    pendingDraftId: response.pendingDraftId,
+    collegeData: response.collegeData,
+    citations: response.citations?.map((c) => ({
+      title: c.title,
+      source: `Doc ID: ${c.documentId}`,
+      page: c.pageNumber,
+      excerpt: c.snippet,
+    })),
+    toolExecution: primaryTool
+      ? {
+          toolName: primaryTool.tool,
+          status: primaryTool.ok ? "completed" : "executing",
+          summary: primaryTool.summary,
+          data: primaryTool.data,
+        }
+      : undefined,
+    quickActions: [
+      { label: "View Attendance", prompt: "What is my current attendance percentage and shortfall?" },
+      { label: "Upcoming Exams", prompt: "When is my next internal exam and where is my seat allocated?" },
+      { label: "Check Fee Dues", prompt: "What are my pending fees and payment deadlines?" },
+      { label: "Find Scholarships", prompt: "What scholarships match my academic profile?" },
+    ],
+  };
+}
+
 export const aiApi = {
   sendMessage: async (
     userMessage: string,
     historyOrConversationId?: AIChatMessage[] | string,
-    conversationId?: string
+    conversationId?: string,
+    studentId?: string
   ): Promise<AIChatMessage> => {
     const actualConvId = typeof historyOrConversationId === "string" ? historyOrConversationId : conversationId;
 
@@ -53,47 +94,12 @@ export const aiApi = {
           body: JSON.stringify({
             message: userMessage,
             conversationId: actualConvId,
+            ...(studentId ? { studentId } : {}),
           }),
         }
       );
 
-      // Map backend response into AIChatMessage
-      const hasCollegeData = (response.collegeData?.length ?? 0) > 0;
-      const primaryTool = response.collegeData?.[0];
-
-      return {
-        id: `msg_${Date.now()}`,
-        sender: "assistant",
-        content: response.reply,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        isOfficial: hasCollegeData || response.mode === "tool",
-        isRecommendation: response.mode === "rag" || !hasCollegeData,
-        agent: response.agent,
-        mode: response.mode,
-        disclaimer: response.disclaimer,
-        pendingDraftId: response.pendingDraftId,
-        collegeData: response.collegeData,
-        citations: response.citations?.map((c) => ({
-          title: c.title,
-          source: `Doc ID: ${c.documentId}`,
-          page: c.pageNumber,
-          excerpt: c.snippet,
-        })),
-        toolExecution: primaryTool
-          ? {
-              toolName: primaryTool.tool,
-              status: primaryTool.ok ? "completed" : "executing",
-              summary: primaryTool.summary,
-              data: primaryTool.data,
-            }
-          : undefined,
-        quickActions: [
-          { label: "View Attendance", prompt: "What is my current attendance percentage and shortfall?" },
-          { label: "Upcoming Exams", prompt: "When is my next internal exam and where is my seat allocated?" },
-          { label: "Check Fee Dues", prompt: "What are my pending fees and payment deadlines?" },
-          { label: "Find Scholarships", prompt: "What scholarships match my academic profile?" },
-        ],
-      };
+      return mapBackendChatResponse(response);
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
@@ -121,6 +127,48 @@ export const aiApi = {
 
   getAgents: async () => {
     return apiClient<any[]>("/ai/agents");
+  },
+
+  listConversations: async () => {
+    const raw = await apiClient<any>("/ai/conversations", { params: { limit: 30 } });
+    return (Array.isArray(raw) ? raw : raw?.items || raw?.data || []) as Array<{
+      id: string;
+      title?: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+  },
+
+  getConversationMessages: async (conversationId: string): Promise<AIChatMessage[]> => {
+    const raw = await apiClient<any>(`/ai/conversations/${conversationId}/messages`, { params: { limit: 100 } });
+    const items = Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
+    return items.map((m: any) => ({
+      id: m.id,
+      sender: m.role === "USER" ? "user" : "assistant",
+      conversationId,
+      content: m.content || "",
+      timestamp: m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+      agent: m.agentName || undefined,
+      isOfficial: m.role !== "USER",
+    }));
+  },
+
+  deleteConversation: async (conversationId: string): Promise<void> => {
+    await apiClient<void>(`/ai/conversations/${conversationId}`, { method: "DELETE" });
+  },
+
+  searchKnowledge: async (
+    question: string,
+    filters?: { documentType?: string; academicYear?: string }
+  ): Promise<{
+    relevant: boolean;
+    usedVector: boolean;
+    results: Array<{ chunkId: string; documentId: string; title: string; page?: number; relevance: number; excerpt: string }>;
+  }> => {
+    return apiClient<any>("/ai/knowledge/search", {
+      method: "POST",
+      body: JSON.stringify({ question, ...filters }),
+    });
   },
 
   askKnowledge: async (

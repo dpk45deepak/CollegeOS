@@ -35,8 +35,17 @@ export default function StudentPlacementsPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
 
-  const isOfficerOrAdmin = user?.role === "PLACEMENT_OFFICER" || user?.role === "ADMIN";
+  const roleKeys = user?.roleKeys || [];
+  const isOfficerOrAdmin =
+    user?.role === "PLACEMENT_OFFICER" ||
+    user?.role === "ADMIN" ||
+    roleKeys.includes("PLACEMENT_OFFICER") ||
+    roleKeys.includes("COLLEGE_ADMIN") ||
+    roleKeys.includes("SUPER_ADMIN");
   const [activeTab, setActiveTab] = useState<"student" | "officer">(isOfficerOrAdmin ? "officer" : "student");
+  React.useEffect(() => {
+    if (isOfficerOrAdmin) setActiveTab("officer");
+  }, [isOfficerOrAdmin]);
 
   // Student Openings
   const { data: drives, isLoading, error, refetch } = useQuery({
@@ -144,6 +153,32 @@ export default function StudentPlacementsPage() {
       setAppliedDriveId(id);
       toast.success("Application submitted successfully!");
       queryClient.invalidateQueries({ queryKey: ["student_placements"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to submit job application.");
+    },
+  });
+
+  const respondOfferMutation = useMutation({
+    mutationFn: ({ offerId, decision }: { offerId: string; decision: "ACCEPT" | "DECLINE" }) =>
+      studentApi.respondPlacementOffer(offerId, decision),
+    onSuccess: (_, vars) => {
+      toast.success(vars.decision === "ACCEPT" ? "Placement offer accepted!" : "Placement offer declined.");
+      queryClient.invalidateQueries({ queryKey: ["student_placements"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to update offer response.");
+    },
+  });
+
+  const withdrawMutation = useMutation({
+    mutationFn: (applicationId: string) => studentApi.withdrawPlacement(applicationId),
+    onSuccess: () => {
+      toast.success("Application withdrawn.");
+      queryClient.invalidateQueries({ queryKey: ["student_placements"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to withdraw application.");
     },
   });
 
@@ -338,8 +373,16 @@ export default function StudentPlacementsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {drives.map((item) => {
-                const isApplied = appliedDriveId === item.id || item.status === "APPLIED";
-                const isClosingToday = item.id === "plc_1";
+                const isApplied =
+                  appliedDriveId === item.id ||
+                  ["APPLIED", "SHORTLISTED", "INTERVIEW", "OFFERED", "ACCEPTED", "REJECTED"].includes(item.status);
+                const canWithdraw =
+                  Boolean((item as any).applicationId) &&
+                  ["APPLIED", "SHORTLISTED"].includes(item.status);
+                const latestOffer = (item as any).offers?.find((o: any) => o.status === "ISSUED") || (item as any).offers?.[0];
+                const canRespondOffer = item.status === "OFFERED" && Boolean(latestOffer?.id);
+                const todayIso = new Date().toISOString().split("T")[0];
+                const isClosingToday = !!item.deadline && item.deadline === todayIso;
 
                 return (
                   <Card key={item.id} className="flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -387,38 +430,81 @@ export default function StudentPlacementsPage() {
                         </div>
                       </div>
 
-                      {/* Hiring Rounds */}
-                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border/70 text-[11px] space-y-1">
-                        <span className="font-semibold text-muted-foreground block text-[10px] uppercase">
-                          Hiring Process
-                        </span>
-                        {(item.rounds || []).map((r, i) => (
-                          <div key={i} className="flex items-center justify-between text-muted-foreground">
-                            <span>{i + 1}. {r.name}</span>
-                            <span className="font-mono text-[10px]">{r.date}</span>
-                          </div>
-                        ))}
-                      </div>
+                      {/* Hiring Rounds (shown only if rounds exist) */}
+                      {(item.rounds || []).length > 0 && (
+                        <div className="p-2.5 rounded-xl bg-muted/40 border border-border/70 text-[11px] space-y-1">
+                          <span className="font-semibold text-muted-foreground block text-[10px] uppercase">
+                            Hiring Process
+                          </span>
+                          {(item.rounds || []).map((r, i) => (
+                            <div key={i} className="flex items-center justify-between text-muted-foreground">
+                              <span>{i + 1}. {r.name}</span>
+                              <span className="font-mono text-[10px]">{r.date}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
-                      <div className="pt-2 border-t border-border flex items-center justify-between text-xs">
+                      <div className="pt-2 border-t border-border flex items-center justify-between gap-2 text-xs flex-wrap">
                         {isClosingToday ? (
                           <span className="text-[10px] font-bold text-rose-600 flex items-center gap-1">
                             <Clock className="h-3 w-3" /> Closes Tonight!
                           </span>
                         ) : (
                           <span className="text-[10px] text-muted-foreground">
-                            Deadline: {formatDate(item.deadline)}
+                            {item.deadline ? `Deadline: ${formatDate(item.deadline)}` : "Rolling Applications"}
                           </span>
                         )}
 
-                        <Button
-                          size="sm"
-                          disabled={isApplied || applyMutation.isPending}
-                          onClick={() => applyMutation.mutate(item.id)}
-                          className="text-xs h-8"
-                        >
-                          {isApplied ? "Applied" : "1-Click Apply"}
-                        </Button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {canRespondOffer ? (
+                            <>
+                              <Button
+                                size="sm"
+                                disabled={respondOfferMutation.isPending}
+                                onClick={() =>
+                                  respondOfferMutation.mutate({ offerId: latestOffer.id, decision: "ACCEPT" })
+                                }
+                                className="text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                              >
+                                Accept Offer
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={respondOfferMutation.isPending}
+                                onClick={() =>
+                                  respondOfferMutation.mutate({ offerId: latestOffer.id, decision: "DECLINE" })
+                                }
+                                className="text-xs h-8 text-rose-600"
+                              >
+                                Decline
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              {canWithdraw && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={withdrawMutation.isPending}
+                                  onClick={() => withdrawMutation.mutate((item as any).applicationId)}
+                                  className="text-xs h-8"
+                                >
+                                  Withdraw
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                disabled={isApplied || (item as any).eligible === false || applyMutation.isPending}
+                                onClick={() => applyMutation.mutate(item.id)}
+                                className="text-xs h-8"
+                              >
+                                {isApplied ? item.status || "Applied" : (item as any).eligible === false ? "Ineligible" : "1-Click Apply"}
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -472,7 +558,7 @@ export default function StudentPlacementsPage() {
             <div>
               <label className="text-xs font-medium text-foreground block mb-1">Careers / Website URL</label>
               <Input
-                type="text"
+                type="url"
                 placeholder="https://careers.google.com"
                 value={companyWebsite}
                 onChange={(e) => setCompanyWebsite(e.target.value)}
@@ -543,9 +629,10 @@ export default function StudentPlacementsPage() {
               <label className="text-xs font-medium text-foreground block mb-1">Annual CTC (₹)</label>
               <Input
                 type="number"
+                min={0}
                 placeholder="1200000"
                 value={jobCtc || ""}
-                onChange={(e) => setJobCtc(Number(e.target.value))}
+                onChange={(e) => setJobCtc(Math.max(0, Number(e.target.value)))}
                 required
               />
             </div>
@@ -554,8 +641,10 @@ export default function StudentPlacementsPage() {
               <Input
                 type="number"
                 step="0.1"
+                min={0}
+                max={10}
                 value={jobMinCgpa}
-                onChange={(e) => setJobMinCgpa(Number(e.target.value))}
+                onChange={(e) => setJobMinCgpa(Math.min(10, Math.max(0, Number(e.target.value))))}
                 required
               />
             </div>
@@ -600,17 +689,41 @@ export default function StudentPlacementsPage() {
       {/* MODAL 3: SCHEDULE CAMPUS DRIVE */}
       <Dialog
         isOpen={isDriveOpen}
-        onClose={() => setIsDriveOpen(false)}
+        onClose={() => {
+          setIsDriveOpen(false);
+          setDriveJobId("");
+        }}
         title="Schedule Campus Placement Drive"
         description="Notify shortlisted candidates and reserve campus auditorium or lab venue."
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            if (!driveJobId) {
+              toast.error("Please select a job opening for this placement drive.");
+              return;
+            }
             createDriveMutation.mutate();
           }}
           className="space-y-4"
         >
+          <div>
+            <label className="text-xs font-medium text-foreground block mb-1">Target Job Opening</label>
+            <select
+              value={driveJobId}
+              onChange={(e) => setDriveJobId(e.target.value)}
+              className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs"
+              required
+            >
+              <option value="">Select Job Opening...</option>
+              {(jobs || []).map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.title} — {j.company?.name || "Partner"}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="text-xs font-medium text-foreground block mb-1">Drive Date</label>
             <Input
@@ -633,13 +746,13 @@ export default function StudentPlacementsPage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setIsDriveOpen(false)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => { setIsDriveOpen(false); setDriveJobId(""); }}>
               Cancel
             </Button>
             <Button
               type="submit"
               size="sm"
-              disabled={createDriveMutation.isPending || !driveDate}
+              disabled={createDriveMutation.isPending || !driveDate || !driveJobId}
               isLoading={createDriveMutation.isPending}
             >
               Schedule Drive

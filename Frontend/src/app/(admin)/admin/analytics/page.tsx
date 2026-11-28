@@ -19,8 +19,11 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
-import { Filter, Download, ShieldCheck, Activity, RefreshCw, AlertTriangle, Layers, Clock, CheckCircle2 } from "lucide-react";
+import { Filter, Download, ShieldCheck, Activity, RefreshCw, AlertTriangle, Layers, Clock, CheckCircle2, History } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
+import { reportsApi } from "@/services/api/reports.api";
+import { analyticsApi } from "@/services/api/analytics.api";
+import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -33,8 +36,34 @@ export default function AdminAnalyticsPage() {
   const [activeTab, setActiveTab] = useState<"charts" | "audit" | "queues">("charts");
   const [deptFilter, setDeptFilter] = useState("ALL");
   const [exporting, setExporting] = useState(false);
+  const [queuingExport, setQueuingExport] = useState(false);
   const [auditEntityFilter, setAuditEntityFilter] = useState("ALL");
   const [retryingQueue, setRetryingQueue] = useState<string | null>(null);
+  const [selectedAuditTarget, setSelectedAuditTarget] = useState<{ entity: string; entityId: string } | null>(null);
+
+  const { data: correlationData } = useQuery({
+    queryKey: ["admin_att_perf_correlation"],
+    queryFn: () => analyticsApi.getAttendanceVsPerformance().catch(() => null),
+  });
+
+  const { data: riskStudents = [] } = useQuery({
+    queryKey: ["admin_risk_students"],
+    queryFn: () => analyticsApi.getAtRiskStudents().catch(() => []),
+  });
+
+  const { data: attendanceTrend = [] } = useQuery({
+    queryKey: ["admin_attendance_trend"],
+    queryFn: () => analyticsApi.getAttendanceTrend().catch(() => []),
+  });
+
+  const { data: entityHistory = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["admin_audit_entity_history", selectedAuditTarget?.entity, selectedAuditTarget?.entityId],
+    queryFn: () =>
+      apiClient<any[]>(
+        `/audit/entity/${encodeURIComponent(selectedAuditTarget!.entity)}/${encodeURIComponent(selectedAuditTarget!.entityId)}`
+      ).catch(() => []),
+    enabled: !!selectedAuditTarget,
+  });
 
   const filteredAttendanceByDept = useMemo(() => {
     if (!analytics?.attendanceByDept) return [];
@@ -77,9 +106,9 @@ export default function AdminAnalyticsPage() {
         }
       }
       refetchQueues();
-      alert(`Triggered retry for dead-letter jobs in queue: ${queueName}`);
+      toast.success(`Triggered retry for dead-letter jobs in queue: ${queueName}`);
     } catch (err: any) {
-      alert(err?.message || "Failed to retry queue jobs.");
+      toast.error(err?.message || "Failed to retry queue jobs.");
     } finally {
       setRetryingQueue(null);
     }
@@ -88,26 +117,27 @@ export default function AdminAnalyticsPage() {
   const handleExportReport = async () => {
     setExporting(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("college_os_token") : null;
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      const targetUrl = apiUrl.startsWith("http") ? `${apiUrl}/reports/performance` : `/api/v1/reports/performance`;
-      const res = await fetch(targetUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Report download failed");
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Executive_Analytics_${new Date().toISOString().split("T")[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      await reportsApi.downloadCsv(
+        "performance",
+        `Executive_Analytics_${new Date().toISOString().split("T")[0]}.csv`,
+      );
+      toast.success("Analytics CSV exported");
     } catch {
       toast.error("Failed to export analytics report. Please verify backend reporting service status.");
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleEnqueueAsyncExport = async () => {
+    setQueuingExport(true);
+    try {
+      await reportsApi.enqueueAsync("performance");
+      toast.success("Background report job queued. You will receive a notification when ready.");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to queue background report");
+    } finally {
+      setQueuingExport(false);
     }
   };
 
@@ -155,6 +185,15 @@ export default function AdminAnalyticsPage() {
             className="text-xs gap-1.5 h-8"
           >
             <Download className="h-3.5 w-3.5" /> Export Report
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEnqueueAsyncExport}
+            isLoading={queuingExport}
+            className="text-xs gap-1.5 h-8"
+          >
+            <Clock className="h-3.5 w-3.5" /> Queue Async Export
           </Button>
         </div>
       </div>
@@ -258,7 +297,7 @@ export default function AdminAnalyticsPage() {
         <Card>
           <CardHeader className="p-5 pb-2">
             <CardTitle className="text-sm font-bold">
-              Corporate Recruitment & Placement Drives
+              Campus Recruitment Pipeline &amp; Offers
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5 pt-0 h-64">
@@ -271,9 +310,9 @@ export default function AdminAnalyticsPage() {
                 <BarChart data={analytics.placementStats} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis type="number" tick={{ fontSize: 11 }} />
-                  <YAxis dataKey="company" type="category" width={80} tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="company" type="category" width={105} tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  <Bar dataKey="offers" name="Total Offers" fill="#10b981" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="offers" name="Count" fill="#10b981" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -315,6 +354,94 @@ export default function AdminAnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+          {/* Row 2.5: 30-Day Institutional Attendance Trend */}
+          <Card>
+            <CardHeader className="p-5 pb-2">
+              <CardTitle className="text-sm font-bold">
+                30-Day Daily Attendance Trend (%)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-5 pt-0 h-56">
+              {attendanceTrend.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                  No daily attendance trend samples logged in the last 30 days.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={attendanceTrend.map((d) => ({
+                      date: String(d.date).slice(0, 10),
+                      pct: Number(d.pct ?? 0),
+                    }))}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="pct" name="Attendance %" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Row 3: Attendance vs Performance Correlation & High-Risk Students */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="p-5 pb-2">
+                <CardTitle className="text-sm font-bold">
+                  Attendance vs Marks Correlation
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 pt-2 space-y-2 text-xs">
+                {correlationData ? (
+                  <>
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                      <span>Pearson Correlation (r)</span>
+                      <span className="font-mono font-bold text-base text-brand-600">
+                        {correlationData.correlation != null ? correlationData.correlation.toFixed(2) : "N/A"}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground">
+                      {correlationData.interpretation} (Evaluated across {correlationData.students ?? 0} students)
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">Insufficient paired attendance and published exam data.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="p-5 pb-2">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-rose-600" />
+                  Elevated Academic Risk Queue ({riskStudents.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 pt-2 space-y-2 text-xs max-h-56 overflow-y-auto">
+                {riskStudents.length === 0 ? (
+                  <p className="text-muted-foreground">No high-risk students flagged in the current scope.</p>
+                ) : (
+                  riskStudents.slice(0, 10).map((rs) => (
+                    <div key={rs.studentId} className="p-2.5 rounded-xl border border-border flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-semibold text-foreground">
+                          {rs.student?.user ? `${rs.student.user.firstName} ${rs.student.user.lastName}` : rs.studentId}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {rs.student?.rollNumber || ""} • {(rs.reasons || []).join("; ")}
+                        </div>
+                      </div>
+                      <span className="font-mono font-bold text-[10px] px-2 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                        {rs.level}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </>
       )}
 
@@ -363,6 +490,7 @@ export default function AdminAnalyticsPage() {
                     <th className="p-3">Entity</th>
                     <th className="p-3">Record ID</th>
                     <th className="p-3">Actor (User ID)</th>
+                    <th className="p-3 text-right pr-4">History</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -387,6 +515,17 @@ export default function AdminAnalyticsPage() {
                       <td className="p-3 font-semibold text-foreground">{log.entity}</td>
                       <td className="p-3 text-muted-foreground truncate max-w-xs">{log.entityId}</td>
                       <td className="p-3 text-muted-foreground">{log.userId || "SYSTEM"}</td>
+                      <td className="p-3 text-right pr-4">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 text-[10px] gap-1"
+                          onClick={() => setSelectedAuditTarget({ entity: log.entity, entityId: log.entityId })}
+                        >
+                          <History className="h-3 w-3" /> Timeline
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -464,6 +603,37 @@ export default function AdminAnalyticsPage() {
           )}
         </div>
       )}
+
+      {/* Entity Audit History Modal (GET /audit/entity/:entity/:id) */}
+      <Dialog
+        isOpen={!!selectedAuditTarget}
+        onClose={() => setSelectedAuditTarget(null)}
+        title={`Record History: ${selectedAuditTarget?.entity || ""} (${selectedAuditTarget?.entityId || ""})`}
+        description="Chronological append-only audit trail for this record."
+      >
+        <div className="space-y-2 text-xs max-h-[65vh] overflow-y-auto">
+          {historyLoading ? (
+            <Skeleton className="h-32 w-full" />
+          ) : entityHistory.length === 0 ? (
+            <p className="text-muted-foreground py-6 text-center">No audit events recorded for this entity ID.</p>
+          ) : (
+            entityHistory.map((ev: any) => (
+              <div key={ev.id} className="p-3 rounded-xl border border-border bg-muted/20 space-y-1 font-mono text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-foreground">{ev.action}</span>
+                  <span className="text-muted-foreground">{ev.createdAt ? new Date(ev.createdAt).toLocaleString() : ""}</span>
+                </div>
+                <div className="text-muted-foreground">Actor: {ev.userId || "SYSTEM"}</div>
+                {ev.metadata && (
+                  <pre className="text-[10px] bg-card p-2 rounded border border-border overflow-x-auto">
+                    {JSON.stringify(ev.metadata, null, 2)}
+                  </pre>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </Dialog>
     </div>
   );
 }

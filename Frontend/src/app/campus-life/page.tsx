@@ -19,6 +19,7 @@ import {
   Music,
   Code,
   Compass,
+  Pencil,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,11 @@ import { toast } from "sonner";
 export default function CampusLifePage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const isStaffOrAdmin = user?.role === "ADMIN" || user?.role === "HOD" || user?.role === "TEACHER";
+  const roleKeys = user?.roleKeys || [];
+  const canManageEvents =
+    user?.role === "ADMIN" ||
+    roleKeys.includes("COLLEGE_ADMIN") ||
+    roleKeys.includes("SUPER_ADMIN");
 
   const [activeTab, setActiveTab] = useState<"events" | "clubs">("events");
 
@@ -52,6 +57,7 @@ export default function CampusLifePage() {
   const [clubDesc, setClubDesc] = useState("");
 
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [eventTitle, setEventTitle] = useState("");
   const [eventDesc, setEventDesc] = useState("");
   const [eventVenue, setEventVenue] = useState("");
@@ -72,24 +78,35 @@ export default function CampusLifePage() {
     },
   });
 
-  const createEventMutation = useMutation({
-    mutationFn: () =>
-      campusApi.createEvent({
-        title: eventTitle,
+  const saveEventMutation = useMutation({
+    mutationFn: () => {
+      if (editingEventId) {
+        return campusApi.updateEvent(editingEventId, {
+          title: eventTitle.trim(),
+          description: eventDesc || undefined,
+          venue: eventVenue || undefined,
+          startsAt: new Date(eventStartsAt).toISOString(),
+        });
+      }
+      return campusApi.createEvent({
+        title: eventTitle.trim(),
         description: eventDesc || undefined,
         venue: eventVenue || undefined,
         clubId: eventClubId || undefined,
         startsAt: new Date(eventStartsAt).toISOString(),
-      }),
+      });
+    },
     onSuccess: () => {
-      toast.success("Campus event published successfully!");
+      toast.success(editingEventId ? "Campus event updated!" : "Campus event published successfully!");
       setIsCreateEventOpen(false);
+      setEditingEventId(null);
       setEventTitle("");
       setEventDesc("");
+      setEventVenue("");
       refetchEvents();
     },
     onError: (err: any) => {
-      toast.error(err?.message || "Failed to create event");
+      toast.error(err?.message || "Failed to save event");
     },
   });
 
@@ -115,7 +132,7 @@ export default function CampusLifePage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {isStaffOrAdmin && (
+          {canManageEvents && (
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -127,7 +144,15 @@ export default function CampusLifePage() {
               </Button>
               <Button
                 size="sm"
-                onClick={() => setIsCreateEventOpen(true)}
+                onClick={() => {
+                  setEditingEventId(null);
+                  setEventTitle("");
+                  setEventDesc("");
+                  setEventVenue("");
+                  setEventClubId("");
+                  setEventStartsAt(new Date().toISOString().slice(0, 16));
+                  setIsCreateEventOpen(true);
+                }}
                 className="text-xs gap-1"
               >
                 <Plus className="h-3.5 w-3.5" /> Plan Event
@@ -191,9 +216,31 @@ export default function CampusLifePage() {
                         {formatDate(evt.startsAt)}
                       </span>
                     </div>
-                    <CardTitle className="text-sm font-bold text-foreground mt-2">
-                      {evt.title}
-                    </CardTitle>
+                    <div className="flex items-center justify-between gap-2 mt-2">
+                      <CardTitle className="text-sm font-bold text-foreground">
+                        {evt.title}
+                      </CardTitle>
+                      {canManageEvents && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          aria-label="Edit event"
+                          onClick={() => {
+                            setEditingEventId(evt.id);
+                            setEventTitle(evt.title || "");
+                            setEventDesc(evt.description || "");
+                            setEventVenue(evt.venue || "");
+                            setEventClubId(evt.clubId || "");
+                            setEventStartsAt(evt.startsAt ? new Date(evt.startsAt).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16));
+                            setIsCreateEventOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent className="p-5 pt-0 space-y-3">
                     {evt.description && (
@@ -309,17 +356,20 @@ export default function CampusLifePage() {
         </form>
       </Dialog>
 
-      {/* MODAL: CREATE EVENT */}
+      {/* MODAL: CREATE / EDIT EVENT */}
       <Dialog
         isOpen={isCreateEventOpen}
-        onClose={() => setIsCreateEventOpen(false)}
-        title="Schedule Campus Activity or Event"
-        description="Publish event details to the student activity calendar."
+        onClose={() => {
+          setIsCreateEventOpen(false);
+          setEditingEventId(null);
+        }}
+        title={editingEventId ? "Update Campus Event" : "Schedule Campus Activity or Event"}
+        description="Publish or reschedule event details on the student activity calendar."
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            createEventMutation.mutate();
+            saveEventMutation.mutate();
           }}
           className="space-y-4"
         >
@@ -382,16 +432,24 @@ export default function CampusLifePage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateEventOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsCreateEventOpen(false);
+                setEditingEventId(null);
+              }}
+            >
               Cancel
             </Button>
             <Button
               type="submit"
               size="sm"
-              disabled={createEventMutation.isPending || !eventTitle.trim()}
-              isLoading={createEventMutation.isPending}
+              disabled={saveEventMutation.isPending || !eventTitle.trim()}
+              isLoading={saveEventMutation.isPending}
             >
-              Publish Event
+              {editingEventId ? "Save Changes" : "Publish Event"}
             </Button>
           </div>
         </form>

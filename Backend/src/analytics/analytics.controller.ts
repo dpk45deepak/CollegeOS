@@ -25,6 +25,20 @@ export class AnalyticsController {
     private readonly perf: PerformanceService,
   ) {}
 
+  @Get('executive')
+  @RequirePermissions(P.ANALYTICS_VIEW)
+  @ApiOperation({ summary: 'Institutional executive analytics (enrollment, CGPA distribution, placements, explainable insights)' })
+  executive(@CurrentUser() u: Principal, @Tenant() t: string, @Query('departmentId') departmentId?: string) {
+    return this.svc.executive(u, t, departmentId);
+  }
+
+  @Get('hod/department')
+  @RequirePermissions(P.ANALYTICS_VIEW)
+  @ApiOperation({ summary: 'Department analytics for HOD (faculty workload hours, subject pass rates, shortage)' })
+  hodDepartment(@CurrentUser() u: Principal, @Tenant() t: string, @Query('departmentId') departmentId?: string) {
+    return this.svc.hodDepartment(u, t, departmentId);
+  }
+
   @Get('overview')
   @ApiOperation({
     summary:

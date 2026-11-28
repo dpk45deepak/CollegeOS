@@ -21,7 +21,7 @@ export class MockGateway implements PaymentGateway {
     const body = JSON.parse(raw.toString('utf8')) as { gatewayRef: string; status: string; amount?: number };
     return { gatewayRef: body.gatewayRef, success: body.status === 'paid', amount: body.amount };
   }
-  async refund(input: RefundInput): Promise<RefundResult> {
+  async refund(_input: RefundInput): Promise<RefundResult> {
     return {
       refundGatewayRef: `mock_ref_${randomUUID()}`,
       success: true,

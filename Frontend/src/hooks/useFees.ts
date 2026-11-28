@@ -28,7 +28,7 @@ export function useAssignFeeStructure() {
   return useMutation({
     mutationFn: ({ structureId, dto }: { structureId: string; dto: { studentIds?: string[]; batchId?: string; dueDate: string } }) =>
       feesApi.assignStructure(structureId, dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: feeKeys.studentFees() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...feeKeys.all, "studentFees"] }),
   });
 }
 
@@ -44,7 +44,7 @@ export function useAdjustFee() {
   return useMutation({
     mutationFn: ({ studentFeeId, dto }: { studentFeeId: string; dto: { discount?: number; scholarshipAdjustment?: number; reason: string } }) =>
       feesApi.adjustFee(studentFeeId, dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: feeKeys.studentFees() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...feeKeys.all, "studentFees"] }),
   });
 }
 
@@ -54,7 +54,7 @@ export function useStartPayment() {
     mutationFn: ({ studentFeeId, dto }: { studentFeeId: string; dto?: { gateway?: string; amount?: number } }) =>
       feesApi.startPayment(studentFeeId, dto),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: feeKeys.studentFees() });
+      qc.invalidateQueries({ queryKey: [...feeKeys.all, "studentFees"] });
       qc.invalidateQueries({ queryKey: ["students"] });
     },
   });
@@ -66,7 +66,7 @@ export function useRecordManualPayment() {
     mutationFn: ({ studentFeeId, dto }: { studentFeeId: string; dto: { amount: number; mode: string; reference?: string } }) =>
       feesApi.recordManualPayment(studentFeeId, dto),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: feeKeys.studentFees() });
+      qc.invalidateQueries({ queryKey: [...feeKeys.all, "studentFees"] });
       qc.invalidateQueries({ queryKey: ["students"] });
       qc.invalidateQueries({ queryKey: ["analytics"] });
     },

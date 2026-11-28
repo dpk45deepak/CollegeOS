@@ -57,3 +57,6 @@ export class IssueOfferDto {
 export class JobQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
 }
+export class RespondOfferDto {
+  @ApiProperty() @IsEnum(['ACCEPT', 'DECLINE']) decision!: 'ACCEPT' | 'DECLINE';
+}

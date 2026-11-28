@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { toast } from "sonner";
 import {
   Users,
   Plus,
@@ -12,6 +13,8 @@ import {
   GraduationCap,
   Briefcase,
   Key,
+  Building2,
+  Edit2,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,43 +22,86 @@ import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
+import { useAuthStore } from "@/lib/auth/authStore";
 import {
   useUsers,
   useCreateUser,
   useUpdateUserRoles,
   useUpdateUserStatus,
 } from "@/hooks/useUsers";
-import { useCreateStudent } from "@/hooks/useStudents";
+import { useStudents, useCreateStudent, useUpdateStudent } from "@/hooks/useStudents";
 import { useCreateTeacher } from "@/hooks/useFaculty";
 import {
+  useColleges,
+  useCreateCollege,
   useDepartments,
   usePrograms,
   useBatches,
+  useSemesters,
   useSections,
 } from "@/hooks/useAcademic";
 import { UserItem } from "@/services/api/users.api";
+import { StudentProfile, StudentGender } from "@/services/api/students.api";
 
-type UserModal = "CREATE_USER" | "ONBOARD_STUDENT" | "ONBOARD_TEACHER" | "EDIT_ROLES";
+type UserModal =
+  | "CREATE_USER"
+  | "ONBOARD_STUDENT"
+  | "EDIT_STUDENT"
+  | "ONBOARD_TEACHER"
+  | "EDIT_ROLES"
+  | "CREATE_COLLEGE";
 
 export default function AdminUsersPage() {
+  const { user: currentUser } = useAuthStore();
+  const isSuperAdmin =
+    currentUser?.role === "SUPER_ADMIN" ||
+    (currentUser?.roleKeys || []).includes("SUPER_ADMIN");
+
+  const [activeDirectoryTab, setActiveDirectoryTab] = useState<"USERS" | "STUDENTS" | "COLLEGES">("USERS");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [activeModal, setActiveModal] = useState<UserModal | null>(null);
   const [selectedUserForRoles, setSelectedUserForRoles] = useState<UserItem | null>(null);
+  const [editingStudent, setEditingStudent] = useState<StudentProfile | null>(null);
 
   // Queries
   const { data: usersData, isLoading, error, refetch } = useUsers({ search: search || undefined });
+  const { data: studentsRaw, isLoading: loadingStudents, refetch: refetchStudents } = useStudents({ search: search || undefined, limit: 50 });
+  const { data: collegesList = [] } = useColleges(isSuperAdmin);
   const { data: departments } = useDepartments();
   const { data: programs } = usePrograms();
   const { data: batches } = useBatches();
+  const { data: semesters } = useSemesters();
   const { data: sections } = useSections();
 
   // Mutations
   const createUserMutation = useCreateUser();
   const createStudentMutation = useCreateStudent();
+  const updateStudentMutation = useUpdateStudent();
   const createTeacherMutation = useCreateTeacher();
   const updateRolesMutation = useUpdateUserRoles();
   const updateStatusMutation = useUpdateUserStatus();
+  const createCollegeMutation = useCreateCollege();
+
+  // Create College (Super Admin) State
+  const [colCode, setColCode] = useState("");
+  const [colName, setColName] = useState("");
+  const [colAdminLogin, setColAdminLogin] = useState("ADMIN001");
+  const [colAdminEmail, setColAdminEmail] = useState("");
+  const [colAdminPassword, setColAdminPassword] = useState("Admin@12345");
+
+  // Edit Student State
+  const [editRollNo, setEditRollNo] = useState("");
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editDept, setEditDept] = useState("");
+  const [editProg, setEditProg] = useState("");
+  const [editBatch, setEditBatch] = useState("");
+  const [editSem, setEditSem] = useState("");
+  const [editSec, setEditSec] = useState("");
+  const [editGender, setEditGender] = useState<StudentGender>("MALE");
+  const [editDob, setEditDob] = useState("");
 
   // Standard User Form State
   const [userLoginId, setUserLoginId] = useState("");
@@ -180,12 +226,85 @@ export default function AdminUsersPage() {
     setActiveModal(null);
   };
 
+  const rawStudents: StudentProfile[] = Array.isArray(studentsRaw)
+    ? studentsRaw
+    : (studentsRaw as any)?.items || [];
+
+  const handleOpenEditStudent = (st: StudentProfile) => {
+    setEditingStudent(st);
+    setEditRollNo(st.rollNumber || "");
+    setEditFirstName(st.user?.firstName || "");
+    setEditLastName(st.user?.lastName || "");
+    setEditPhone(st.user?.phone || "");
+    setEditDept(st.department?.id || "");
+    setEditProg(st.program?.id || "");
+    setEditBatch(st.batch?.id || "");
+    setEditSem(st.semester?.id || "");
+    setEditSec(st.section?.id || "");
+    setEditGender(st.gender || "MALE");
+    setEditDob(st.dateOfBirth ? String(st.dateOfBirth).split("T")[0] : "");
+    setActiveModal("EDIT_STUDENT");
+  };
+
+  const handleSaveStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+    try {
+      await updateStudentMutation.mutateAsync({
+        id: editingStudent.id,
+        dto: {
+          rollNumber: editRollNo.trim() || undefined,
+          firstName: editFirstName.trim() || undefined,
+          lastName: editLastName.trim() || undefined,
+          phone: editPhone.trim() || undefined,
+          departmentId: editDept || undefined,
+          programId: editProg || undefined,
+          batchId: editBatch || undefined,
+          semesterId: editSem || undefined,
+          sectionId: editSec || undefined,
+          gender: editGender,
+          dateOfBirth: editDob || undefined,
+        },
+      });
+      toast.success("Student record updated.");
+      setActiveModal(null);
+      refetchStudents();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update student");
+    }
+  };
+
+  const handleCreateCollege = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await createCollegeMutation.mutateAsync({
+        code: colCode.trim(),
+        name: colName.trim(),
+        adminLoginId: colAdminLogin.trim(),
+        adminEmail: colAdminEmail.trim(),
+        adminPassword: colAdminPassword,
+      });
+      toast.success("College tenant and administrator provisioned.");
+      setActiveModal(null);
+      setColCode("");
+      setColName("");
+      setColAdminEmail("");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to onboard college");
+    }
+  };
+
   const handleToggleStatus = async (user: UserItem) => {
     const nextStatus = user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    await updateStatusMutation.mutateAsync({
-      id: user.id,
-      status: nextStatus,
-    });
+    try {
+      await updateStatusMutation.mutateAsync({
+        id: user.id,
+        status: nextStatus,
+      });
+      toast.success(`User marked ${nextStatus}.`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update status");
+    }
   };
 
   return (
@@ -202,6 +321,16 @@ export default function AdminUsersPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {isSuperAdmin && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setActiveModal("CREATE_COLLEGE")}
+              className="text-xs gap-1.5 h-8 shadow-sm"
+            >
+              <Building2 className="h-4 w-4 text-primary" /> Onboard College
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -228,6 +357,39 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
+      {/* Directory Sub-Tabs */}
+      <div className="flex items-center gap-2 border-b border-border pb-2 text-xs font-semibold">
+        <button
+          type="button"
+          onClick={() => setActiveDirectoryTab("USERS")}
+          className={`px-3 py-1.5 rounded-lg transition-colors ${
+            activeDirectoryTab === "USERS" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          User Accounts &amp; Roles
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveDirectoryTab("STUDENTS")}
+          className={`px-3 py-1.5 rounded-lg transition-colors ${
+            activeDirectoryTab === "STUDENTS" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Students Academic Profiles
+        </button>
+        {isSuperAdmin && (
+          <button
+            type="button"
+            onClick={() => setActiveDirectoryTab("COLLEGES")}
+            className={`px-3 py-1.5 rounded-lg transition-colors ${
+              activeDirectoryTab === "COLLEGES" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            College Tenants ({collegesList.length})
+          </button>
+        )}
+      </div>
+
       {/* Filter Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border">
         <div className="w-full sm:w-80">
@@ -249,16 +411,22 @@ export default function AdminUsersPage() {
           >
             <option value="ALL">All Roles</option>
             <option value="STUDENT">Students</option>
+            <option value="PARENT">Parents / Guardians</option>
             <option value="TEACHER">Faculty / Teachers</option>
             <option value="HOD">Heads of Department (HOD)</option>
-            <option value="ADMIN">Administrators</option>
-            <option value="PLACEMENT_OFFICER">Placement Officers</option>
+            <option value="EXAM_CONTROLLER">Exam Controllers</option>
             <option value="ACCOUNTANT">Accountants</option>
+            <option value="PLACEMENT_OFFICER">Placement Officers</option>
+            <option value="LIBRARY_STAFF">Library Staff</option>
+            <option value="SUPPORT_STAFF">Support Staff</option>
+            <option value="COLLEGE_ADMIN">College Administrators</option>
+            <option value="SUPER_ADMIN">Super Administrators</option>
           </select>
         </div>
       </div>
 
       {/* Users Table */}
+      {activeDirectoryTab === "USERS" && (
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           {isLoading ? (
@@ -300,8 +468,8 @@ export default function AdminUsersPage() {
                       <td className="p-3 font-mono text-muted-foreground">{u.email}</td>
                       <td className="p-3">
                         <div className="flex flex-wrap gap-1">
-                          {(u.userRoles || []).map((ur) => (
-                            <span key={ur.id} className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                          {(u.userRoles || []).map((ur, idx) => (
+                            <span key={`${ur.role.key}-${ur.departmentId ?? idx}`} className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                               {ur.role.key}
                             </span>
                           ))}
@@ -347,6 +515,84 @@ export default function AdminUsersPage() {
           )}
         </CardContent>
       </Card>
+      )}
+
+      {/* Students Profile Table (PATCH /students/:id) */}
+      {activeDirectoryTab === "STUDENTS" && (
+        <Card>
+          <CardContent className="p-0 overflow-x-auto">
+            {loadingStudents ? (
+              <div className="p-6"><Skeleton className="h-48 w-full rounded-xl" /></div>
+            ) : rawStudents.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground">No student profiles found.</div>
+            ) : (
+              <table className="w-full text-xs text-left">
+                <thead className="bg-muted/50 text-muted-foreground uppercase text-[10px] font-semibold border-b border-border">
+                  <tr>
+                    <th className="p-3 pl-4">Roll No / Name</th>
+                    <th className="p-3">Dept / Program</th>
+                    <th className="p-3">Batch / Sem / Section</th>
+                    <th className="p-3">CGPA</th>
+                    <th className="p-3 text-right pr-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {rawStudents.map((st) => (
+                    <tr key={st.id} className="hover:bg-muted/20">
+                      <td className="p-3 pl-4">
+                        <div className="font-semibold text-foreground">{st.user?.firstName} {st.user?.lastName}</div>
+                        <div className="font-mono text-[11px] text-muted-foreground">{st.rollNumber} • {st.user?.email}</div>
+                      </td>
+                      <td className="p-3 text-muted-foreground">{st.department?.code} • {st.program?.code}</td>
+                      <td className="p-3 text-muted-foreground">
+                        {st.batch?.name} • Sem {st.semester?.number || "—"} • Sec {st.section?.name || "—"}
+                      </td>
+                      <td className="p-3 font-mono font-bold">{st.cgpa != null ? Number(st.cgpa).toFixed(2) : "—"}</td>
+                      <td className="p-3 text-right pr-4">
+                        <Button type="button" size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => handleOpenEditStudent(st)}>
+                          <Edit2 className="h-3 w-3" /> Edit Profile
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* College Tenants Table (SUPER_ADMIN GET / POST /colleges) */}
+      {activeDirectoryTab === "COLLEGES" && isSuperAdmin && (
+        <Card>
+          <CardContent className="p-0 overflow-x-auto">
+            {collegesList.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground">No colleges found.</div>
+            ) : (
+              <table className="w-full text-xs text-left">
+                <thead className="bg-muted/50 text-muted-foreground uppercase text-[10px] font-semibold border-b border-border">
+                  <tr>
+                    <th className="p-3 pl-4">Code</th>
+                    <th className="p-3">Institution Name</th>
+                    <th className="p-3">Attendance Mode</th>
+                    <th className="p-3 pr-4 text-right">Threshold</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {collegesList.map((col) => (
+                    <tr key={col.id} className="hover:bg-muted/20">
+                      <td className="p-3 pl-4 font-mono font-bold text-primary">{col.code}</td>
+                      <td className="p-3 font-semibold text-foreground">{col.name}</td>
+                      <td className="p-3 text-muted-foreground">{col.attendanceMode}</td>
+                      <td className="p-3 pr-4 text-right font-mono">{col.attendanceThreshold}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* MODAL 1: Onboard Student */}
       <Dialog
@@ -602,10 +848,13 @@ export default function AdminUsersPage() {
               <option value="STUDENT">Student</option>
               <option value="TEACHER">Teacher / Faculty</option>
               <option value="HOD">Head of Department (HOD)</option>
-              <option value="ADMIN">Administrator</option>
-              <option value="PLACEMENT_OFFICER">Placement Officer</option>
+              <option value="COLLEGE_ADMIN">College Administrator</option>
+              <option value="EXAM_CONTROLLER">Exam Controller</option>
               <option value="ACCOUNTANT">Accountant</option>
-              <option value="EXAM_OFFICER">Exam Officer</option>
+              <option value="PLACEMENT_OFFICER">Placement Officer</option>
+              <option value="PARENT">Parent / Guardian</option>
+              <option value="SUPPORT_STAFF">Support Staff</option>
+              <option value="LIBRARY_STAFF">Library Staff</option>
             </select>
           </div>
 
@@ -624,6 +873,129 @@ export default function AdminUsersPage() {
           <div className="flex justify-end gap-2 pt-3 border-t border-border">
             <Button type="button" variant="outline" size="sm" onClick={() => setActiveModal(null)}>Cancel</Button>
             <Button type="submit" size="sm" isLoading={updateRolesMutation.isPending}>Save Roles</Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* MODAL 5: Edit Student Profile (PATCH /students/:id) */}
+      <Dialog
+        isOpen={activeModal === "EDIT_STUDENT"}
+        onClose={() => setActiveModal(null)}
+        title={`Edit Student — ${editingStudent?.user?.firstName || ""} ${editingStudent?.user?.lastName || ""}`}
+        description="Update student academic allocation, section, semester, and personal metadata."
+      >
+        <form onSubmit={handleSaveStudent} className="space-y-3 text-xs">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="font-semibold block mb-1">First Name</label>
+              <Input value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} required />
+            </div>
+            <div>
+              <label className="font-semibold block mb-1">Last Name</label>
+              <Input value={editLastName} onChange={(e) => setEditLastName(e.target.value)} required />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="font-semibold block mb-1">Roll Number</label>
+              <Input value={editRollNo} onChange={(e) => setEditRollNo(e.target.value)} required />
+            </div>
+            <div>
+              <label className="font-semibold block mb-1">Phone</label>
+              <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="font-semibold block mb-1">Department</label>
+              <select value={editDept} onChange={(e) => setEditDept(e.target.value)} className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs">
+                {(departments || []).map((d) => (<option key={d.id} value={d.id}>{d.name}</option>))}
+              </select>
+            </div>
+            <div>
+              <label className="font-semibold block mb-1">Program</label>
+              <select value={editProg} onChange={(e) => setEditProg(e.target.value)} className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs">
+                {(programs || []).map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="font-semibold block mb-1">Batch</label>
+              <select value={editBatch} onChange={(e) => setEditBatch(e.target.value)} className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs">
+                {(batches || []).map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
+              </select>
+            </div>
+            <div>
+              <label className="font-semibold block mb-1">Semester</label>
+              <select value={editSem} onChange={(e) => setEditSem(e.target.value)} className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs">
+                <option value="">Unchanged</option>
+                {(semesters || []).map((s) => (<option key={s.id} value={s.id}>Sem {s.number}</option>))}
+              </select>
+            </div>
+            <div>
+              <label className="font-semibold block mb-1">Section</label>
+              <select value={editSec} onChange={(e) => setEditSec(e.target.value)} className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs">
+                <option value="">Unassigned</option>
+                {(sections || []).map((s) => (<option key={s.id} value={s.id}>Sec {s.name}</option>))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="font-semibold block mb-1">Date of Birth</label>
+              <Input type="date" value={editDob} onChange={(e) => setEditDob(e.target.value)} />
+            </div>
+            <div>
+              <label className="font-semibold block mb-1">Gender</label>
+              <select value={editGender} onChange={(e) => setEditGender(e.target.value as StudentGender)} className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs">
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
+                <option value="UNDISCLOSED">Undisclosed</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t border-border">
+            <Button type="button" variant="outline" size="sm" onClick={() => setActiveModal(null)}>Cancel</Button>
+            <Button type="submit" size="sm" isLoading={updateStudentMutation.isPending}>Save Student</Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* MODAL 6: Onboard New College (SUPER_ADMIN POST /colleges) */}
+      <Dialog
+        isOpen={activeModal === "CREATE_COLLEGE"}
+        onClose={() => setActiveModal(null)}
+        title="Onboard New College Tenant"
+        description="Provision an isolated college tenant and its initial College Admin account (Super Admin only)."
+      >
+        <form onSubmit={handleCreateCollege} className="space-y-3 text-xs">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="font-semibold block mb-1">College Short Code</label>
+              <Input placeholder="e.g. SDCET" value={colCode} onChange={(e) => setColCode(e.target.value)} required />
+            </div>
+            <div>
+              <label className="font-semibold block mb-1">Admin Login ID</label>
+              <Input placeholder="e.g. ADMIN001" value={colAdminLogin} onChange={(e) => setColAdminLogin(e.target.value)} required />
+            </div>
+          </div>
+          <div>
+            <label className="font-semibold block mb-1">Institution Full Name</label>
+            <Input placeholder="e.g. Satyug Darshan Institute" value={colName} onChange={(e) => setColName(e.target.value)} required />
+          </div>
+          <div>
+            <label className="font-semibold block mb-1">Admin Email</label>
+            <Input type="email" placeholder="admin@college.edu" value={colAdminEmail} onChange={(e) => setColAdminEmail(e.target.value)} required />
+          </div>
+          <div>
+            <label className="font-semibold block mb-1">Admin Initial Password</label>
+            <Input type="password" value={colAdminPassword} onChange={(e) => setColAdminPassword(e.target.value)} minLength={10} required />
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t border-border">
+            <Button type="button" variant="outline" size="sm" onClick={() => setActiveModal(null)}>Cancel</Button>
+            <Button type="submit" size="sm" isLoading={createCollegeMutation.isPending}>Create College</Button>
           </div>
         </form>
       </Dialog>

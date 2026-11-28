@@ -19,7 +19,11 @@ class ProductionMalwareScanner implements MalwareScanner {
     const clamUrl = process.env.CLAMAV_URL;
     if (clamUrl) {
       try {
-        const resp = await fetch(clamUrl, { method: 'POST', body });
+        const resp = await fetch(clamUrl, {
+          method: 'POST',
+          body,
+          signal: AbortSignal.timeout(10_000),
+        });
         return resp.ok;
       } catch {
         return false;

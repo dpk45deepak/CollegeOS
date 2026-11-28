@@ -1,91 +1,57 @@
-# AI Agents and Tool Calling
+# AI Agents & Tool Calling
 
-## Principle
+The AI layer (`Backend/src/ai/`) provides grounded institutional assistance through a controlled **Supervisor → Specialist Agent → ToolRegistry → Domain Service** architecture. The LLM never receives raw database credentials or SQL query capabilities.
 
-The AI layer should be a controlled orchestration layer—not a chatbot with unrestricted database access. The model may request approved tools; NestJS validates permissions and executes each tool through normal domain services.
-
-## Request flow
+## Request & Streaming Flow
 
 ```mermaid
 sequenceDiagram
-    participant U as User
-    participant API as NestJS API
-    participant P as Permission Layer
-    participant L as LLM Adapter
-    participant T as Domain Tool
-    participant DB as Database
-    U->>API: Ask a question
-    API->>P: Authenticate and authorize
-    API->>L: Send bounded context and tool definitions
-    L-->>API: Request a tool
-    API->>P: Re-check tool permission and resource scope
-    API->>T: Execute validated tool
-    T->>DB: Query through domain service
-    DB-->>T: Authorized result
-    T-->>API: Structured result
-    API->>L: Provide tool result
-    L-->>API: Final answer
-    API-->>U: Answer, sources, and safe metadata
+    participant U as User (REST / Socket.IO)
+    participant API as ChatController / AiChatGateway
+    participant Sup as Supervisor (Router)
+    participant P as ToolRegistry Permission Check
+    participant L as LLM Adapter (ai-client)
+    participant T as Domain Services
+    participant DB as PostgreSQL + pgvector
+
+    U->>API: POST /ai/chat or WS ai.chat
+    API->>Sup: Classify intent & pick Agent
+    Sup->>L: Bounded conversation context + allowed ToolSpecs
+    L-->>Sup: Tool call request
+    Sup->>P: Re-verify Principal permissions & tenant scope
+    P->>T: Execute read/draft domain service
+    T->>DB: Scoped query
+    DB-->>T: Verified records (collegeData)
+    T-->>Sup: Structured tool result + citations
+    Sup->>L: Synthesize prose reply (stream tokens if WS)
+    L-->>API: Reply + mode + collegeData + citations + disclaimer
+    API-->>U: JSON response or ai.token / ai.done
 ```
 
-## Suggested agents or capabilities
+## Implemented Specialist Agents (`Backend/src/ai/agents/`)
 
-Prefer small, testable capabilities over many autonomous agents:
+`Supervisor` (`supervisor.ts`) maintains **6** agents (with deterministic regex routing first, optional LLM tie-breaker, and `DeterministicResponder` offline fallback):
 
-- **College Knowledge:** policy and document questions using RAG.
-- **Academic Advisor:** summarizes authorized attendance, deadlines, and performance data.
-- **Scholarship Finder:** matches opportunities against explicitly required eligibility fields.
-- **Placement Assistant:** helps discover relevant opportunities and explain eligibility.
-- **Grievance Assistant:** helps classify and route a complaint, with user confirmation before submission.
-- **Admin Insights:** summarizes aggregated, permission-appropriate operational metrics.
+| Agent Name | Role & Scope |
+| :--- | :--- |
+| `AcademicAssistantAgent` | Timetable, exams, assignments, published marks/CGPA |
+| `AttendanceAdvisorAgent` | Subject-wise attendance %, shortage math, recovery targets |
+| `ScholarshipAgent` | Institutional/government scholarship matches & deadlines |
+| `PlacementAgent` | Eligible jobs, placement drives, and recommendations |
+| `GrievanceAgent` | Complaint routing guidance, status lookup, and confirmed draft preparation |
+| `CollegeKnowledgeAgent` | Policy, syllabus, regulation, and handbook answers via RAG (`RetrievalService`) |
 
-These are product concepts; implement only the capabilities that have reliable data and clear authorization rules.
+## Registered Domain Tools (`Backend/src/ai/tools/`)
 
-## Tool registry
+`ToolRegistry` dynamically filters `ToolSpec[]` per request using `Principal.permissions` (`specsFor(p)`) and re-checks authorization at execution time (`execute(...)`):
 
-Potential tools:
-- `getMyAttendance`
-- `getMyTimetable`
-- `getMyUpcomingExams`
-- `getMyAssignments`
-- `getMyFeeSummary`
-- `searchCollegeDocuments`
-- `searchEligibleScholarships`
-- `searchPlacementOpportunities`
-- `createComplaintDraft`
-- `submitComplaint`
-- `getComplaintStatus`
+- **Student & Academic Tools (`student-tools.ts`):** `getStudentProfile`, `getAttendance`, `getTimetable`, `getUpcomingExams`, `getAssignments`, `getAcademicPerformance`, `findStudents`
+- **Campus & Operations Tools (`campus-tools.ts`):** `getFees`, `searchCollegeDocuments`, `searchScholarships`, `searchPlacementOpportunities`, `getComplaintStatus`, `whoShouldIContact`, `createComplaintDraft`
 
-Each tool definition should include:
-- stable name and description
-- validated input schema
-- required permission
-- resource/tenant scope rules
-- service implementation
-- output schema
-- timeout and error behavior
-- audit requirements for mutations
+## Guardrails & Human-in-the-Loop
 
-Do not expose generic tools such as arbitrary SQL, unrestricted HTTP requests, or filesystem access.
-
-## Read vs. write tools
-
-Read tools can return authorized facts. Write tools must have stricter validation and may require confirmation. For example, an AI-generated complaint draft should be shown to the student before submission.
-
-Never allow the model to approve attendance corrections, publish results, issue refunds, or change access permissions unless an explicit, separately authorized workflow permits it.
-
-## Prompt-injection defense
-
-- Treat user messages and retrieved documents as untrusted input.
-- Keep system instructions and tool permissions outside retrieved content.
-- Validate every tool call server-side.
-- Limit tool output and context size.
-- Do not expose hidden prompts, secrets, or internal reasoning.
-- Require confirmation for consequential actions.
-- Apply rate limits and per-user/tenant usage budgets.
-
-## Observability
-
-Capture only necessary metadata: provider/model, latency, token usage when available, tool name, result status, source IDs, and error category. Avoid storing full prompts or responses containing sensitive student data unless there is a clear purpose, access policy, and retention period.
-
-Do not expose chain-of-thought. A user-facing activity panel may show safe details such as “Checked attendance record” or “Found 2 policy documents.”
+1. **Separated Fact vs. Suggestion:** Responses separate verified `collegeData` records from LLM prose and carry the standard AI disclaimer (`AI_DISCLAIMER`).
+2. **Draft-Only Grievance Mutation:** `createComplaintDraft` writes a short-lived draft to Redis (with in-memory map fallback), returning `pendingDraftId`. A grievance is filed in PostgreSQL only after explicit user action via `POST /api/v1/ai/grievance/drafts/:id/confirm` (`ComplaintDraftService`).
+3. **No Financial/Academic Admin Mutations:** AI cannot approve attendance corrections, alter grades, publish results, issue fee refunds, or modify user roles.
+4. **Rate Limiting & Telemetry:** `ChatService` enforces a per-user sliding limit (`20` messages/min via Redis) alongside controller `@Throttle`, and records operational telemetry (`agentName`, latency, tokens, fallback/error status) in `AiCallLog` visible via `GET /api/v1/ai/admin/usage`.
+5. **Proactive Advisor:** `GET /api/v1/ai/advisor` (`AdvisorService`) combines attendance risk, upcoming exam/assignment deadlines, and academic risk scores (supporting `studentId` for Guardian/Staff views).

@@ -139,12 +139,29 @@ export class AcademicService {
   listSemesters(c: string, batchId?: string) {
     return this.prisma.semester.findMany({ where: { collegeId: c, batchId }, orderBy: { number: 'asc' } });
   }
+  async updateSemester(c: string, id: string, dto: D.UpdateSemesterDto) {
+    const existing = await this.prisma.semester.findFirst({ where: { id, collegeId: c } });
+    if (!existing) throw new NotFoundException('Semester not found');
+    const start = dto.startDate ?? existing.startDate;
+    const end = dto.endDate ?? existing.endDate;
+    if (end <= start) throw new BadRequestException('endDate must be after startDate');
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isCurrent) {
+        await tx.semester.updateMany({ where: { batchId: existing.batchId, isCurrent: true }, data: { isCurrent: false } });
+      }
+      return tx.semester.update({ where: { id }, data: dto });
+    });
+  }
   async createSection(c: string, dto: D.CreateSectionDto) {
     await this.own.assert('semester', dto.semesterId, c);
     return this.prisma.section.create({ data: { ...dto, collegeId: c } });
   }
   listSections(c: string, semesterId?: string) {
     return this.prisma.section.findMany({ where: { collegeId: c, semesterId }, orderBy: { name: 'asc' } });
+  }
+  async updateSection(c: string, id: string, dto: D.UpdateSectionDto) {
+    await this.own.assert('section', id, c);
+    return this.prisma.section.update({ where: { id }, data: dto });
   }
 
   // ── subjects ───────────────────────────────────────

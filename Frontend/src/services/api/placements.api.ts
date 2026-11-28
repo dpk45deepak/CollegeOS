@@ -25,17 +25,20 @@ export interface JobItem {
 
 export interface JobRecommendationItem {
   job: JobItem;
-  compatibilityScore: number;
-  matchedSkills: string[];
-  missingSkills: string[];
-  eligible: boolean;
+  match: {
+    score: number;
+    eligible: boolean;
+    matchedSkills: string[];
+    missingSkills: string[];
+    ineligibleReasons?: string[];
+  };
 }
 
 export interface JobApplicationItem {
   id: string;
   jobId: string;
   studentId: string;
-  status: "APPLIED" | "SHORTLISTED" | "INTERVIEWING" | "OFFERED" | "REJECTED" | "WITHDRAWN";
+  status: "APPLIED" | "SHORTLISTED" | "INTERVIEW" | "OFFERED" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
   appliedAt: string;
   job?: JobItem;
   student?: {
@@ -46,8 +49,14 @@ export interface JobApplicationItem {
   interviews?: Array<{
     id: string;
     scheduledAt: string;
-    mode: "ONLINE" | "IN_PERSON";
+    mode: "ONLINE" | "ONSITE";
     round?: number;
+  }>;
+  offers?: Array<{
+    id: string;
+    ctc: number;
+    status: string;
+    issuedAt: string;
   }>;
   offer?: {
     id: string;
@@ -138,7 +147,7 @@ export const placementsApi = {
     });
   },
 
-  scheduleInterview: async (applicationId: string, dto: { scheduledAt: string; mode: "ONLINE" | "IN_PERSON"; round?: number }) => {
+  scheduleInterview: async (applicationId: string, dto: { scheduledAt: string; mode: "ONLINE" | "ONSITE"; round?: number }) => {
     return apiClient<any>(`/placements/applications/${applicationId}/interviews`, {
       method: "POST",
       body: JSON.stringify(dto),

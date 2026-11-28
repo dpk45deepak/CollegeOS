@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { studentApi } from "@/lib/api/student";
+import { apiDownload } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/ai";
 import { documentsApi, DocumentType, DocumentVisibility } from "@/services/api/documents.api";
 import { useDepartments } from "@/hooks/useAcademic";
@@ -25,7 +26,14 @@ import { toast } from "sonner";
 export default function DocumentsPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const canUpload = user?.role === "ADMIN" || user?.role === "TEACHER" || user?.role === "HOD";
+  const canUpload =
+    user?.role === "ADMIN" ||
+    user?.role === "COLLEGE_ADMIN" ||
+    user?.role === "SUPER_ADMIN" ||
+    user?.role === "TEACHER" ||
+    user?.role === "HOD" ||
+    user?.role === "LIBRARY_STAFF" ||
+    user?.role === "PLACEMENT_OFFICER";
 
   const { data: documents, isLoading } = useQuery({
     queryKey: ["college_documents"],
@@ -39,11 +47,13 @@ export default function DocumentsPage() {
   const [isRAGOpen, setIsRAGOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [ragQuery, setRagQuery] = useState("What is the minimum attendance requirement?");
+  const [ragMode, setRagMode] = useState<"ask" | "search">("ask");
   const [ragAnswer, setRagAnswer] = useState<{
     answer: string;
     source: string;
     page: number;
     clause: string;
+    chunks?: Array<{ chunkId: string; title: string; page?: number; relevance: number; excerpt: string }>;
   } | null>(null);
   const [isAskingRAG, setIsAskingRAG] = useState(false);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
@@ -57,19 +67,26 @@ export default function DocumentsPage() {
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
-      if (!uploadFile || !uploadTitle.trim()) return;
+      if (!uploadFile || !uploadTitle.trim()) {
+        throw new Error("Please provide a title and select a file.");
+      }
       return documentsApi.upload(uploadFile, {
-        title: uploadTitle,
+        title: uploadTitle.trim(),
         documentType: uploadType,
         visibility: uploadVisibility,
         departmentId: uploadDeptId || undefined,
       });
     },
     onSuccess: () => {
+      toast.success("Document uploaded and queued for indexing.");
       setIsUploadOpen(false);
       setUploadTitle("");
+      setUploadDeptId("");
       setUploadFile(null);
       queryClient.invalidateQueries({ queryKey: ["college_documents"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to upload document.");
     },
   });
 
@@ -78,14 +95,29 @@ export default function DocumentsPage() {
     if (!ragQuery.trim()) return;
     setIsAskingRAG(true);
     try {
-      const res = await aiApi.askKnowledge(ragQuery);
-      const primaryCite = res.citations?.[0];
-      setRagAnswer({
-        answer: res.answer || "No verified policy matching your inquiry was found in the indexed repository.",
-        source: primaryCite?.title || "SDIET Institutional Knowledge Base",
-        page: primaryCite?.pageNumber || 1,
-        clause: primaryCite?.snippet ? `Excerpt: "${primaryCite.snippet.slice(0, 100)}..."` : "Verified Institutional Record",
-      });
+      if (ragMode === "search") {
+        const searchRes = await aiApi.searchKnowledge(ragQuery);
+        const top = searchRes.results?.[0];
+        setRagAnswer({
+          answer:
+            searchRes.results && searchRes.results.length > 0
+              ? `Found ${searchRes.results.length} matching passage(s) (${searchRes.usedVector ? "vector" : "keyword"} retrieval).`
+              : "No matching passages found in indexed college documents.",
+          source: top?.title || "SDIET Knowledge Base",
+          page: top?.page || 1,
+          clause: top?.excerpt || "",
+          chunks: searchRes.results || [],
+        });
+      } else {
+        const res = await aiApi.askKnowledge(ragQuery);
+        const primaryCite = res.citations?.[0];
+        setRagAnswer({
+          answer: res.answer || "No verified policy matching your inquiry was found in the indexed repository.",
+          source: primaryCite?.title || "SDIET Institutional Knowledge Base",
+          page: primaryCite?.pageNumber || 1,
+          clause: primaryCite?.snippet ? `Excerpt: "${primaryCite.snippet.slice(0, 100)}..."` : "Verified Institutional Record",
+        });
+      }
     } catch {
       toast.error("Failed to query knowledge base. The AI assistant service may be unreachable or indexing documents.");
       setRagAnswer(null);
@@ -97,23 +129,10 @@ export default function DocumentsPage() {
   const handleDownloadDocument = async (doc: any) => {
     setDownloadingDocId(doc.id);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("college_os_token") : null;
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      const res = await fetch(`${apiUrl}/documents/${doc.id}/download`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Download failed");
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${String(doc?.title || "document").replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      toast.error(`Failed to download official document for ${doc?.title || "document"}.`);
+      const safeFilename = `${String(doc?.title || "document").replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+      await apiDownload(`/documents/${doc.id}/download`, safeFilename);
+    } catch (err: any) {
+      toast.error(err?.message || `Failed to download official document for ${doc?.title || "document"}.`);
     } finally {
       setDownloadingDocId(null);
     }
@@ -187,14 +206,29 @@ export default function DocumentsPage() {
             className="h-9 rounded-lg border border-input bg-background px-3 text-xs w-full sm:w-auto font-medium"
           >
             <option value="ALL">All Categories</option>
-            <option value="Policy">Academic Policies</option>
-            <option value="Curriculum">Curriculum & Lab Manuals</option>
-            <option value="Form">Official Forms</option>
+            <option value="SYLLABUS">Syllabus</option>
+            <option value="REGULATION">Academic Regulation</option>
+            <option value="ATTENDANCE_POLICY">Attendance Policy</option>
+            <option value="EXAM_RULES">Exam Rules</option>
+            <option value="SCHOLARSHIP">Scholarship Guidelines</option>
+            <option value="FEE_POLICY">Fee Policy</option>
+            <option value="HOSTEL_RULES">Hostel Rules</option>
+            <option value="PLACEMENT_POLICY">Placement Policy</option>
+            <option value="HANDBOOK">Student Handbook</option>
+            <option value="CIRCULAR">Official Circular</option>
+            <option value="NOTICE">Notice</option>
+            <option value="DEPARTMENT">Department Guidelines</option>
+            <option value="OTHER">Other</option>
           </select>
         </div>
       </div>
 
       {/* Documents Grid */}
+      {filtered.length === 0 ? (
+        <div className="p-10 text-center border border-dashed rounded-2xl bg-card text-xs text-muted-foreground">
+          No documents match the current search or category filter.
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filtered.map((doc) => (
           <Card key={doc.id} className="flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -244,6 +278,7 @@ export default function DocumentsPage() {
           </Card>
         ))}
       </div>
+      )}
 
       {/* Upload Document Modal */}
       <Dialog
@@ -359,6 +394,26 @@ export default function DocumentsPage() {
         description="Vector search across 2,400+ pages of institutional bylaws, ordinances, and academic regulations."
       >
         <div className="space-y-4 text-xs">
+          <div className="flex items-center gap-1.5 bg-muted p-1 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setRagMode("ask")}
+              className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                ragMode === "ask" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground"
+              }`}
+            >
+              AI Answer (RAG)
+            </button>
+            <button
+              type="button"
+              onClick={() => setRagMode("search")}
+              className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                ragMode === "search" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground"
+              }`}
+            >
+              Passage Search (Direct)
+            </button>
+          </div>
           <form onSubmit={handleAskRAG} className="space-y-2">
             <Input
               value={ragQuery}
@@ -366,7 +421,12 @@ export default function DocumentsPage() {
               placeholder="e.g. What is the minimum attendance requirement?"
             />
             <Button type="submit" size="sm" className="w-full text-xs gap-1.5" disabled={isAskingRAG}>
-              <Sparkles className="h-3.5 w-3.5" /> {isAskingRAG ? "Searching Vector Embeddings..." : "Query Knowledge Base"}
+              <Sparkles className="h-3.5 w-3.5" />{" "}
+              {isAskingRAG
+                ? "Searching Vector Embeddings..."
+                : ragMode === "search"
+                ? "Search Raw Passages"
+                : "Query Knowledge Base"}
             </Button>
           </form>
 
@@ -376,6 +436,19 @@ export default function DocumentsPage() {
                 {ragAnswer.answer}
               </div>
 
+              {ragAnswer.chunks && ragAnswer.chunks.length > 0 ? (
+                <div className="space-y-2 max-h-56 overflow-y-auto pt-2 border-t border-border/80">
+                  {ragAnswer.chunks.map((c) => (
+                    <div key={c.chunkId} className="p-2.5 rounded-lg bg-card border border-border text-[11px] space-y-1">
+                      <div className="flex items-center justify-between font-semibold text-brand-600">
+                        <span>{c.title} {c.page ? `(Page ${c.page})` : ""}</span>
+                        <span className="font-mono text-[10px] text-muted-foreground">{Math.round((c.relevance || 0) * 100)}%</span>
+                      </div>
+                      <div className="text-muted-foreground">{c.excerpt}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
               <div className="pt-2 border-t border-border/80 space-y-1">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                   Source Grounding:
@@ -387,6 +460,7 @@ export default function DocumentsPage() {
                   <div className="text-muted-foreground">{ragAnswer.clause}</div>
                 </div>
               </div>
+              )}
             </div>
           )}
         </div>

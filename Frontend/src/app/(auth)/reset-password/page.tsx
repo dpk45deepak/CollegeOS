@@ -28,8 +28,8 @@ function ResetPasswordForm() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+    if (password.length < 10 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      setError("Password must be 10-128 characters and include at least one letter and one digit.");
       return;
     }
 
@@ -125,7 +125,7 @@ export default function ResetPasswordPage() {
         <div className="text-center space-y-2">
           <h1 className="text-xl font-bold text-foreground">Set New Password</h1>
           <p className="text-xs text-muted-foreground">
-            Must be at least 8 characters with letters, numbers, and symbols.
+            Must be 10-128 characters with at least one letter and one digit.
           </p>
         </div>
 

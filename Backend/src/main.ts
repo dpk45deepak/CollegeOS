@@ -1,9 +1,10 @@
-import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
+// App Configuration
 import { AppModule } from './app.module';
 import { AppConfigService } from './config/app-config.service';
 import { AppIoAdapter } from './realtime/io.adapter';

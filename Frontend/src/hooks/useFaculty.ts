@@ -27,7 +27,7 @@ export function useCreateTeacher() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (dto: CreateTeacherDto) => facultyApi.create(dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: facultyKeys.teachers() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...facultyKeys.all, "teachers"] }),
   });
 }
 
@@ -42,7 +42,7 @@ export function useCreateSubjectOffering() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (dto: CreateOfferingDto) => facultyApi.createOffering(dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: facultyKeys.offerings() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...facultyKeys.all, "offerings"] }),
   });
 }
 
@@ -59,7 +59,10 @@ export function useEnrollStudents() {
   return useMutation({
     mutationFn: ({ offeringId, studentIds }: { offeringId: string; studentIds: string[] }) =>
       facultyApi.enrollStudents(offeringId, studentIds),
-    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: facultyKeys.roster(vars.offeringId) }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: facultyKeys.roster(vars.offeringId) });
+      qc.invalidateQueries({ queryKey: [...facultyKeys.all, "offerings"] });
+    },
   });
 }
 

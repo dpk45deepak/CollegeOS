@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { studentApi } from "@/lib/api/student";
+import { apiDownload } from "@/lib/api/client";
 import { campusApi, CreateNoticeDto } from "@/services/api/campus.api";
 import { useDepartments } from "@/hooks/useAcademic";
 import { useAuthStore } from "@/lib/auth/authStore";
@@ -27,7 +28,21 @@ import { toast } from "sonner";
 export default function NoticesPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const canPublish = user?.role === "ADMIN" || user?.role === "TEACHER" || user?.role === "HOD";
+  const roleKeys = user?.roleKeys || [];
+  const hasRole = (r: string) => user?.role === r || roleKeys.includes(r);
+  const canPublish =
+    hasRole("ADMIN") ||
+    hasRole("COLLEGE_ADMIN") ||
+    hasRole("SUPER_ADMIN") ||
+    hasRole("TEACHER") ||
+    hasRole("HOD") ||
+    hasRole("PLACEMENT_OFFICER");
+  const canAutoPublish =
+    hasRole("ADMIN") ||
+    hasRole("COLLEGE_ADMIN") ||
+    hasRole("SUPER_ADMIN") ||
+    hasRole("HOD") ||
+    hasRole("PLACEMENT_OFFICER");
 
   const { data: notices, isLoading } = useQuery({
     queryKey: ["all_notices"],
@@ -36,27 +51,46 @@ export default function NoticesPage() {
 
   const { data: departments } = useDepartments();
 
-  const [filter, setFilter] = useState<"ALL" | "URGENT" | "HIGH">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "URGENT" | "HIGH" | "DRAFTS">("ALL");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [audienceRole, setAudienceRole] = useState("ALL");
 
+  const { data: drafts = [], isLoading: draftsLoading, refetch: refetchDrafts } = useQuery({
+    queryKey: ["notice_drafts"],
+    queryFn: () => campusApi.listDraftNotices(),
+    enabled: canPublish && filter === "DRAFTS",
+  });
+
+  const publishDraftMutation = useMutation({
+    mutationFn: (id: string) => campusApi.publishNotice(id),
+    onSuccess: () => {
+      toast.success("Draft notice published!");
+      refetchDrafts();
+      queryClient.invalidateQueries({ queryKey: ["all_notices"] });
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to publish draft"),
+  });
+
   const createNoticeMutation = useMutation({
     mutationFn: async (dto: CreateNoticeDto) => {
       const created = await campusApi.createNotice(dto);
-      // Auto-publish created notice
-      if (created.id) {
+      if (created.id && canAutoPublish) {
         await campusApi.publishNotice(created.id);
       }
       return created;
     },
     onSuccess: () => {
+      toast.success(canAutoPublish ? "Notice published successfully!" : "Notice draft created (awaiting HOD/Admin publish).");
       setIsCreateOpen(false);
       setTitle("");
       setBody("");
       queryClient.invalidateQueries({ queryKey: ["all_notices"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to submit notice");
     },
   });
 
@@ -101,10 +135,11 @@ export default function NoticesPage() {
           )}
 
           <div className="inline-flex h-8 items-center rounded-lg bg-muted p-1 text-muted-foreground">
-            {(["ALL", "URGENT", "HIGH"] as const).map((tab) => (
+            {(["ALL", "URGENT", "HIGH", ...(canPublish ? ["DRAFTS"] : [])] as const).map((tab) => (
               <button
+                type="button"
                 key={tab}
-                onClick={() => setFilter(tab)}
+                onClick={() => setFilter(tab as any)}
                 className={`rounded-md px-2.5 py-0.5 text-xs font-semibold transition-all ${
                   filter === tab
                     ? "bg-background text-foreground shadow-xs"
@@ -118,6 +153,44 @@ export default function NoticesPage() {
         </div>
       </div>
 
+      {filter === "DRAFTS" ? (
+        <div className="space-y-4">
+          {draftsLoading ? (
+            <Skeleton className="h-40 w-full rounded-2xl" />
+          ) : drafts.length === 0 ? (
+            <div className="p-10 text-center border border-dashed rounded-2xl text-xs text-muted-foreground">
+              No unpublished notice drafts pending review.
+            </div>
+          ) : (
+            drafts.map((d) => (
+              <Card key={d.id}>
+                <CardHeader className="p-5 pb-2 flex flex-row items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                      Draft Notice
+                    </span>
+                    <CardTitle className="text-sm font-bold text-foreground mt-2">{d.title}</CardTitle>
+                  </div>
+                  {canAutoPublish && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      isLoading={publishDraftMutation.isPending}
+                      onClick={() => publishDraftMutation.mutate(d.id)}
+                      className="text-xs gap-1"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Publish Now
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent className="p-5 pt-0">
+                  <p className="text-xs text-muted-foreground whitespace-pre-line">{d.body}</p>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      ) : (
       <div className="space-y-4">
         {filtered.map((notice) => {
           const isUrgent = notice.priority === "URGENT";
@@ -170,10 +243,18 @@ export default function NoticesPage() {
                   <div className="pt-2 flex flex-wrap gap-2">
                     {((notice.attachments || [])).map((file, i) => (
                       <button
+                        type="button"
                         key={i}
-                        onClick={() => {
+                        onClick={async () => {
                           if (file.url) {
-                            window.open(file.url, "_blank");
+                            try {
+                              const endpoint = file.url.startsWith("/api/v1/")
+                                ? file.url.slice("/api/v1".length)
+                                : file.url;
+                              await apiDownload(endpoint, file.name || "attachment");
+                            } catch (err: any) {
+                              toast.error(err?.message || "Failed to download notice attachment");
+                            }
                           } else {
                             toast.info(`Official attachment ${file.name} is archived in the college registrar's repository.`);
                           }
@@ -193,6 +274,7 @@ export default function NoticesPage() {
           );
         })}
       </div>
+      )}
 
       {/* Post Notice Dialog */}
       <Dialog

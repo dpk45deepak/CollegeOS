@@ -56,10 +56,21 @@ export class CreateSemesterDto {
   @ApiProperty() @Type(() => Date) @IsDate() endDate!: Date;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isCurrent?: boolean;
 }
+export class UpdateSemesterDto {
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) @Max(16) number?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() academicYear?: string;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Date) @IsDate() startDate?: Date;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Date) @IsDate() endDate?: Date;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isCurrent?: boolean;
+}
 
 export class CreateSectionDto {
   @ApiProperty() @IsString() semesterId!: string;
   @ApiProperty({ example: 'A' }) @IsString() @IsNotEmpty() @MaxLength(16) name!: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) capacity?: number;
+}
+export class UpdateSectionDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty() @MaxLength(16) name?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) capacity?: number;
 }
 

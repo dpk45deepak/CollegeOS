@@ -110,6 +110,13 @@ export class BatchController {
   ) {
     return this.svc.createSemester(t, d);
   }
+  @Patch('semesters/:id') @RequirePermissions(P.ORG_MANAGE) updateSemester(
+    @Tenant() t: string,
+    @Param('id') id: string,
+    @Body() d: D.UpdateSemesterDto,
+  ) {
+    return this.svc.updateSemester(t, id, d);
+  }
   @Get('sections') @RequirePermissions(P.ORG_VIEW) sections(@Tenant() t: string, @Query('semesterId') s?: string) {
     return this.svc.listSections(t, s);
   }
@@ -118,6 +125,13 @@ export class BatchController {
     @Body() d: D.CreateSectionDto,
   ) {
     return this.svc.createSection(t, d);
+  }
+  @Patch('sections/:id') @RequirePermissions(P.ORG_MANAGE) updateSection(
+    @Tenant() t: string,
+    @Param('id') id: string,
+    @Body() d: D.UpdateSectionDto,
+  ) {
+    return this.svc.updateSection(t, id, d);
   }
 }
 

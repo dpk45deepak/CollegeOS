@@ -43,22 +43,26 @@ This repository integrates the **Next.js 15 App Router Frontend** with the **Nes
 ```text
 college-os/
 ├── Frontend/                 # Next.js 15 App Router frontend (React 19, TanStack Query, Tailwind)
-│   ├── src/app/             # App Router routes (Public informational pages & Role-based Portals)
+│   ├── src/app/             # App Router routes (48 compiled public & role portal routes)
 │   ├── src/components/      # UI components, layout shell, search palette, drawers
-│   ├── src/lib/api/         # Centralized typed API client & endpoint modules
+│   ├── src/lib/api/         # Typed HTTP client, auth session & endpoint adapters
 │   ├── src/lib/auth/        # Session management & authStore
-│   └── src/__tests__/       # Vitest unit & integration test suites (13 tests)
+│   └── src/__tests__/       # Vitest unit & contract suites (8 files, 38 tests)
 ├── Backend/                  # NestJS 10 REST API, Socket.IO & AI Orchestration
-│   ├── prisma/              # Prisma schema & database migration definitions
-│   ├── src/                 # Domain modules, RBAC guards, RAG & supervisor agents
-│   └── src/**/*.spec.ts     # Jest test suites (156 tests)
-├── docs/                     # Integrated architecture, audit & integration specs
-│   ├── INTEGRATION_AUDIT.md # Comprehensive audit of both codebases & 33 feature mappings
-│   ├── API_INTEGRATION.md   # Unified API contracts, response envelopes & DTO mappings
-│   ├── ARCHITECTURE.md      # Dual-mode runtime and data-flow topology
-│   ├── SECURITY.md          # Multi-tenant isolation, RBAC, and AI guardrails
-│   ├── DEPLOYMENT.md        # Environment variables, Docker, and cloud hosting blueprints
-│   └── TESTING.md           # Test matrices and verification evidence
+│   ├── prisma/              # Prisma schema, migrations & SDIET seed script
+│   ├── src/                 # Domain modules, RBAC guards, RAG, gateways & supervisor agents
+│   ├── docs/                # Auto-generated API.md & PERMISSIONS.md (`npm run docs:api`)
+│   └── src/**/*.spec.ts     # Jest test suites (36 suites, 199 tests)
+├── docs/                     # Architecture, API integration, AI/RAG, security, deployment & testing guides
+│   ├── README.md            # Documentation index
+│   ├── ARCHITECTURE.md      # System topology, module boundaries & runtime modes
+│   ├── API_INTEGRATION.md   # REST envelopes, verified DTO contracts & Socket.IO events
+│   ├── DATABASE.md          # Prisma models, tenancy, pgvector & data invariants
+│   ├── AI_AGENTS.md         # Supervisor, 6 specialist agents & 14 permission-checked tools
+│   ├── RAG.md               # Document ingestion, visibility filtering & hybrid retrieval
+│   ├── SECURITY.md          # Multi-tenant isolation, RBAC, malware scanning & AI guardrails
+│   ├── DEPLOYMENT.md        # Environment variables, Docker, Web Push & cloud hosting
+│   └── TESTING.md           # Automated test suites, builds & verification commands
 ├── docker-compose.yml       # Local PostgreSQL + Redis + pgvector infrastructure
 └── README.md
 ```
@@ -89,7 +93,7 @@ npx prisma generate
 npx prisma migrate dev --name init
 npm run seed
 
-# Run unit & domain tests (156 tests across 27 suites)
+# Run unit & domain tests (199 tests across 36 suites)
 npm test
 
 # Build and start development API server (runs on http://localhost:3000/api/v1)
@@ -104,10 +108,10 @@ cd ../Frontend
 # Install dependencies
 npm install
 
-# Run Vitest test suites (13 tests across 3 files)
+# Run Vitest test suites (38 tests across 8 files)
 npm test
 
-# Build production bundle (verifies all 35 routes)
+# Build production bundle (verifies all 48 routes)
 npm run build
 
 # Start Next.js development server (runs on http://localhost:3001)
@@ -122,19 +126,20 @@ Visit [http://localhost:3001](http://localhost:3001) in your browser.
 
 | Component | Test Suite | Result | Production Build |
 |---|---|---|---|
-| **Backend (NestJS)** | 27 Jest Suites | **156 / 156 Passed** | **Compiled Successfully** (`dist/`) |
-| **Frontend (Next.js)** | 3 Vitest Suites | **13 / 13 Passed** | **35 / 35 Routes Compiled** (`.next/`) |
+| **Backend (NestJS)** | 36 Jest Suites | **199 / 199 Passed** | **Compiled Successfully** (`dist/`) |
+| **Frontend (Next.js)** | 8 Vitest Files | **38 / 38 Passed** | **48 / 48 Routes Compiled** (`.next/`) |
 
 ---
 
 ## Documentation
 
-- [Integration Audit](./docs/INTEGRATION_AUDIT.md) — Comprehensive audit and feature classification
-- [API Integration Specification](./docs/API_INTEGRATION.md) — Exact endpoints, request/response DTOs, and error codes
-- [System Architecture](./docs/ARCHITECTURE.md) — Data flow, auth contracts, and service topology
-- [Security Model](./docs/SECURITY.md) — RBAC, multi-tenancy, token rotation, and AI safety
-- [Deployment Guide](./docs/DEPLOYMENT.md) — Environment variables, Docker, and cloud hosting
-- [Testing Guide](./docs/TESTING.md) — Test suites, command execution, and test plans
+- [Documentation Index](./docs/README.md) — Complete guide to `docs/` and auto-generated `Backend/docs/`
+- [API Integration Specification](./docs/API_INTEGRATION.md) — Envelopes, verified REST DTOs, and Socket.IO `/realtime` contracts
+- [System Architecture](./docs/ARCHITECTURE.md) — Module boundaries, role workspaces, queues, and runtime modes
+- [Cross-Module Workflows](./docs/CROSS_MODULE_WORKFLOWS.md) — Sequence diagrams across core academic & administrative flows
+- [Security Model](./docs/SECURITY.md) — RBAC, multi-tenancy, malware scanning, webhooks, and AI boundaries
+- [Deployment Guide](./docs/DEPLOYMENT.md) — Docker setup, environment matrix, Web Push, and cloud hosting
+- [Testing Guide](./docs/TESTING.md) — Verified test suites, build checks, and core journeys
 
 ---
 

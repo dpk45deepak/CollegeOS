@@ -36,7 +36,7 @@ export class CampusTools {
         anyOf: [P.FEE_VIEW_OWN, P.FEE_VIEW_ALL],
         parameters: obj(sid),
         execute: async (ctx, a) => {
-          const id = await this.resolver.resolve(ctx, str(a, 'studentId'));
+          const id = await this.resolver.resolve(ctx, str(a, 'studentId') ?? ctx.studentId);
           const rows = await this.fees.forStudent(ctx.collegeId, id);
           const data = rows.map((f) => ({
             name: f.feeStructure.name,

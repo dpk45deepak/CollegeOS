@@ -163,6 +163,7 @@ export class DocumentsService {
     if (!d) throw new NotFoundException();
     if (!isAdmin(p) && d.uploadedById !== p.userId)
       throw new ForbiddenException('Only the uploader or an admin can change visibility');
+    await this.own.assert('department', dto.departmentId ?? undefined, c);
     this.validateVisibility(
       p,
       dto.visibility,
@@ -202,7 +203,7 @@ export class DocumentsService {
     await this.prisma.document.update({ where: { id }, data: { status: 'UPLOADED', failureReason: null } });
     try {
       await this.queue.add('process', { documentId: id });
-    } catch (err) {
+    } catch {
       await this.prisma.document.update({
         where: { id },
         data: { status: 'FAILED', failureReason: 'Processing queue unavailable. Please try again later.' },

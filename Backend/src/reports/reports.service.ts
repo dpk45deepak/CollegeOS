@@ -1,5 +1,5 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
@@ -205,6 +205,9 @@ export class ReportsService {
     };
   }
   private async complaintReport(p: Principal, c: string): Promise<ReportData> {
+    if (!isAdmin(p) && !p.roleKeys.includes(ROLE.HOD) && !p.roleKeys.includes(ROLE.SUPPORT_STAFF)) {
+      throw new ForbiddenException('You do not have access to complaint reports');
+    }
     const where: Prisma.ComplaintWhereInput = { collegeId: c };
     if (!isAdmin(p) && p.roleKeys.includes(ROLE.HOD) && p.departmentIds.length) {
       where.assignedDepartmentId = { in: p.departmentIds };
@@ -326,11 +329,17 @@ export class ReportsService {
 
 @Processor(QUEUES.REPORT, { autorun: !process.env.VERCEL })
 export class ReportProcessor extends WorkerHost {
+  private readonly logger = new Logger(ReportProcessor.name);
   constructor(private readonly reports: ReportsService) {
     super();
   }
   process(job: Job<ReportJob>) {
     return this.reports.store(job.data);
+  }
+
+  @OnWorkerEvent('error')
+  onError(err: Error) {
+    this.logger.warn(`report worker error: ${err.message}`);
   }
 }
 export type { Prisma };

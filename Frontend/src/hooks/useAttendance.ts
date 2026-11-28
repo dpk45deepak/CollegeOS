@@ -24,6 +24,7 @@ export function useMarkAttendance() {
     mutationFn: attendanceApi.mark,
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: attendanceKeys.session(vars.subjectOfferingId, vars.date) });
+      qc.invalidateQueries({ queryKey: [...attendanceKeys.all, "shortage"] });
       qc.invalidateQueries({ queryKey: ["students"] });
       qc.invalidateQueries({ queryKey: ["analytics"] });
     },
@@ -41,7 +42,7 @@ export function useRequestAttendanceCorrection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: attendanceApi.requestCorrection,
-    onSuccess: () => qc.invalidateQueries({ queryKey: attendanceKeys.corrections() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...attendanceKeys.all, "corrections"] }),
   });
 }
 
@@ -51,7 +52,8 @@ export function useReviewAttendanceCorrection() {
     mutationFn: ({ id, dto }: { id: string; dto: { approve: boolean; note?: string } }) =>
       attendanceApi.reviewCorrection(id, dto),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: attendanceKeys.corrections() });
+      qc.invalidateQueries({ queryKey: [...attendanceKeys.all, "corrections"] });
+      qc.invalidateQueries({ queryKey: [...attendanceKeys.all, "shortage"] });
       qc.invalidateQueries({ queryKey: ["students"] });
       qc.invalidateQueries({ queryKey: ["analytics"] });
     },

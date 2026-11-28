@@ -102,7 +102,15 @@ export class UsersService {
         : {}),
     };
     const [items, total] = await Promise.all([
-      this.prisma.user.findMany({ where, select: PUBLIC_USER, orderBy: { createdAt: 'desc' }, ...toSkipTake(q) }),
+      this.prisma.user.findMany({
+        where,
+        select: {
+          ...PUBLIC_USER,
+          userRoles: { select: { departmentId: true, role: { select: { key: true, name: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        ...toSkipTake(q),
+      }),
       this.prisma.user.count({ where }),
     ]);
     return paginate(items, total, q);
@@ -111,7 +119,31 @@ export class UsersService {
   async me(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { ...PUBLIC_USER, userRoles: { select: { role: { select: { key: true } }, departmentId: true } } },
+      select: {
+        ...PUBLIC_USER,
+        userRoles: { select: { role: { select: { key: true } }, departmentId: true } },
+        student: {
+          select: {
+            id: true,
+            collegeStudentId: true,
+            rollNumber: true,
+            cgpa: true,
+            department: { select: { id: true, name: true, code: true } },
+            program: { select: { id: true, name: true, code: true } },
+            batch: { select: { id: true, name: true } },
+            semester: { select: { id: true, number: true, academicYear: true } },
+            section: { select: { id: true, name: true } },
+          },
+        },
+        teacher: {
+          select: {
+            id: true,
+            employeeId: true,
+            designation: true,
+            department: { select: { id: true, name: true, code: true } },
+          },
+        },
+      },
     });
     if (!user) throw new NotFoundException();
     return user;

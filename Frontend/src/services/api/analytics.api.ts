@@ -7,52 +7,55 @@ export interface AnalyticsOverview {
   studentsBelowThreshold: number;
   passPercentage: number;
   averageCgpa: number;
-  assignmentCompletionRate: number;
+  assignmentCompletionPercentage: number;
   feeCollection: {
     collected: number;
     outstanding: number;
-    collectionRate: number;
+    totalDue?: number;
+    collectionRatePct: number;
   };
-  placementRate: number;
+  placementRatePct: number;
+  studentsPlaced?: number;
   complaints: {
     total: number;
     resolved: number;
     avgResolutionHours: number;
   };
-  scholarshipParticipation: number;
+  scholarshipParticipationPct: number;
 }
 
 export interface AttentionItem {
   key: string;
   count: number;
-  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "INFO";
   message: string;
   action?: string;
 }
 
 export interface DepartmentMetric {
   department: string;
-  departmentCode: string;
   students: number;
   attendancePct: number;
-  passPct: number;
-  teachers: number;
+  avgCgpa?: number;
 }
 
 export interface AttendanceTrendItem {
   date: string;
-  percentage: number;
+  pct: number;
 }
 
 export interface RiskStudentItem {
   studentId: string;
-  rollNumber: string;
-  name: string;
-  department: string;
-  level: "ELEVATED" | "CRITICAL";
+  level: "LOW" | "MEDIUM" | "HIGH";
+  score: number;
   reasons: string[];
-  attendancePct: number;
-  cgpa: number;
+  computedAt: string;
+  student?: {
+    id: string;
+    rollNumber: string;
+    user?: { firstName: string; lastName: string };
+    department?: { code: string };
+  };
 }
 
 export const analyticsApi = {
@@ -81,7 +84,7 @@ export const analyticsApi = {
 
   getAtRiskStudents: async (): Promise<RiskStudentItem[]> => {
     const raw = await apiClient<any>("/analytics/risk");
-    return Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
+    return Array.isArray(raw) ? raw : raw?.students || raw?.items || raw?.data || [];
   },
 };
 

@@ -47,8 +47,8 @@ describe('prompt + citations', () => {
     expect(r.text).not.toContain('[9]');
     expect(r.citations[0].label).toBe('Attendance Policy — Page 12');
   });
-  it('falls back to top sources when the model cites nothing', () => {
-    expect(resolveCitations('75 percent.', ranked).citations).toHaveLength(3);
+  it('returns empty citations instead of fabricating them when the model cites nothing', () => {
+    expect(resolveCitations('75 percent.', ranked).citations).toEqual([]);
   });
   it('escapes source text so it cannot close the sources block (prompt-injection hygiene)', () => {
     const msgs = buildRagMessages({

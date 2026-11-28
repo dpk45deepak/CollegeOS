@@ -202,11 +202,11 @@ sequenceDiagram
     API-->>S_UI: Category, Priority, Responsible Desk, SLA Previewed
     Student->>S_UI: Confirm & Submit Complaint
     S_UI->>API: POST /complaints {subject, description, category, priority}
-    API-->>S_UI: Ticket Generated (e.g. TKT-ACAD-0192)
+    API-->>S_UI: Ticket Generated (e.g. GRV-2026-00001)
 
     Staff->>Staff_UI: Open Work Queue
     Staff_UI->>API: GET /complaints
-    Staff_UI->>API: POST /complaints/:id/status {status: "IN_PROGRESS", note: "Investigating"}
+    Staff_UI->>API: POST /complaints/:id/status {status: "INVESTIGATING", note: "Investigating"}
     Staff_UI->>API: POST /complaints/:id/comments {note: "Maintenance scheduled"}
     Staff_UI->>API: POST /complaints/:id/status {status: "RESOLVED", note: "Issue fixed"}
 

@@ -18,7 +18,10 @@ import {
   LogOut,
   User,
   ExternalLink,
+  Download,
 } from "lucide-react";
+import { reportsApi } from "@/services/api/reports.api";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export function Topbar() {
@@ -175,6 +178,20 @@ export function Topbar() {
                         <p className="text-muted-foreground mt-1 text-[11px] font-semibold leading-relaxed">
                           {item.message}
                         </p>
+                        {typeof item.data?.fileKey === "string" && item.data.fileKey && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              reportsApi
+                                .downloadFile(String(item.data?.fileKey))
+                                .catch((err: any) => toast.error(err?.message || "Failed to download report"));
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:underline mt-1.5 mr-3"
+                          >
+                            <Download className="h-3 w-3" /> Download Report CSV
+                          </button>
+                        )}
                         {item.actionUrl && (
                           <Link
                             href={item.actionUrl}

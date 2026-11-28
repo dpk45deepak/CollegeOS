@@ -91,4 +91,21 @@ export class PlacementsController {
   ) {
     return this.svc.issueOffer(t, id, d, u.userId);
   }
+  @Post('offers/:id/respond')
+  @RequirePermissions(P.PLACEMENT_APPLY)
+  @ApiOperation({ summary: 'Accept or decline an issued placement offer' })
+  respondOffer(
+    @CurrentUser() u: Principal,
+    @Tenant() t: string,
+    @Param('id') id: string,
+    @Body() dto: D.RespondOfferDto,
+  ) {
+    return this.svc.respondToOffer(u.studentId, t, id, dto.decision === 'ACCEPT', u.userId);
+  }
+  @Post('applications/:id/withdraw')
+  @RequirePermissions(P.PLACEMENT_APPLY)
+  @ApiOperation({ summary: 'Withdraw a job application before an offer is issued' })
+  withdraw(@CurrentUser() u: Principal, @Tenant() t: string, @Param('id') id: string) {
+    return this.svc.withdrawApplication(u.studentId, t, id);
+  }
 }

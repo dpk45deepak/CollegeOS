@@ -3,6 +3,8 @@ export type UserRole =
   | "TEACHER"
   | "HOD"
   | "ADMIN"
+  | "COLLEGE_ADMIN"
+  | "SUPER_ADMIN"
   | "PLACEMENT_OFFICER"
   | "ACCOUNTANT"
   | "EXAM_CONTROLLER"
@@ -12,14 +14,23 @@ export type UserRole =
 
 export interface User {
   id: string;
+  loginId?: string;
   name: string;
   email: string;
   role: UserRole;
   roles?: string[];
+  roleKeys?: string[];
+  departmentIds?: string[];
   avatarUrl?: string;
   department?: string;
+  departmentCode?: string;
   semester?: number;
   rollNumber?: string;
+  program?: string;
+  batch?: string;
+  section?: string;
+  cgpa?: number | null;
+  academicSession?: string;
   employeeId?: string;
   designation?: string;
   phone?: string;
@@ -66,7 +77,7 @@ export interface AttendanceSummary {
 
 export interface TimetableSlot {
   id: string;
-  day: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday";
+  day: "Sunday" | "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday";
   startTime: string;
   endTime: string;
   subjectCode: string;
@@ -85,7 +96,7 @@ export interface Assignment {
   teacherName: string;
   dueDate: string;
   totalMarks: number;
-  status: "PENDING" | "SUBMITTED" | "GRADED" | "OVERDUE";
+  status: "PENDING" | "SUBMITTED" | "LATE" | "GRADED" | "OVERDUE";
   submittedAt?: string;
   obtainedMarks?: number;
   feedback?: string;
@@ -105,7 +116,7 @@ export interface Exam {
   id: string;
   subjectCode: string;
   subjectName: string;
-  examType: "Mid-Term" | "End-Term" | "Practical" | "Internal";
+  examType: "Mid-Term" | "End-Term" | "Practical" | "Internal" | "Viva";
   date: string;
   startTime: string;
   endTime: string;
@@ -117,12 +128,20 @@ export interface Exam {
 }
 
 export interface ResultItem {
+  id?: string;
+  examId?: string;
+  examTitle?: string;
+  examType?: string;
+  semesterNumber?: number;
+  academicYear?: string;
   subjectCode: string;
   subjectName: string;
   credits: number;
   internalMarks: number;
   externalMarks: number;
   totalMarks: number;
+  maxMarks?: number;
+  passed?: boolean;
   grade: string;
   gradePoint: number;
 }
@@ -133,11 +152,27 @@ export interface SemesterResult {
   cgpa: number;
   academicYear: string;
   results: ResultItem[];
+  allResults?: ResultItem[];
   aiInsights: {
     strongestSubject: string;
     needsImprovementSubject: string;
     summary: string;
   };
+}
+
+export interface FeeHeadSummary {
+  id: string;
+  name: string;
+  academicYear: string;
+  netPayable: number;
+  paidAmount: number;
+  pendingAmount: number;
+  dueDate: string;
+  status: "PAID" | "PARTIAL" | "PENDING" | "OVERDUE";
+  components: {
+    head: string;
+    amount: number;
+  }[];
 }
 
 export interface FeeItem {
@@ -149,6 +184,7 @@ export interface FeeItem {
   pendingAmount: number;
   dueDate: string;
   status: "PAID" | "PARTIAL" | "PENDING" | "OVERDUE";
+  feeHeads?: FeeHeadSummary[];
   breakdown: {
     head: string;
     amount: number;
@@ -159,7 +195,7 @@ export interface FeeItem {
     amount: number;
     receiptNo: string;
     method: string;
-    status: "SUCCESS" | "PENDING";
+    status: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED" | "PARTIALLY_REFUNDED";
   }[];
 }
 
@@ -168,12 +204,27 @@ export interface Scholarship {
   title: string;
   provider: string;
   amount: number;
+  hasAmount?: boolean;
   deadline: string;
   matchScore: number; // percentage (e.g. 92%)
   eligibilitySummary: string;
+  matchDetails?: {
+    met: string[];
+    unmet: string[];
+    toVerify: string[];
+  };
   requirements: string[];
   documentsNeeded: string[];
-  status: "ELIGIBLE" | "APPLIED" | "SHORTLISTED" | "SAVED";
+  status:
+    | "ELIGIBLE"
+    | "POSSIBLE"
+    | "INTERESTED"
+    | "APPLIED"
+    | "APPROVED"
+    | "DISBURSED"
+    | "REJECTED"
+    | "SHORTLISTED"
+    | "SAVED";
   aiReasoning: string;
 }
 
@@ -191,7 +242,19 @@ export interface PlacementOpportunity {
     eligibleBranches: string[];
   };
   requiredSkills: string[];
-  status: "RECOMMENDED" | "APPLIED" | "SHORTLISTED" | "INTERVIEW_SCHEDULED" | "OFFERED" | "CLOSED";
+  status:
+    | "RECOMMENDED"
+    | "OPEN"
+    | "APPLIED"
+    | "SHORTLISTED"
+    | "INTERVIEW"
+    | "INTERVIEW_SCHEDULED"
+    | "OFFERED"
+    | "ACCEPTED"
+    | "REJECTED"
+    | "WITHDRAWN"
+    | "NOT_ELIGIBLE"
+    | "CLOSED";
   rounds: {
     name: string;
     date: string;
@@ -266,10 +329,12 @@ export interface NotificationItem {
   timestamp: string;
   isRead: boolean;
   actionUrl?: string;
+  data?: Record<string, unknown>;
 }
 
 export interface AIChatMessage {
   id: string;
+  conversationId?: string;
   sender: 'user' | 'assistant';
   content: string;
   timestamp: string;

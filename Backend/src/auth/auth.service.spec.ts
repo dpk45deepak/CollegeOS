@@ -41,7 +41,7 @@ function build(user: Record<string, unknown> | null, session?: Record<string, un
   const client = { set: jest.fn(async () => 'OK') };
   const redis = {
     client,
-    safeSet: jest.fn(async (key: string, val: string, ...args: any[]) => {
+    safeSet: jest.fn(async (key: string, val: string, ...args: (string | number)[]) => {
       // @ts-expect-error mock call
       return (await client.set(key, val, ...args)) === 'OK';
     }),

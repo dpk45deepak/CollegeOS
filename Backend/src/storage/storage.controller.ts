@@ -6,6 +6,7 @@ import type { Response } from 'express';
 import { CurrentUser, Tenant } from '../common/decorators/auth.decorators';
 import { SkipEnvelope } from '../common/decorators/skip-envelope.decorator';
 import { Principal } from '../common/types/principal';
+import { detectFileType, safeName } from './file-validation';
 import { StorageService } from './storage.service';
 
 @ApiTags('Files')
@@ -24,10 +25,12 @@ export class StorageController {
     @Res({ passthrough: true }) res: Response,
   ) {
     if (!key) throw new BadRequestException('key is required');
-    this.storage.assertKeysBelong([key], t);
+    await this.storage.authorizeDownload(u, t, key);
     const body = await this.storage.read(key);
-    const filename = key.split('/').pop() || 'attachment';
+    const detected = detectFileType(body);
+    const filename = safeName(key.split('/').pop() || 'attachment');
     res.set({
+      'content-type': detected?.mime ?? 'application/octet-stream',
       'content-disposition': `attachment; filename="${filename}"`,
       'x-content-type-options': 'nosniff',
     });

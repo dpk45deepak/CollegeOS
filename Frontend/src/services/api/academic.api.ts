@@ -75,12 +75,31 @@ export interface CollegeSettings {
 }
 
 export const academicApi = {
+  // Colleges (Super Admin & Current)
+  listColleges: async (): Promise<CollegeSettings[]> => {
+    const raw = await apiClient<any>("/colleges");
+    return Array.isArray(raw) ? raw : raw?.items || raw?.data || [];
+  },
+
+  createCollege: async (dto: {
+    code: string;
+    name: string;
+    adminLoginId: string;
+    adminEmail: string;
+    adminPassword: string;
+  }): Promise<CollegeSettings> => {
+    return apiClient<CollegeSettings>("/colleges", {
+      method: "POST",
+      body: JSON.stringify(dto),
+    });
+  },
+
   // College & Settings
   getCurrentCollege: async (): Promise<CollegeSettings> => {
     return apiClient<CollegeSettings>("/colleges/current");
   },
 
-  updateSettings: async (dto: Partial<CollegeSettings>): Promise<CollegeSettings> => {
+  updateSettings: async (dto: Partial<Pick<CollegeSettings, "attendanceMode" | "attendanceThreshold" | "timezone">>): Promise<CollegeSettings> => {
     return apiClient<CollegeSettings>("/colleges/current/settings", {
       method: "PATCH",
       body: JSON.stringify(dto),
@@ -173,6 +192,13 @@ export const academicApi = {
     });
   },
 
+  updateSemester: async (id: string, dto: Partial<{ number: number; academicYear: string; startDate: string; endDate: string; isCurrent: boolean }>): Promise<Semester> => {
+    return apiClient<Semester>(`/semesters/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(dto),
+    });
+  },
+
   // Sections
   listSections: async (semesterId?: string): Promise<Section[]> => {
     const raw = await apiClient<any>("/sections", { params: semesterId ? { semesterId } : undefined });
@@ -182,6 +208,13 @@ export const academicApi = {
   createSection: async (dto: { semesterId: string; name: string; capacity?: number }): Promise<Section> => {
     return apiClient<Section>("/sections", {
       method: "POST",
+      body: JSON.stringify(dto),
+    });
+  },
+
+  updateSection: async (id: string, dto: Partial<{ name: string; capacity: number }>): Promise<Section> => {
+    return apiClient<Section>(`/sections/${id}`, {
+      method: "PATCH",
       body: JSON.stringify(dto),
     });
   },

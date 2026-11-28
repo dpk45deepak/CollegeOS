@@ -104,11 +104,17 @@ export class DocumentProcessor extends WorkerHost {
         .catch(() => undefined);
     }
   }
+
+  @OnWorkerEvent('error')
+  onError(err: Error) {
+    this.logger.warn(`document worker error: ${err.message}`);
+  }
 }
 
 /** Stage 2: embed chunk batches; the batch that finishes the last chunk flips the document to READY. */
 @Processor(QUEUES.EMBEDDING, { concurrency: 3, autorun: !process.env.VERCEL })
 export class EmbeddingProcessor extends WorkerHost {
+  private readonly logger = new Logger(EmbeddingProcessor.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly ai: AiClient,
@@ -148,5 +154,10 @@ export class EmbeddingProcessor extends WorkerHost {
         })
         .catch(() => undefined);
     }
+  }
+
+  @OnWorkerEvent('error')
+  onError(err: Error) {
+    this.logger.warn(`embedding worker error: ${err.message}`);
   }
 }

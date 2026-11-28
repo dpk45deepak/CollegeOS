@@ -23,8 +23,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/utils";
 import { storageApi } from "@/services/api/storage.api";
+import { toast } from "sonner";
 
 export default function StudentAssignmentsPage() {
   const { user } = useAuthStore();
@@ -39,26 +41,24 @@ export default function StudentAssignmentsPage() {
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [fileName, setFileName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
 
   const submitMutation = useMutation({
     mutationFn: async (asgId: string) => {
-      let key: string | undefined;
-      let sizeStr = "1 MB";
-      if (selectedFile) {
-        const uploadRes = await storageApi.uploadAttachment(selectedFile);
-        key = uploadRes.key;
-        sizeStr = `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`;
+      if (!selectedFile) {
+        throw new Error("Please select an allowed file (PDF, PNG, JPG, DOCX, TXT) to submit.");
       }
+      const uploadRes = await storageApi.uploadAttachment(selectedFile);
+      const sizeStr = `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`;
       return studentApi.submitAssignment(asgId, {
-        fileName: selectedFile?.name || fileName || `Solution_${user?.rollNumber || "Student"}.pdf`,
+        fileName: selectedFile.name,
         size: sizeStr,
-        key,
+        key: uploadRes.key,
       });
     },
     onSuccess: () => {
       setSubmissionSuccess(true);
+      toast.success("Assignment submitted successfully!");
       setTimeout(() => {
         setIsSubmitModalOpen(false);
         setSubmissionSuccess(false);
@@ -66,6 +66,9 @@ export default function StudentAssignmentsPage() {
         setSelectedFile(null);
         queryClient.invalidateQueries({ queryKey: ["student_assignments"] });
       }, 1500);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to submit assignment. Please verify your attachment and retry.");
     },
   });
 
@@ -89,7 +92,7 @@ export default function StudentAssignmentsPage() {
     if (!asg) return false;
     if (activeTab === "ALL") return true;
     if (activeTab === "PENDING") return asg.status === "PENDING";
-    if (activeTab === "SUBMITTED") return asg.status === "SUBMITTED";
+    if (activeTab === "SUBMITTED") return asg.status === "SUBMITTED" || asg.status === "LATE";
     if (activeTab === "GRADED") return asg.status === "GRADED";
     return true;
   });
@@ -113,7 +116,7 @@ export default function StudentAssignmentsPage() {
 
         {/* Filter Tabs */}
         <div className="inline-flex h-9 items-center rounded-lg bg-muted p-1 text-muted-foreground">
-          {(["ALL", "PENDING", "GRADED"] as const).map((tab) => (
+          {(["ALL", "PENDING", "SUBMITTED", "GRADED"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -130,6 +133,13 @@ export default function StudentAssignmentsPage() {
       </div>
 
       {/* Assignment Cards Grid */}
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="No assignments in this category"
+          description="Assignments matching the selected filter will appear here once published by your faculty."
+        />
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filtered.map((asg) => {
           const isPending = asg.status === "PENDING";
@@ -157,6 +167,16 @@ export default function StudentAssignmentsPage() {
                         <Clock className="h-3 w-3" /> Due Soon
                       </span>
                     )}
+                    {asg.status === "SUBMITTED" && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-full">
+                        <FileCheck className="h-3 w-3" /> Submitted
+                      </span>
+                    )}
+                    {asg.status === "LATE" && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                        <Clock className="h-3 w-3" /> Submitted Late
+                      </span>
+                    )}
                     {isGraded && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
                         <CheckCircle2 className="h-3 w-3" /> Graded
@@ -175,14 +195,20 @@ export default function StudentAssignmentsPage() {
                 {asg.attachments && asg.attachments.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {((asg.attachments || [])).map((file, i) => (
-                      <div
+                      <button
+                        type="button"
                         key={i}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted text-[11px] text-muted-foreground border border-border"
+                        onClick={() =>
+                          storageApi
+                            .downloadFile(file.url || file.name, file.name)
+                            .catch((err: any) => toast.error(err?.message || "Attachment download failed"))
+                        }
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted hover:bg-muted/80 text-[11px] text-foreground border border-border transition-colors"
                       >
-                        <FileText className="h-3 w-3 text-brand-500" />
+                        <Download className="h-3 w-3 text-brand-500" />
                         <span className="truncate max-w-[140px]">{file.name}</span>
-                        <span className="text-[9px] opacity-70">({file.size})</span>
-                      </div>
+                        {file.size && <span className="text-[9px] opacity-70">({file.size})</span>}
+                      </button>
                     ))}
                   </div>
                 )}
@@ -195,7 +221,7 @@ export default function StudentAssignmentsPage() {
                         Score: {asg.obtainedMarks} / {asg.totalMarks} Marks
                       </span>
                       <span className="text-[10px] text-emerald-600 font-mono">
-                        {Math.round(((asg.obtainedMarks || 0) / asg.totalMarks) * 100)}%
+                        {asg.totalMarks > 0 ? Math.round(((asg.obtainedMarks || 0) / asg.totalMarks) * 100) : 0}%
                       </span>
                     </div>
                     {asg.feedback && (
@@ -212,13 +238,14 @@ export default function StudentAssignmentsPage() {
                     Due: {formatDate(asg.dueDate)}
                   </div>
 
-                  {isPending && (
+                  {(isPending || asg.status === "SUBMITTED" || asg.status === "LATE") && (
                     <Button
                       size="sm"
+                      variant={asg.status === "SUBMITTED" || asg.status === "LATE" ? "outline" : "default"}
                       onClick={() => handleOpenSubmit(asg)}
                       className="text-xs gap-1.5 shadow-xs"
                     >
-                      <Upload className="h-3.5 w-3.5" /> Submit Work
+                      <Upload className="h-3.5 w-3.5" /> {asg.status === "SUBMITTED" || asg.status === "LATE" ? "Update Submission" : "Submit Work"}
                     </Button>
                   )}
                 </div>
@@ -227,13 +254,18 @@ export default function StudentAssignmentsPage() {
           );
         })}
       </div>
+      )}
 
       {/* Submission Modal Dialog */}
       <Dialog
         isOpen={isSubmitModalOpen}
-        onClose={() => setIsSubmitModalOpen(false)}
+        onClose={() => {
+          setIsSubmitModalOpen(false);
+          setSelectedFile(null);
+          setFileName("");
+        }}
         title={selectedAssignment ? `Submit: ${selectedAssignment.title}` : "Submit Assignment"}
-        description="Upload PDF solution, source code archive, or Jupyter Notebook (.ipynb)"
+        description="Upload allowed document or image (PDF, PNG, JPG, DOCX, TXT up to 25 MB)"
       >
         <div className="space-y-4">
           {submissionSuccess ? (
@@ -252,10 +284,11 @@ export default function StudentAssignmentsPage() {
                   Click or drag files to upload
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  PDF, ZIP, TAR, IPYNB up to 25 MB
+                  PDF, PNG, JPG, DOCX, TXT up to 25 MB
                 </p>
                 <input
                   type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.docx,.txt"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) {
@@ -276,16 +309,22 @@ export default function StudentAssignmentsPage() {
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsSubmitModalOpen(false)}
+                  onClick={() => {
+                    setIsSubmitModalOpen(false);
+                    setSelectedFile(null);
+                    setFileName("");
+                  }}
                   className="text-xs"
                 >
                   Cancel
                 </Button>
                 <Button
+                  type="button"
                   size="sm"
-                  disabled={submitMutation.isPending}
+                  disabled={!selectedFile || submitMutation.isPending}
                   isLoading={submitMutation.isPending}
                   onClick={() => selectedAssignment && submitMutation.mutate(selectedAssignment.id)}
                   className="text-xs gap-1.5"

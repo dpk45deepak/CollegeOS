@@ -66,10 +66,15 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
-  async safeSet(key: string, value: string, ...args: any[]): Promise<boolean> {
+  async safeSet(key: string, value: string, ...args: (string | number)[]): Promise<boolean> {
     if (!this.isHealthy()) return false;
     try {
-      const res = await (this.client as any).set(key, value, ...args);
+      const setFn = (this.client.set.bind(this.client) as unknown) as (
+        k: string,
+        v: string,
+        ...rest: (string | number)[]
+      ) => Promise<string | null>;
+      const res = await setFn(key, value, ...args);
       return res === 'OK';
     } catch {
       this._isHealthy = false;

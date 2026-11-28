@@ -68,12 +68,25 @@ export class OpenAiCompatProvider implements LlmProvider {
     const headers: Record<string, string> = { 'content-type': 'application/json', ...this.o.extraHeaders };
     if (this.o.apiKey) headers.authorization = `Bearer ${this.o.apiKey}`;
     for (let attempt = 0; ; attempt++) {
-      const res = await fetch(`${this.o.baseUrl}${path}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(60_000),
-      });
+      let res: Response;
+      try {
+        res = await fetch(`${this.o.baseUrl}${path}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(60_000),
+        });
+      } catch (err) {
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
+          continue;
+        }
+        const isTimeout = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
+        throw new ServiceUnavailableException({
+          message: isTimeout ? 'The AI service timed out' : 'The AI service is temporarily unavailable',
+          errorCode: isTimeout ? 'AI_TIMEOUT' : 'AI_UPSTREAM_ERROR',
+        });
+      }
       if (res.ok) return stream ? res : ((await res.json()) as T);
       if ((res.status === 429 || res.status >= 500) && attempt < 2) {
         await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
@@ -96,7 +109,7 @@ export class OpenAiCompatProvider implements LlmProvider {
       max_tokens: req.maxTokens,
       ...(req.tools?.length ? { tools: req.tools, tool_choice: 'auto' } : {}),
       ...(req.json ? { response_format: { type: 'json_object' } } : {}),
-      ...(stream ? { stream: true } : {}),
+      ...(stream ? { stream: true, stream_options: { include_usage: true } } : {}),
     };
   }
 

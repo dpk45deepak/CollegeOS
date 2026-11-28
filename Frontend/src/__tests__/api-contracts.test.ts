@@ -189,4 +189,90 @@ describe("College OS API Client Contracts & Paginated Response Unboxing", () => 
     expect(conversations).toHaveLength(1);
     expect(conversations[0].id).toBe("conv_1");
   });
+
+  it("adminApi.getAnalyticsData normalizes backend CGPA range/count and placement summary object", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/analytics/overview")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: {
+              attendanceThreshold: 75,
+              feeCollection: { collected: 500000, outstanding: 100000 },
+              complaints: { avgResolutionHours: 12, total: 10, resolved: 8 },
+            },
+          }),
+        };
+      }
+      if (url.includes("/analytics/departments")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: [{ department: "CSE", attendancePct: 86, avgCgpa: 8.2 }],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            cgpaDistribution: [
+              { range: "7.0-7.9", count: 40 },
+              { range: "8.0-8.9", count: 55 },
+            ],
+            placementStats: {
+              totalJobs: 12,
+              openJobs: 5,
+              drivesCount: 3,
+              applicationsCount: 64,
+              offersIssued: 20,
+              offersAccepted: 18,
+              averageCtc: 9.5,
+              placementRatePct: 72,
+            },
+          },
+        }),
+      };
+    });
+
+    const data = await adminApi.getAnalyticsData();
+    expect(data.cgpaDistribution).toEqual([
+      { bracket: "7.0-7.9", students: 40 },
+      { bracket: "8.0-8.9", students: 55 },
+    ]);
+    expect(data.placementStats).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ company: "Offers Issued", offers: 20 }),
+        expect.objectContaining({ company: "Offers Accepted", offers: 18 }),
+      ]),
+    );
+  });
+
+  it("studentApi.payFee forwards explicit gateway parameter and preserves gateway metadata", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({
+        success: true,
+        data: {
+          paymentId: "pay_rzp_1",
+          gatewayRef: "order_123",
+          clientPayload: { keyId: "rzp_test", orderId: "order_123", amount: 500000, currency: "INR" },
+        },
+      }),
+    });
+
+    const res = await studentApi.payFee(5000, "fee_1", "razorpay");
+    expect(res.gateway).toBe("razorpay");
+    expect(res.paymentId).toBe("pay_rzp_1");
+    expect(res.clientPayload?.orderId).toBe("order_123");
+    const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(JSON.parse(fetchCall[1].body)).toEqual({ gateway: "razorpay", amount: 5000 });
+  });
 });

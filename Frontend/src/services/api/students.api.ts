@@ -13,9 +13,12 @@ export interface StudentSkill {
   level?: number;
 }
 
+export type StudentGender = "MALE" | "FEMALE" | "OTHER" | "UNDISCLOSED";
+export type PortfolioItemType = "CERTIFICATION" | "PROJECT" | "ACHIEVEMENT";
+
 export interface StudentPortfolioItem {
   id: string;
-  type: "CERTIFICATION" | "PROJECT" | "PUBLICATION" | "INTERNSHIP" | "COMPETITION";
+  type: PortfolioItemType;
   title: string;
   description?: string;
   url?: string;
@@ -41,7 +44,8 @@ export interface StudentProfile {
   section?: { id: string; name: string };
   semester?: { id: string; number: number; academicYear: string };
   dateOfBirth?: string;
-  gender?: "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY";
+  gender?: StudentGender;
+  cgpa?: number | string | null;
   address?: Record<string, string>;
   guardians?: Guardian[];
   skills?: StudentSkill[];
@@ -61,7 +65,7 @@ export interface CreateStudentDto {
   sectionId?: string;
   semesterId?: string;
   dateOfBirth?: string;
-  gender?: "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY";
+  gender?: StudentGender;
   address?: Record<string, string>;
   guardians?: Guardian[];
   initialPassword?: string;
@@ -78,7 +82,7 @@ export interface UpdateStudentDto {
   sectionId?: string;
   semesterId?: string;
   dateOfBirth?: string;
-  gender?: "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY";
+  gender?: StudentGender;
   address?: Record<string, string>;
 }
 
@@ -120,7 +124,7 @@ export const studentsApi = {
   },
 
   addPortfolioItem: async (dto: {
-    type: "CERTIFICATION" | "PROJECT" | "PUBLICATION" | "INTERNSHIP" | "COMPETITION";
+    type: PortfolioItemType;
     title: string;
     description?: string;
     url?: string;
@@ -175,7 +179,7 @@ export const studentsApi = {
     });
   },
 
-  getAttendanceRecords: async (params?: { studentId?: string; subjectOfferingId?: string; from?: string; to?: string }) => {
+  getAttendanceRecords: async (params?: { studentId?: string; subjectId?: string; from?: string; to?: string }) => {
     return apiClient<any>("/students/me/attendance/records", { params });
   },
 

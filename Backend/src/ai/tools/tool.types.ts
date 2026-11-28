@@ -4,6 +4,7 @@ export interface ToolContext {
   principal: Principal;
   collegeId: string;
   conversationId?: string;
+  studentId?: string;
 }
 export interface ToolOutput {
   /** Verbatim college data returned to the model (and surfaced to the UI as "college data"). */

@@ -127,7 +127,20 @@ export class ComplaintsService {
       category: q.category,
     };
     const [items, total] = await Promise.all([
-      this.prisma.complaint.findMany({ where, orderBy: { createdAt: 'desc' }, ...toSkipTake(q) }),
+      this.prisma.complaint.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        ...toSkipTake(q),
+        include: {
+          assignedTo: { select: { id: true, firstName: true, lastName: true } },
+          assignedDepartment: { select: { id: true, name: true, code: true } },
+          events: {
+            where: { type: { not: 'INTERNAL_NOTE' } },
+            orderBy: { createdAt: 'asc' },
+            select: { id: true, actorId: true, type: true, note: true, metadata: true, createdAt: true },
+          },
+        },
+      }),
       this.prisma.complaint.count({ where }),
     ]);
     return paginate(items, total, q);
@@ -151,7 +164,11 @@ export class ComplaintsService {
         where,
         orderBy: [{ priority: 'desc' }, { slaDueAt: 'asc' }],
         ...toSkipTake(q),
-        include: { complainant: { select: { firstName: true, lastName: true } } },
+        include: {
+          complainant: { select: { firstName: true, lastName: true } },
+          assignedTo: { select: { id: true, firstName: true, lastName: true } },
+          assignedDepartment: { select: { id: true, name: true, code: true } },
+        },
       }),
       this.prisma.complaint.count({ where }),
     ]);
@@ -253,9 +270,9 @@ export class ComplaintsService {
     });
     if (!target) throw new NotFoundException('Assignee not found');
     const hasManage = target.userRoles.some(
-      (ur: any) =>
-        ur.role.permissions.some((rp: any) => rp.permission.key === P.COMPLAINT_MANAGE) ||
-        [ROLE.SUPER_ADMIN, ROLE.COLLEGE_ADMIN, ROLE.HOD].includes(ur.role.key as any),
+      (ur) =>
+        ur.role.permissions.some((rp) => rp.permission.key === P.COMPLAINT_MANAGE) ||
+        ([ROLE.SUPER_ADMIN, ROLE.COLLEGE_ADMIN, ROLE.HOD] as string[]).includes(ur.role.key),
     );
     if (!hasManage) {
       throw new BadRequestException('Assignee does not have permission to manage complaints');
@@ -304,7 +321,8 @@ export class ComplaintsService {
   async feedback(p: Principal, c: string, id: string, dto: D.FeedbackDto) {
     const cur = await this.prisma.complaint.findFirst({ where: { id, collegeId: c, complainantId: p.userId } });
     if (!cur) throw new NotFoundException();
-    if (cur.status !== 'AWAITING_FEEDBACK') throw new BadRequestException('Feedback is only accepted after resolution');
+    if (cur.status !== 'AWAITING_FEEDBACK' && cur.status !== 'RESOLVED')
+      throw new BadRequestException('Feedback is only accepted after resolution');
     const status: ComplaintStatus = dto.reopen ? 'REOPENED' : 'CLOSED';
     const updated = await this.prisma.complaint.update({
       where: { id },

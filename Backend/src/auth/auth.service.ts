@@ -55,6 +55,9 @@ export class AuthService {
       await this.recordAttempt(null, dto.loginId, null, false, meta);
       throw invalid();
     }
+    if (college && (college as { status?: string }).status && (college as { status?: string }).status !== 'ACTIVE') {
+      throw new UnauthorizedException({ message: 'Institution is suspended', errorCode: 'COLLEGE_SUSPENDED' });
+    }
     const user = await this.prisma.user.findFirst({
       where: { collegeId: college?.id ?? null, loginId: dto.loginId },
     });
@@ -62,7 +65,7 @@ export class AuthService {
     const ok = await bcrypt.compare(dto.password, user?.passwordHash ?? DUMMY_HASH);
     if (!user || !user.passwordHash || !ok) {
       await this.recordAttempt(college?.id ?? null, dto.loginId, user?.id ?? null, false, meta);
-      if (user) await this.registerFailure(user.id, user.failedLoginAttempts + 1);
+      if (user) await this.registerFailure(user.id, user.failedLoginAttempts + 1, user.collegeId);
       throw invalid();
     }
     if (user.lockedUntil && user.lockedUntil > new Date()) {
@@ -120,6 +123,15 @@ export class AuthService {
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException({ message: 'Account is not active', errorCode: 'ACCOUNT_INACTIVE' });
     }
+    if (user.collegeId) {
+      const college = await this.prisma.college.findUnique({
+        where: { id: user.collegeId },
+        select: { status: true },
+      });
+      if (college && (college as { status?: string }).status && (college as { status?: string }).status !== 'ACTIVE') {
+        throw new UnauthorizedException({ message: 'Institution is suspended', errorCode: 'COLLEGE_SUSPENDED' });
+      }
+    }
     const updateResult = await this.prisma.authSession.updateMany({
       where: { id: session.id, revokedAt: null },
       data: { revokedAt: new Date() },
@@ -160,11 +172,14 @@ export class AuthService {
   }
 
   // ── password / email flows ──────────────────────────────────────────
-  async forgotPassword(collegeCode: string, email: string): Promise<void> {
-    const college = await this.prisma.college.findUnique({ where: { code: collegeCode.toUpperCase() } });
-    const user = college
-      ? await this.prisma.user.findFirst({ where: { collegeId: college.id, email: email.toLowerCase() } })
+  async forgotPassword(collegeCode: string | undefined, email: string): Promise<void> {
+    const college = collegeCode
+      ? await this.prisma.college.findUnique({ where: { code: collegeCode.toUpperCase() } })
       : null;
+    if (collegeCode && !college) return;
+    const user = await this.prisma.user.findFirst({
+      where: { collegeId: college?.id ?? null, email: email.toLowerCase() },
+    });
     if (!user || user.status === UserStatus.INACTIVE) return; // identical response either way (no enumeration)
     const raw = await this.issueToken(user.id, OneTimeTokenType.PASSWORD_RESET, 60);
     await this.mail.enqueue({
@@ -176,12 +191,19 @@ export class AuthService {
 
   async resetPassword(rawToken: string, newPassword: string): Promise<void> {
     const t = await this.consumeToken(rawToken, OneTimeTokenType.PASSWORD_RESET);
-    await this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: t.userId },
       data: { passwordHash: await this.hashPassword(newPassword), failedLoginAttempts: 0, lockedUntil: null },
+      select: { collegeId: true },
     });
     await this.logoutAll(t.userId);
-    await this.audit.log({ userId: t.userId, action: 'PASSWORD_RESET', entity: 'User', entityId: t.userId });
+    await this.audit.log({
+      collegeId: updated.collegeId,
+      userId: t.userId,
+      action: 'PASSWORD_RESET',
+      entity: 'User',
+      entityId: t.userId,
+    });
   }
 
   async sendVerification(userId: string): Promise<void> {
@@ -206,9 +228,16 @@ export class AuthService {
     await this.principals.invalidate(t.userId);
   }
 
-  async resendVerification(emailOrUserId: string): Promise<void> {
+  async resendVerification(emailOrUserId: string, collegeCode?: string): Promise<void> {
+    let collegeId: string | undefined;
+    if (collegeCode) {
+      const college = await this.prisma.college.findUnique({ where: { code: collegeCode.toUpperCase() } });
+      if (!college) return;
+      collegeId = college.id;
+    }
     const user = await this.prisma.user.findFirst({
       where: {
+        ...(collegeId ? { collegeId } : {}),
         OR: [{ id: emailOrUserId }, { email: emailOrUserId.toLowerCase() }],
       },
     });
@@ -289,7 +318,7 @@ export class AuthService {
     }
   }
 
-  private async registerFailure(userId: string, attempts: number): Promise<void> {
+  private async registerFailure(userId: string, attempts: number, collegeId?: string | null): Promise<void> {
     const lock = attempts >= MAX_FAILED_ATTEMPTS;
     await this.prisma.user.update({
       where: { id: userId },
@@ -298,7 +327,7 @@ export class AuthService {
         lockedUntil: lock ? new Date(Date.now() + LOCK_MINUTES * 60_000) : undefined,
       },
     });
-    if (lock) await this.audit.log({ userId, action: 'ACCOUNT_LOCKED', entity: 'User', entityId: userId });
+    if (lock) await this.audit.log({ collegeId, userId, action: 'ACCOUNT_LOCKED', entity: 'User', entityId: userId });
   }
 
   private recordAttempt(

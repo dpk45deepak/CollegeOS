@@ -14,7 +14,7 @@ export class AiChatGateway {
   @SubscribeMessage('ai.chat')
   async onChat(
     @ConnectedSocket() socket: Socket,
-    @MessageBody() body: { message?: string; conversationId?: string; requestId?: string },
+    @MessageBody() body: { message?: string; conversationId?: string; studentId?: string; requestId?: string },
   ) {
     const p = (socket.data as SocketData).principal;
     const requestId = body?.requestId ?? 'r';
@@ -30,7 +30,7 @@ export class AiChatGateway {
       const result = await this.chat.chat(
         p,
         p.collegeId,
-        { message: body.message, conversationId: body.conversationId },
+        { message: body.message, conversationId: body.conversationId, studentId: body.studentId },
         (token) => socket.emit('ai.token', { requestId, token }),
       );
       socket.emit('ai.done', { requestId, ...result });

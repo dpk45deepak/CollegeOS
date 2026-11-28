@@ -476,7 +476,7 @@ export default function LandingPage() {
               return (
                 <div
                   key={module.id}
-                  className="clay-card p-6 cursor-pointer bg-[var(--bg)] flex flex-col justify-between group hover:scale-[1.01]"
+                  className="clay-card p-6 bg-[var(--bg)] flex flex-col justify-between group hover:scale-[1.01]"
                 >
                   <div>
                     {/* Top Row: Icon + Badge */}
@@ -791,7 +791,7 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Feature 1 */}
-            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-[var(--bg)]">
+            <div className="soft-clay p-7 text-center hover:scale-105 transition-transform bg-[var(--bg)]">
               <div className="w-16 h-16 rounded-2xl border-3 border-[var(--text)] flex items-center justify-center mx-auto mb-5 bg-[var(--primary)] shadow-[3px_3px_0_var(--text)]">
                 <ShieldCheck className="w-8 h-8 text-[var(--text)]" />
               </div>
@@ -804,7 +804,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 2 */}
-            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-[var(--bg)]">
+            <div className="soft-clay p-7 text-center hover:scale-105 transition-transform bg-[var(--bg)]">
               <div className="w-16 h-16 rounded-2xl border-3 border-[var(--text)] flex items-center justify-center mx-auto mb-5 bg-[var(--secondary)] shadow-[3px_3px_0_var(--text)]">
                 <Sparkles className="w-8 h-8 text-[var(--text)]" />
               </div>
@@ -817,7 +817,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 3 */}
-            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-[var(--bg)]">
+            <div className="soft-clay p-7 text-center hover:scale-105 transition-transform bg-[var(--bg)]">
               <div className="w-16 h-16 rounded-2xl border-3 border-[var(--text)] flex items-center justify-center mx-auto mb-5 bg-[var(--accent-purple)] shadow-[3px_3px_0_var(--text)]">
                 <Layers className="w-8 h-8 text-[var(--text)]" />
               </div>
@@ -830,7 +830,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 4 */}
-            <div className="soft-clay p-7 text-center cursor-pointer hover:scale-105 transition-transform bg-[var(--bg)]">
+            <div className="soft-clay p-7 text-center hover:scale-105 transition-transform bg-[var(--bg)]">
               <div className="w-16 h-16 rounded-2xl border-3 border-[var(--text)] flex items-center justify-center mx-auto mb-5 bg-[var(--accent-mint)] shadow-[3px_3px_0_var(--text)]">
                 <Building2 className="w-8 h-8 text-[var(--text)]" />
               </div>
@@ -1172,19 +1172,19 @@ export default function LandingPage() {
                   </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-[var(--text)] transition-colors">
-                    AICTE & NAAC Reports
-                  </a>
+                  <Link href="/admin/analytics" className="hover:text-[var(--text)] transition-colors">
+                    AICTE &amp; NAAC Reports
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-[var(--text)] transition-colors">
-                    Campus Security & RBAC
-                  </a>
+                  <Link href="/about" className="hover:text-[var(--text)] transition-colors">
+                    Campus Security &amp; RBAC
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-[var(--text)] transition-colors">
+                  <Link href="/contact" className="hover:text-[var(--text)] transition-colors">
                     IT Helpdesk
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -1196,15 +1196,15 @@ export default function LandingPage() {
               © 2026 CollegeOS ERP. All institutional rights reserved.
             </p>
             <div className="flex items-center gap-6 text-sm font-bold text-[var(--text-muted)]">
-              <a href="#" className="hover:text-[var(--text)] transition-colors cursor-pointer">
+              <Link href="/about" className="hover:text-[var(--text)] transition-colors cursor-pointer">
                 Privacy Policy
-              </a>
-              <a href="#" className="hover:text-[var(--text)] transition-colors cursor-pointer">
+              </Link>
+              <Link href="/academics" className="hover:text-[var(--text)] transition-colors cursor-pointer">
                 Academic Regulations
-              </a>
-              <a href="#" className="hover:text-[var(--text)] transition-colors cursor-pointer">
+              </Link>
+              <Link href="/login" className="hover:text-[var(--text)] transition-colors cursor-pointer">
                 Campus SSO
-              </a>
+              </Link>
             </div>
           </div>
         </div>

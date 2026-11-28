@@ -65,6 +65,6 @@ export class RagAnswerService {
     if (!raw || raw.startsWith(INSUFFICIENT))
       return { answer: NO_ANSWER_TEXT, grounded: false, citations: [], mode: 'no_answer' };
     const { text, citations } = resolveCitations(raw, r.chunks);
-    return { answer: text, grounded: true, citations, mode: 'llm' };
+    return { answer: text, grounded: citations.length > 0, citations, mode: 'llm' };
   }
 }
